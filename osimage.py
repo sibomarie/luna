@@ -6,10 +6,10 @@ import sys
 import os
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
+from luna.base import Base
+from luna.options import Options
 
-from options import Options
-
-class OsImage(Options):
+class OsImage(Base):
     def __init__(self, name = None, create = False, path = None, kernver = None, kernopts = None):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         options = Options()
@@ -55,4 +55,6 @@ class OsImage(Options):
             ver = "%s-%s.%s" % (h['VERSION'], h['RELEASE'], h['ARCH'])
             package_vers.extend([ver])
         return package_vers
+
+
 
