@@ -172,7 +172,7 @@ class Base():
             self._logger.error("Was object deleted?")
             return None
         try:
-            req_key = self._keylist.index(key)
+            val_type = self._keylist[key]
         except:
             self._logger.error("No such key for the given object".format(key))
             return None
@@ -180,11 +180,11 @@ class Base():
         if not obj_json:
             self._logger.error("No json for the given object".format(key))
             return None
-        if type(value) is str:
-            value = unicode(value, "utf-8")
-        if type(value) is not type(obj_json[key]):
+        if type(value) is not val_type:
             self._logger.error("Value '{}' should be '{}' type".format(key, type(obj_json[key])))
             return None
+        if type(value) is str:
+            value = unicode(value, "utf-8")
         mongo_doc = {key: value}
         self._mongo_collection.update({'_id': self._id}, {'$set': mongo_doc}, multi=False, upsert=False)
         return True

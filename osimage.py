@@ -10,16 +10,15 @@ from luna.base import Base
 from luna.options import Options
 
 class OsImage(Base):
-    def __init__(self, name = None, create = False, path = None, kernver = None, kernopts = None):
+    def __init__(self, name = None, create = False, path = '', kernver = '', kernopts = ''):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         options = Options()
         self._collection_name = 'osimage'
         mongo_doc = self._check_name(name, create)
-        if kernopts == None:
-            kernopts = ''
         if type(kernopts) is not str:
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
+        self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type('')}
         if create:
             path = os.path.abspath(path)
             path_suspected_doc = self._mongo_collection.find_one({'path': path})
@@ -37,12 +36,12 @@ class OsImage(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
+            self.set('kernopts', 5)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self.link(options)
-        self._keylist = ['path', 'kernver', 'kernopts']
 
 
     def get_package_ver(self, path, package):

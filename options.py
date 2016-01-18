@@ -24,7 +24,7 @@ class Options(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, name = None, create = False, nodeprefix = 'node', nodedigits = 3):
+    def __init__(self, name = None, create = False, nodeprefix = 'node', nodedigits = 3, debug = 0):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -49,6 +49,6 @@ class Options(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._keylist = ['nodeprefix', 'nodedigits']
+        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0)}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
