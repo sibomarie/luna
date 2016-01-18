@@ -23,7 +23,7 @@ class Options():
     _DBRef = None
     _json = None
 
-    def __init__(self, name='general', create=False, nodeprefix='node', nodedigits=3):
+    def __init__(self, name = None, create = False, nodeprefix = 'node', nodedigits = 3):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -39,29 +39,33 @@ class Options():
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._logger.debug("Connecting to MongoDB.")
-        try:
-            self._mongo_client = pymongo.MongoClient()
-        except:
-            self._logger.error("Unable to connect to MongoDB.")
-            self._wipe_vars()
-            raise
+#        try:
+#            self._mongo_client = pymongo.MongoClient()
+#        except:
+#            self._logger.error("Unable to connect to MongoDB.")
+#            self._wipe_vars()
+#            raise
+#        self._collection_name = 'options'
+#        self._logger.debug("Connection to MongoDB was successful.")
+#        self._mongo_db = self._mongo_client[db_name]
+#        self._mongo_collection = self._mongo_db[self._collection_name]
+#        if not name:
+#            self._logger.error("'name' needs to be specified")
+#            self._wipe_vars()
+#            return None
+#        mongo_doc = self._mongo_collection.find_one({'name': name})
+#        if not create and not mongo_doc:
+#            self._logger.error("It is needed to create object first")
+#            self._wipe_vars()
+#            return None
+#        if create and mongo_doc and mongo_doc['name'] == name:
+#            self._logger.error("Already created")
+#            self._wipe_vars()
+#            return None
         self._collection_name = 'options'
-        self._logger.debug("Connection to MongoDB was successful.")
-        self._mongo_db = self._mongo_client[db_name]
-        self._mongo_collection = self._mongo_db[self._collection_name]
-        if not name:
-            self._logger.error("'name' needs to be specified")
-            self._wipe_vars()
-            return None
-        mongo_doc = self._mongo_collection.find_one({'name': name})
-        if not create and not mongo_doc:
-            self._logger.error("It is needed to create object first")
-            self._wipe_vars()
-            return None
-        if create and mongo_doc and mongo_doc['name'] == name:
-            self._logger.error("Already created")
-            self._wipe_vars()
-            return None
+        if name == None or name == '':
+            name = 'general'
+        mongo_doc = self._check_name(name, create)
         if create:
             mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -76,6 +80,28 @@ class Options():
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
     
+    def _check_name(self, name, create):
+        try:
+            self._mongo_client = pymongo.MongoClient()
+        except:
+            self._logger.error("Unable to connect to MongoDB.")
+            raise RuntimeError
+        self._logger.debug("Connection to MongoDB was successful.")
+        self._mongo_db = self._mongo_client[db_name]
+        self._mongo_collection = self._mongo_db[self._collection_name]
+        if not name:
+            self._logger.error("'name' needs to be specified")
+            raise RuntimeError
+        mongo_doc = self._mongo_collection.find_one({'name': name})
+        if not create and not mongo_doc:
+            self._logger.error("It is needed to create object first")
+            raise RuntimeError
+        if create and mongo_doc and mongo_doc['name'] == name:
+            self._logger.error("'{}' is already created".format(name))
+            self._wipe_vars()
+            return None
+        return mongo_doc
+
     def _debug_function(self):
         """
         Outputs name of the calling function and parameters passed into
@@ -99,9 +125,6 @@ class Options():
         """
         Erase class variables
         """
-        if not self._id:
-            self._logger.error("Was object deleted?")
-            return None
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         keys = self.__dict__.keys()
         for key in keys:
@@ -126,7 +149,7 @@ class Options():
         """
         Returns name
         """
-        print self._name
+        return self._name
 
     @property
     def name(self):
@@ -383,14 +406,22 @@ class Options():
             return None
         import json
         obj_json = self._get_json()
-        if not len(obj_json[usedby_key]) == 0:
+        try:
+            usedby_len = len(obj_json[usedby_key])
+        except:
+            usedby_len = 0
+        if not usedby_len == 0:
             back_links = self.get_back_links(resolve=True)
             self._logger.error("Current object is being written as a dependency for the following objects:")
             for elem in back_links:
                 self._logger.error(json.dumps(elem, sort_keys=True ))
             return None
-        for dbref in obj_json[use_key]:
+        try:
+            obj_json_use_arr = obj_json[use_key]
+        except:
+            obj_json_use_arr = []
+        for dbref in obj_json_use_arr:
             self.unlink(dbref)
         ret = self._mongo_collection.remove({'_id': self._id}, multi=False)
         self._wipe_vars()
-        return ret
+        return not ret['err']
