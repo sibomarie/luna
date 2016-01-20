@@ -10,7 +10,16 @@ from luna.base import Base
 from luna.options import Options
 
 class OsImage(Base):
+    """
+    Class for operating with osimages records
+    """
     def __init__(self, name = None, create = False, path = '', kernver = '', kernopts = ''):
+        """
+        create  - shoulld be True if we need create osimage
+        path    - path to / of the image/ can be ralative, if needed (will be converted to absolute)
+        kernver - kernel version (will be checked on creation)
+        kernopt - kernel options
+        """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         options = Options()
         self._collection_name = 'osimage'
@@ -25,11 +34,7 @@ class OsImage(Base):
             if path_suspected_doc and path_suspected_doc['path'] == path:
                 self._logger.error("Cannot create 'osimage' with the same 'path' as name='{}' has".format(path_suspected_doc['name']))
                 raise RuntimeError
-            try:
-                os_image_kernvers = self.get_package_ver(path,'kernel')
-                req_kernver = os_image_kernvers.index(kernver)
-            except:
-                self._logger.error("Kernel version '{}' not in list {} from {}. Kernel Version or osimage path are incorrect?".format(kernver, os_image_kernvers, path))
+            if not self._check_kernel(path, kernver):
                 raise RuntimeError
             mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 'kernopts': kernopts}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -55,5 +60,53 @@ class OsImage(Base):
             package_vers.extend([ver])
         return package_vers
 
+    def __getattr__(self, key):
+        try:
+            self._keylist[key]
+        except:
+            raise AttributeError()
+        return self.get(key)
+
+    def __setattr__(self, key, value):
+        if key == 'path':
+            kernver = self.kernver
+            if not self._check_kernel(value, kernver):
+                return None
+        elif key == 'kernver':
+            path = self.path
+            if not self._check_kernel(path, value):
+                return None
+        try:
+            self._keylist[key]
+            self.set(key, value)
+        except:
+            self.__dict__[key] = value
+
+    def _check_kernel(self, path, kernver):
+        import os
+        os_image_kernvers = None
+        req_kernver = None
+        if not os.path.isdir(path):
+            self._logger.error("{} is not valid dir".format(path))
+            return None
+        try:
+            os_image_kernvers = self.get_package_ver(path,'kernel')
+            req_kernver = os_image_kernvers.index(kernver)
+        except:
+            if os_image_kernvers == []:
+                self._logger.error("No kernel package installed in {}".format(path))
+                return None
+            self._logger.error("Kernel version '{}' not in list {} from {}. Kernel Version or osimage path are incorrect?".format(kernver, os_image_kernvers, path))
+            return None
+        return True
 
 
+    """
+    @property
+    def path(self):
+        return self.get('path')
+
+    @path.setter
+    def path(self, value):
+        self.set('path', value)
+    """

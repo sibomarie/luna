@@ -49,6 +49,20 @@ class Options(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0)}
+        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'testfield1': type('')}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
+
+    def __getattr__(self, key):
+        try:
+            self._keylist[key]
+        except:
+            raise AttributeError()
+        return self.get(key)
+
+    def __setattr__(self, key, value):
+        try:
+            self._keylist[key]
+            self.set(key, value)
+        except:
+            self.__dict__[key] = value

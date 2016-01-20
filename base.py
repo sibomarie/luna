@@ -53,8 +53,7 @@ class Base():
             raise RuntimeError
         if create and mongo_doc and mongo_doc['name'] == name:
             self._logger.error("'{}' is already created".format(name))
-            self._wipe_vars()
-            return None
+            raise RuntimeError
         return mongo_doc
 
     def _debug_function(self):
@@ -105,6 +104,20 @@ class Base():
         Returns name
         """
         return self._name
+
+#    def __getattr__(self, key):
+#        try:
+#            self._keylist[key]
+#        except:
+#            raise AttributeError()
+#        return self.get(key)
+#
+#    def __setattr__(self, key, value):
+#        try:
+#            self._keylist[key]
+#            self.set(key, value)
+#        except:
+#            self.__dict__[key] = value
 
     @property
     def name(self):
@@ -158,10 +171,13 @@ class Base():
             self._logger.error("Was object deleted?")
             return None
         obj_json = self._get_json()
-        if not obj_json[key]:
-            self._logger.error("No such key '{}'".format(key))
+#        if not obj_json[key]:
+#            self._logger.error("No such key '{}'".format(key))
+#            return None
+        try:
+            return obj_json[key]
+        except:
             return None
-        return obj_json[key]
 
     def set(self, key, value):
         """
