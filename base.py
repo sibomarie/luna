@@ -23,7 +23,7 @@ class Base():
     _DBRef = None
     _json = None
 
-    def __init__(self, name = None, create = False, nodeprefix = 'node', nodedigits = 3):
+    def __init__(self):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -31,11 +31,11 @@ class Base():
         name is used to give default name for mongo document.
         Don't change it is are not sure what you are doing.
         """
-        self._logger.error("Please do not call this class")
+        self._logger.error("Please do not call this class directly")
         raise RuntimeError
 
     
-    def _check_name(self, name, create):
+    def _check_name(self, name, create, id):
         try:
             self._mongo_client = pymongo.MongoClient()
         except:
@@ -44,6 +44,10 @@ class Base():
         self._logger.debug("Connection to MongoDB was successful.")
         self._mongo_db = self._mongo_client[db_name]
         self._mongo_collection = self._mongo_db[self._collection_name]
+        if id:
+            mongo_doc = self._mongo_collection.find_one({'_id': id})
+            if mongo_doc:
+                return mongo_doc
         if not name:
             self._logger.error("'name' needs to be specified")
             raise RuntimeError

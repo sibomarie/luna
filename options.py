@@ -24,7 +24,7 @@ class Options(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, name = None, create = False, nodeprefix = 'node', nodedigits = 3, debug = 0):
+    def __init__(self, name = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -38,7 +38,7 @@ class Options(Base):
         self._collection_name = 'options'
         if name == None or name == '':
             name = 'general'
-        mongo_doc = self._check_name(name, create)
+        mongo_doc = self._check_name(name, create, id)
         if create:
             mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))

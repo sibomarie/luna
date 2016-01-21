@@ -6,3 +6,4 @@ from luna.config import *
 import pymongo
 from options import Options
 from osimage import OsImage
+from ifcfg import IfCfg

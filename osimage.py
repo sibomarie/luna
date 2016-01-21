@@ -13,7 +13,7 @@ class OsImage(Base):
     """
     Class for operating with osimages records
     """
-    def __init__(self, name = None, create = False, path = '', kernver = '', kernopts = ''):
+    def __init__(self, name = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
         """
         create  - shoulld be True if we need create osimage
         path    - path to / of the image/ can be ralative, if needed (will be converted to absolute)
@@ -23,7 +23,7 @@ class OsImage(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         options = Options()
         self._collection_name = 'osimage'
-        mongo_doc = self._check_name(name, create)
+        mongo_doc = self._check_name(name, create, id)
         if type(kernopts) is not str:
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
@@ -41,7 +41,6 @@ class OsImage(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.set('kernopts', 5)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
