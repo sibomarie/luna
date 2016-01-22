@@ -41,11 +41,11 @@ class OsImage(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
+            self.link(options)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self.link(options)
 
 
     def get_package_ver(self, path, package):

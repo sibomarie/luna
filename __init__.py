@@ -7,3 +7,4 @@ import pymongo
 from options import Options
 from osimage import OsImage
 from ifcfg import IfCfg
+from bmcsetup import BMCSetup

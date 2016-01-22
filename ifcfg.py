@@ -147,11 +147,11 @@ class IfCfg(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
+            self.link(options)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self.link(options)
 
     def _calc_prefix_mask(self, prefix, netmask):
         import struct, socket
@@ -209,6 +209,7 @@ class IfCfg(Base):
         value = str(value)
         if key == 'NETWORK':
             PREFIX = self.get('PREFIX')
+            NETMASK = self.get('NETMASK')
             if not bool(PREFIX):
                 self._logger.error("Wrong prefix '{}' in db".format(PREFIX))
                 return None
@@ -216,7 +217,8 @@ class IfCfg(Base):
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK for entered '{}'".format(value))
                 return None
-            json = {'NETWORK': NETWORK}
+            json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
+            need_update = True
         elif key == 'PREFIX':
             PREFIX, NETMASK = self._calc_prefix_mask(value, '')
             if not PREFIX:
@@ -229,6 +231,7 @@ class IfCfg(Base):
                 self._logger.error("Cannot compute NETWORK for prefix = '{}'".format(value))
                 raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
+            need_update = True
         elif key == 'NETMASK':
             PREFIX, NETMASK = self._calc_prefix_mask(33, value)
             if not PREFIX:
@@ -240,9 +243,12 @@ class IfCfg(Base):
                 self._logger.error("Cannot compute NETWORK  for".format(value))
                 raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
+            need_update = True
         else:
             json = {key: value}
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': json}, multi=False, upsert=False)
+        if need_update:
+            self.update_nodes(json)
         return not ret['err']
 
     def get(self, key):
@@ -260,13 +266,21 @@ class IfCfg(Base):
     def wipe(self, key):
         if not key or type(key) is not str:
             return None
+        key = key.upper()
         cant_delete_fields = []
         cant_delete_fields.extend(self._masked_fields)
-        cant_delete_fields.extend(['NETWORK', 'PREFIX', 'NETMASK'])
+        cant_delete_fields.extend(['NETWORK'])
         if key in cant_delete_fields:
             self._logger.error("Cannot delete field '{}'".format(key))
             return None
-        key = key.upper()
+        if key == 'PREFIX':
+            if not self.get('NETMASK'):
+                self._logger.error("Cannot delete field '{}' as no NETMASK configured".format(key))
+                return None
+        if key == 'NETMASK':
+            if not self.get('PREFIX'):
+                self._logger.error("Cannot delete field '{}' as no PREFIX configured".format(key))
+                return None
         obj_json = self._get_json()
         try:
             obj_json[key]
@@ -292,7 +306,10 @@ class IfCfg(Base):
             out += "{}=\"{}\"".format(key, obj_json[key]) + '\n'
         return out.strip()
 
-    def replace(self):
+    def replace(self, net_json):
+        pass
+
+    def update_nodes(self, net_json):
         pass
 
 if __name__ == "__main__":

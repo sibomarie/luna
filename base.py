@@ -53,7 +53,7 @@ class Base():
             raise RuntimeError
         mongo_doc = self._mongo_collection.find_one({'name': name})
         if not create and not mongo_doc:
-            self._logger.error("It is needed to create object first")
+            self._logger.error("It is needed to create object '{}' first".format(self._collection_name))
             raise RuntimeError
         if create and mongo_doc and mongo_doc['name'] == name:
             self._logger.error("'{}' is already created".format(name))
@@ -195,6 +195,9 @@ class Base():
             val_type = self._keylist[key]
         except:
             self._logger.error("No such key for the given object".format(key))
+            return None
+        if not bool(key) or type(key) is not str:
+            self._logger.error("Field should be specified")
             return None
         obj_json = self._get_json()
         if not obj_json:
