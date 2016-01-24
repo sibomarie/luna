@@ -129,11 +129,11 @@ class IfCfg(Base):
         NETMASK - network mask
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
-        options = Options()
         self._collection_name = 'ifcfg'
-        self._masked_fields = [ '_id', 'name', use_key, usedby_key ]
+        self._masked_fields = [ '_id', 'name', 'freelist', use_key, usedby_key ]
         mongo_doc = self._check_name(name, create, id)
         if create:
+            options = Options()
             prefix, netmask = self._calc_prefix_mask(PREFIX, NETMASK)
             if not netmask:
                 self._logger.error("Wrong prefix '{}' entered".format(PREFIX))
@@ -142,7 +142,8 @@ class IfCfg(Base):
             if not network:
                 self._logger.error("Wrong netmorki '{}' entered".format(NETWORK))
                 raise RuntimeError
-            mongo_doc = {'name': name, 'NETWORK': network, 'PREFIX': prefix, 'NETMASK': netmask}
+            freelist = [{'start': 1, 'end': (1<<(32-prefix))-1}]
+            mongo_doc = {'name': name, 'NETWORK': network, 'PREFIX': prefix, 'NETMASK': netmask, 'freelist': freelist}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -230,6 +231,8 @@ class IfCfg(Base):
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK for prefix = '{}'".format(value))
                 raise RuntimeError
+            if not self._set_uplimit_ip(PREFIX):
+                raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
             need_update = True
         elif key == 'NETMASK':
@@ -241,6 +244,8 @@ class IfCfg(Base):
             NETWORK = self._get_net(NETWORK, PREFIX)
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK  for".format(value))
+                raise RuntimeError
+            if not self._set_uplimit_ip(PREFIX):
                 raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
             need_update = True
@@ -311,6 +316,150 @@ class IfCfg(Base):
 
     def update_nodes(self, net_json):
         pass
+
+#    def reserve_ip(self, ip = None):
+#        import struct, socket
+#        network = self._get_json()['NETWORK']
+#        net_num = struct.unpack('>L', (socket.inet_aton(network)))[0]
+#        if type(ip) == str:
+#            try:
+#                ip_num = struct.unpack('>L', (socket.inet_aton(ip)))[0]
+#                ip = ip_num - net_num
+#            except:
+#                self._logger.error("No valid IP entered")
+#                raise RuntimeError
+#        if bool(ip):
+#            relative_ip_num = self._get_ip(ip)
+#        else:
+#            relative_ip_num = self._get_next_ip()
+#        if not relative_ip_num:
+#            return None
+#        ip_new = net_num + relative_ip_num
+#        return socket.inet_ntoa(struct.pack('>L', (ip_new)))
+
+
+
+    def _get_next_ip(self):
+        obj_json = self._get_json()
+        freelist = obj_json['freelist']
+        if not bool(freelist):
+            self._logger.error("No more IPs avalilable")
+            return None
+        first_elem = freelist[0]
+        if first_elem['start'] == first_elem['end']:
+            freelist.pop(0)
+            res = self._save_free_list(freelist)
+            if not res:
+                self._logger.error("Error during saving to MongoDB")
+                return None
+            return first_elem['start']
+        freelist[0] = {'start': first_elem['start'] + 1, 'end': first_elem['end']}
+        res = self._save_free_list(freelist)
+        if not res:
+            self._logger.error("Error during saving to MongoDB")
+            return None
+        return first_elem['start']
+
+    def _get_ip(self, num):
+
+        def change_elem(num, elem):
+            find = False
+            if num not in range(elem['start'], elem['end']+1):
+                return ( find, [elem] )
+            find = True
+            if elem['end'] == elem['start']:
+                return ( find, None )
+            if num == elem['start']:
+                return ( find, [{'start': elem['start'] + 1, 'end': elem['end']}] )
+            if num == elem['end']:
+                return ( find, [{'start': elem['start'], 'end': elem['end'] - 1}] )
+            return ( find, [{'start': elem['start'], 'end': num-1}, {'start': num+1, 'end': elem['end']}] )
+            
+        obj_json = self._get_json()
+        freelist = obj_json['freelist']
+        if not bool(freelist):
+            self._logger.error("No more IPs avalilable")
+            return None
+        start = freelist[0]['start']
+        finish = freelist[-1]['end']
+        if num not in range(start, finish + 1):
+            self._logger.error("Requested IP '{}' is out of range".format(num))
+            return None
+        new_list = []
+        find = False
+        for elem in freelist:
+            new_elem = change_elem(num, elem)
+            if new_elem[0]:
+                find = True
+            if not new_elem[1]:
+                continue
+            new_list.extend(new_elem[1])
+        freelist = new_list[:]
+        ret = self._save_free_list(freelist)
+        if not ret:
+            return None
+        if find:
+            return num
+        self._logger.error("Requested IP '{}' is out of free range".format(num))
+        return None
+    
+    def _set_uplimit_ip(self, prefix):
+        border = (1<<(32-prefix))-1
+        obj_json = self._get_json()
+        freelist = obj_json['freelist']
+        last_elem = freelist[-1]
+        if last_elem['start'] > border:
+            self._logger.error("Cannot cut list of free IPs. Requested cut to '{}'".format(border))
+            return False
+        freelist[-1] = {'start': last_elem['start'], 'end': border}
+        return self._save_free_list(freelist)
+    
+    def _save_free_list(self, freelist):
+        self._logger.debug("Arguments to function '{}".format(self._debug_function()))
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'freelist': freelist}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error while saving list of free IPs: '{}'".format(freelist))
+        return not res['err']
+    
+    def reserve_ip(self, ip = None):
+        if bool(ip):
+            return self._get_ip(ip)
+        return self._get_next_ip()
+
+    def release_ip(self, num):
+        insert_elem = {'start': num, 'end': num}
+        obj_json = self._get_json()
+        freelist = obj_json['freelist']
+        filled_list = []
+        for elem in freelist:
+            try:
+                prev_end = filled_list[-1]['end']
+            except:
+                prev_end = 0
+            next_start = elem['start']
+            if num in range(prev_end + 1, next_start):
+                filled_list.extend([insert_elem])
+            filled_list.extend([elem])
+        if num <= self._upborder and num > freelist[-1]['end']:
+            filled_list.extend([insert_num])
+        if len(freelist) == len(filled_list):
+            self._logger.error("Cannot release IP. No place for '{}' in list: ''".format(num, freelist))
+            return False
+        defrag_list = []
+        defrag_list.extend([filled_list.pop(0)])
+        for key in filled_list:
+            if defrag_list[-1]['end'] == (key['start'] - 1):
+                defrag_list[-1]['end'] = key['end']
+            else:
+                defrag_list.extend([key])
+        self._save_free_list(defrag_list)
+        return True
+
+
+        
 
 if __name__ == "__main__":
     import doctest

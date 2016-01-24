@@ -53,7 +53,34 @@ class IPList():
         last_tup = self.iplist[-1]
         if last_tup['start'] > border:
             return False
+        self._upborder = border
         self.iplist[-1] = {'start': last_tup['start'], 'end': border}
+        return True
+
+    def release(self, num):
+        insert_num = {'start': num, 'end': num}
+        filled_list = []
+        for elem in self.iplist:
+            try:
+                prev_end = filled_list[-1]['end']
+            except:
+                prev_end = 0
+            next_start = elem['start']
+            if num in range(prev_end + 1, next_start):
+                filled_list.extend([insert_num])
+            filled_list.extend([elem])
+        if num <= self._upborder and num > self.iplist[-1]['end']:
+            filled_list.extend([insert_num])
+        if len(self.iplist) == len(filled_list):
+            return False
+        defrag_list = []
+        defrag_list.extend([filled_list.pop(0)])
+        for key in filled_list:
+            if defrag_list[-1]['end'] == (key['start'] - 1):
+                defrag_list[-1]['end'] = key['end']
+            else:
+                defrag_list.extend([key])
+        self.iplist = defrag_list[:]
         return True
 
 ipl = IPList()
@@ -86,4 +113,7 @@ print ipl
 print ipl.set_border(231)
 print ipl
 print ipl.get(231)
+print ipl
+print '==========='
+print ipl.release(230)
 print ipl

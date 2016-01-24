@@ -21,7 +21,6 @@ class OsImage(Base):
         kernopt - kernel options
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
-        options = Options()
         self._collection_name = 'osimage'
         mongo_doc = self._check_name(name, create, id)
         if type(kernopts) is not str:
@@ -29,6 +28,7 @@ class OsImage(Base):
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type('')}
         if create:
+            options = Options()
             path = os.path.abspath(path)
             path_suspected_doc = self._mongo_collection.find_one({'path': path})
             if path_suspected_doc and path_suspected_doc['path'] == path:
