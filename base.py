@@ -295,7 +295,7 @@ class Base():
             return None
         if dbref == self._DBRef:
             self._logger.error("Cant operate with the link to the same object")
-            #return None
+            return None
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
@@ -320,7 +320,7 @@ class Base():
             return None
         if dbref == self._DBRef:
             self._logger.error("Cant operate with the link to the same object")
-            #return None
+            return None
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
