@@ -11,7 +11,54 @@ from luna.options import Options
 from luna.ifcfg import IfCfg
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
-from luna.node import Node
+
+class Node(Base):
+    """
+    Class for operating with node records
+    """
+    def __init__(self, name = None, create = False, id = None, 
+            group = None):
+        """
+        name    - can be ommited
+        group   - group belongs to; should be specified
+        """
+        self._logger.debug("Arguments to function '{}".format(self._debug_function()))
+        self._collection_name = 'node'
+        if not bool(name) and bool(create):
+            name = self._generate_name()
+        mongo_doc = self._check_name(name, create, id)
+        self._keylist = {}
+        if create:
+            options = Options()
+            group = Group(group)
+            mongo_doc = {'name': name, 'group': group.DBRef}
+            self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
+            self._name = name
+            self._id = self._mongo_collection.insert(mongo_doc)
+            self._DBRef = DBRef(self._collection_name, self._id)
+            self.link(group)
+            self.link(options)
+        else:
+            self._name = mongo_doc['name']
+            self._id = mongo_doc['_id']
+            self._DBRef = DBRef(self._collection_name, self._id)
+
+    def _generate_name(self):
+        options = Options()
+        prefix = options.get('nodeprefix')
+        digits = options.get('nodedigits')
+        back_links = options.get_back_links()
+        max_num = 0
+        for link in back_links:
+            if not link['collection'] == self._collection_name:
+                continue
+            node = Node(id = link['DBRef'].id)
+            name = node.name
+            nnode = int(name.lstrip(prefix))
+            if nnode > max_num:
+                max_num = nnode
+        ret_name = prefix + str(max_num + 1).zfill(digits)
+        return ret_name
 
 
 class Group(Base):

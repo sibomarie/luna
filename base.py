@@ -347,7 +347,8 @@ class Base():
                     name = remote_mongo_collection.find_one({'_id': dbref.id})['name']
                 except:
                     name = str(dbref.id)
-            output.extend({dbref.collection: name})
+            #output.extend({dbref.collection: name})
+            output.extend([{'collection': dbref.collection, 'name': name, 'DBRef': dbref}])
         return output
 
 
@@ -371,7 +372,7 @@ class Base():
                     name = remote_mongo_collection.find_one({'_id': dbref.id})['name']
                 except:
                     name = str(dbref.id)
-            output.extend([{'collection': dbref.collection, 'name': name}])
+            output.extend([{'collection': dbref.collection, 'name': name, 'DBRef': dbref}])
         return output
         
     def delete(self):
