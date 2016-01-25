@@ -443,7 +443,9 @@ class IfCfg(Base):
             if num in range(prev_end + 1, next_start):
                 filled_list.extend([insert_elem])
             filled_list.extend([elem])
-        if num <= self._upborder and num > freelist[-1]['end']:
+        prefix = self.get('PREFIX')
+        upborder = (1<<(32-prefix))-1
+        if num <= upborder and num > freelist[-1]['end']:
             filled_list.extend([insert_num])
         if len(freelist) == len(filled_list):
             self._logger.error("Cannot release IP. No place for '{}' in list: ''".format(num, freelist))

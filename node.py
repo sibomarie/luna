@@ -31,11 +31,12 @@ class Node(Base):
         if create:
             options = Options()
             group = Group(group)
-            mongo_doc = {'name': name, 'group': group.DBRef}
+            mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
+            self.add_ip()
             self.link(group)
             self.link(options)
         else:
@@ -60,6 +61,112 @@ class Node(Base):
         ret_name = prefix + str(max_num + 1).zfill(digits)
         return ret_name
 
+    def add_ip(self, interface = None, reqip = None):
+        if bool(reqip) and not bool(interface):
+            self._logger.error("'interfaces' should be specified")
+            return None
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        group_interfaces = group._get_json()['interfaces']
+        mongo_doc = {}
+        if not bool(json['interfaces']) or not interface:
+            for iface in group_interfaces:
+                try:
+                    if bool(json['interfaces'][iface]):
+                        self._logger.error("IP already assigned on '{}'".format(iface))
+                        mongo_doc[iface] = json['interfaces'][iface]
+                        continue
+                except:
+                    pass
+                ip = group._reserve_ip(iface)
+                if not bool(ip):
+                    self._logger.error("Cannot reserve ip for interface '{}'".format(iface))
+                    return None
+                mongo_doc[iface] = {'IPADDR': ip}
+        if bool(reqip):
+            mongo_doc = json['interfaces']
+            ip = group._reserve_ip(interface, reqip)
+            if not bool(ip):
+                self._logger.error("Cannot reserve ip for interface '{}'".format(interface))
+                return None
+            mongo_doc[interface] = {'IPADDR': ip}
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
+        return not res['err']
+
+
+
+    def del_ip(self, interface = None):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        try:
+            mongo_doc = json['interfaces'].copy()
+        except:
+            self._logger.error("No interfaces found")
+            return None
+        if not bool(mongo_doc):
+            self._logger.error("All interfaces are already deleted")
+            return None
+        if not bool(interface):
+            for iface in json['interfaces']:
+                ip = json['interfaces'][iface]['IPADDR']
+                group._release_ip(iface, ip)
+                mongo_doc.pop(iface)
+            res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
+            return not res['err']
+        try:
+            ip = json['interfaces'][interface]['IPADDR']
+        except:
+            self._logger.error("No such interface '{}' found. If it already deleted?".format(interface))
+            return None
+        group._release_ip(interface, ip)
+        mongo_doc.pop(interface)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
+        return not res['err']
+
+    def add_bmc_ip(self, reqip = None):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        ip = 0
+        try:
+            ip = json['bmcsetup']
+        except:
+            pass
+        if bool(ip):
+            self._logger.error("IP is already assigned on bmc network")
+            return None
+        ip = group._reserve_bmc_ip(reqip)
+        if not bool(ip):
+            self._logger.error("Cannot reserve ip for bmc interface")
+            return None
+        mongo_doc = {'IPADDR': ip}
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': mongo_doc}}, multi=False, upsert=False)
+        return not res['err']
+
+    def del_bmc_ip(self):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        try:
+            ip = json['bmcnetwork']['IPADDR']
+        except:
+            self._logger.error("No IP configured on bmc network")
+            return None
+        res = group._release_bmc_ip(ip)
+        if bool(res):
+            mongo_doc = None
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': mongo_doc}}, multi=False, upsert=False)
+        return not res['err']
 
 class Group(Base):
     """
@@ -157,7 +264,10 @@ class Group(Base):
     def change_ifcfg(self, interface, ifcfg):
         pass
 
-    def _reserve_ip(self, interface, ip):
+    def _reserve_ip(self, interface = None, ip = None):
+        if not bool(interface):
+            self._logger.error("Interface needs to be specified")
+            return None
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
@@ -172,6 +282,9 @@ class Group(Base):
             
 
     def _release_ip(self, interface, ip):
+        if not bool(interface):
+            self._logger.error("Interface needs to be specified")
+            return None
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
@@ -183,3 +296,26 @@ class Group(Base):
         ifcfg = IfCfg(id = net_dbref.id)
         return ifcfg.release_ip(ip)
 
+    def _reserve_bmc_ip(self, ip = None):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        try:
+            net_dbref = self._get_json()['bmcnetwork']
+        except:
+            self._logger.error("No bmc network configured")
+            return None
+        ifcfg = IfCfg(id = net_dbref.id)
+        return ifcfg.reserve_ip(ip)
+
+    def _release_bmc_ip(self, ip):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        try:
+            net_dbref = self._get_json()['bmcnetwork']
+        except:
+            self._logger.error("No bmc network configured")
+            return None
+        ifcfg = IfCfg(id = net_dbref.id)
+        return ifcfg.release_ip(ip)
