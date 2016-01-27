@@ -137,7 +137,7 @@ class Node(Base):
         group = Group(id = json['group'].id)
         ip = 0
         try:
-            ip = json['bmcsetup']
+            ip = json['bmcnetwork']
         except:
             pass
         if bool(ip):
@@ -169,14 +169,45 @@ class Node(Base):
         return not res['err']
 
     def set_mac(self, mac = None):
-        pass
+        import re
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        if type(mac) == type('') and re.match('(([a-fA-F0-9]{2}:){4}([a-fA-F0-9]{2}))', mac):
+            res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
+            return not res['err']
+        return None
+
+        
 
     def clear_mac(self):
-        pass
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': None}}, multi=False, upsert=False)
+        return not res['err']
+        
 
-    def set_switch(self):
-        pass
+    def set_switch(self, name):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        switch = switch(name)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'switch': switch.DBRef}}, multi=False, upsert=False)
+        if not res['err']:
+            self.link(switch.DBRef)
+        return not res['err']
 
+    def clear_switch(self):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        switch = switch(name)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'switch': None}}, multi=False, upsert=False)
+        if not res['err']:
+            self.unlink(switch.DBRef)
+        return not res['err']
+        
     def set_port(self, num):
         self.set('port', num)
 
@@ -261,20 +292,52 @@ class Group(Base):
         self.link(bmcsetup.DBRef)
         return not res['err']
 
-    def add_interface(self, interface, ifcfg):
-        pass
-#        reverse_links = self.get_back_links()
-#        for dbref in reverse_links:
-#            if dbref.collection != 'node':
-#                continue
-#            node = Node(id=dbref.id)
-#            node.release_ip(interface)
+    def add_interface(self, interface, ifcfgname):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        interfaces = self._get_json()['interfaces']
+        ifcfg = IfCfg(ifcfgname)
+        interfaces[interface] = ifcfg.DBRef
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error adding interface '{}'".format(interface))
+            return None
+        self.link(ifcfg.DBRef)
+        reverse_links = self.get_back_links()
+        for link in reverse_links:
+            print link
+            if link['collection'] != 'node':
+                continue
+            node = Node(id=link['DBRef'].id)
+            node.add_ip(interface)
+        return True
+
 
     def del_interface(self, interface):
-        pass
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        interfaces = self._get_json()['interfaces']
+        ifcfg = IfCfg(ifcfgname)
+        interfaces.pop(interface)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error adding interface '{}'".format(interface))
+            return None
+        self.unlink(ifcfg.DBRef)
+        reverse_links = self.get_back_links()
+        for link in reverse_links:
+            if link['collection'] != 'node':
+                continue
+            node = Node(id=link['DBRef'].id)
+            node.del_ip(interface)
+        return True
+
 
     def change_ifcfg(self, interface, ifcfg):
-        pass
+        self.del_interface(interface)
+        self.add_interface(interface, ifcfg)
 
     def _reserve_ip(self, interface = None, ip = None):
         if not bool(interface):

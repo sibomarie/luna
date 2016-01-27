@@ -9,5 +9,5 @@ from osimage import OsImage
 from ifcfg import IfCfg
 from bmcsetup import BMCSetup
 #from group import Group
-from node import Node
+from node import Node, Group
 from switch import Switch

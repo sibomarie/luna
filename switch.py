@@ -14,7 +14,7 @@ class Switch(Base):
     Class for operating with switch records
     """
     def __init__(self, name = None, create = False, id = None, 
-            ip = None, read = None, rw = None:
+            ip = None, read = None, rw = None):
         """
         ip      - ip of the switch
         read    - read community
