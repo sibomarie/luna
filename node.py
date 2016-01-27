@@ -27,11 +27,11 @@ class Node(Base):
         if not bool(name) and bool(create):
             name = self._generate_name()
         mongo_doc = self._check_name(name, create, id)
-        self._keylist = {}
+        self._keylist = {'port': type(0)}
         if create:
             options = Options()
             group = Group(group)
-            mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None}
+            mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None, 'mac': None, 'switch': None, 'port': None}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -167,6 +167,18 @@ class Node(Base):
             mongo_doc = None
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': mongo_doc}}, multi=False, upsert=False)
         return not res['err']
+
+    def set_mac(self, mac = None):
+        pass
+
+    def clear_mac(self):
+        pass
+
+    def set_switch(self):
+        pass
+
+    def set_port(self, num):
+        self.set('port', num)
 
 class Group(Base):
     """

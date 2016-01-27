@@ -10,3 +10,4 @@ from ifcfg import IfCfg
 from bmcsetup import BMCSetup
 #from group import Group
 from node import Node
+from switch import Switch
