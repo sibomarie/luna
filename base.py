@@ -122,6 +122,59 @@ class Base():
 #            self.set(key, value)
 #        except:
 #            self.__dict__[key] = value
+    def show(self, out_format = '%20s%20s\n'):
+        def get_value(value):
+            if type(value) is not DBRef:
+                return value
+            dbref = value
+            mongo_db = self._mongo_client[db_name]
+            mongo_collection = self._mongo_db[dbref.collection]
+            try:
+                name = '[' + mongo_collection.find_one({'_id': dbref.id})['name'] + ']'
+            except:
+                name = '[id_' + str(dbref.id) + ']'
+            return name
+
+        def resolve_links(json):
+            internal_json = {}
+            if type(json) is not dict:
+                return get_value(json)
+            for key in json:
+                val = json[key]
+                if type(val) is dict:
+                    internal_json[key] = resolve_links(val)
+                    continue
+                if type(val) is list:
+                    internal_list = val[:]
+                    for idx in range(len(internal_list)):
+                        internal_list[idx] = resolve_links(internal_list[idx])
+                    internal_json[key] = internal_list[:]
+                    continue
+                internal_json[key] = get_value(val)
+            return internal_json
+                        
+        json = self._get_json()
+        try:
+            json.pop('_id')
+        except:
+            pass
+        try:
+            json.pop(use_key)
+        except:
+            pass
+        try:
+            json.pop(usedby_key)
+        except:
+            pass
+        return resolve_links(json)
+#        out_str = ''
+#        out_json = resolve_links(json)
+#        name = out_json.pop('name')
+#        for key in sorted(out_json):
+#            out_str += out_format % (key, out_json[key])
+#        out_str = out_format % ('name', name) + out_str.rstrip()
+#        return out_str
+
 
     @property
     def name(self):

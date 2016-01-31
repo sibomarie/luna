@@ -37,6 +37,7 @@ class Node(Base):
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
             self.add_ip()
+            self.add_bmc_ip()
             self.link(group)
             self.link(options)
         else:
@@ -210,6 +211,39 @@ class Node(Base):
         
     def set_port(self, num):
         self.set('port', num)
+
+    def delete(self):
+        """
+        Delete node
+        """
+        self._logger.debug("Arguments to function '{}".format(self._debug_function()))
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        import json
+        obj_json = self._get_json()
+        try:
+            usedby_len = len(obj_json[usedby_key])
+        except:
+            usedby_len = 0
+        if not usedby_len == 0:
+            back_links = self.get_back_links(resolve=True)
+            self._logger.error("Current object is being written as a dependency for the following objects:")
+            for elem in back_links:
+                self._logger.error(json.dumps(elem, sort_keys=True ))
+            return None
+        try:
+            obj_json_use_arr = obj_json[use_key]
+        except:
+            obj_json_use_arr = []
+        for dbref in obj_json_use_arr:
+            self.unlink(dbref)
+        self.del_bmc_ip()
+        self.del_ip()
+        ret = self._mongo_collection.remove({'_id': self._id}, multi=False)
+        self._wipe_vars()
+        return not ret['err']
+
 
 class Group(Base):
     """

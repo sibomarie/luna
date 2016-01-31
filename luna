@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+import sys
+import argparse
+import luna
+
+def_format = '%20s%40s\n'
+
+def cluster_init(nodeprefix, nodedigits):
+    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits )
+
+def cluster_delete():
+    options = luna.Options()
+    options.delete()
+
+def cluster_change(**args):
+    options = luna.Options()
+    for key in args:
+        if not args[key]:
+            continue
+        options.set(key, args[key])
+
+def cluster_show(out_format = def_format):
+    options = luna.Options()
+    out_json = options.show()
+    out_str = ''
+    name = out_json.pop('name')
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_str.rstrip()
+    print out_str
+
+def osimage_list():
+    lst = luna.list('osimage')
+    for elem in lst:
+        osimage = luna.OsImage(elem)
+        print elem, osimage.path, osimage.kernver
+
+def osimage_show(name, out_format = def_format):
+    osimage = luna.OsImage(name = name)
+    out_json = osimage.show()
+    out_str = ''
+    name = out_json.pop('name')
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_format % ('name', name) + out_str.rstrip()
+    print out_str
+
+def osimage_listkerns(name):
+    osimage = luna.OsImage(name = name)
+    for elem in osimage.list_kernels():
+        print elem
+
+def osimage_add(**args):
+    args['create'] = True
+    osimage = luna.OsImage(**args)
+
+def osimage_delete(name):
+    osimage = luna.OsImage(name)
+    osimage.delete()
+
+parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
+luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
+
+# Cluster
+cluster_parser = luna_subparsers.add_parser('cluster', help='Basic cluster operations.')
+cluster_parser_actions = cluster_parser.add_subparsers(dest='action')
+# show
+cluster_command = cluster_parser_actions.add_parser('show',help='Show options.')
+# init
+cluster_command = cluster_parser_actions.add_parser('init', help='Create Luna Cluster.')
+cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.', default='node')
+cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding', default=3)
+# change
+cluster_command = cluster_parser_actions.add_parser('change',help='Change cluster options')
+cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.')
+cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
+# delete
+cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
+
+# OsImage
+osimage_parser = luna_subparsers.add_parser('osimage', help='Osimage operations.')
+osimage_parser_actions = osimage_parser.add_subparsers(dest='action')
+# list
+osimage_command = osimage_parser_actions.add_parser('list', help='List osimages.')
+# show
+osimage_command = osimage_parser_actions.add_parser('show', help='Show osimage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+# listkerns
+osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in osimage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+# add
+osimage_command = osimage_parser_actions.add_parser('add', help='Add osimage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path to osimage.')
+osimage_command.add_argument('--kernver', '-k', required=True, type=str, help='Kernel version. Can be "ANY" keyword.')
+osimage_command.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
+# delete
+osimage_command = osimage_parser_actions.add_parser('delete', help='Delete osimage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+
+
+if __name__ == '__main__':
+        args = parser.parse_args()
+        args_d = vars(args)
+        current_env = sys.modules[__name__]
+        try:
+            call_fun =  getattr(current_env, '%s_%s' % (args.item, args.action))
+            args_d.pop('item')
+            args_d.pop('action')
+            call_fun(**args_d)
+        except:
+            raise

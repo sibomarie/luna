@@ -23,7 +23,7 @@ class OsImage(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'osimage'
         mongo_doc = self._check_name(name, create, id)
-        if type(kernopts) is not str:
+        if bool(kernopts) and type(kernopts) is not str:
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type('')}
@@ -34,6 +34,11 @@ class OsImage(Base):
             if path_suspected_doc and path_suspected_doc['path'] == path:
                 self._logger.error("Cannot create 'osimage' with the same 'path' as name='{}' has".format(path_suspected_doc['name']))
                 raise RuntimeError
+            if kernver == 'ANY':
+                try:
+                    kernver = self.get_package_ver(path, 'kernel')[0]
+                except:
+                    pass
             if not self._check_kernel(path, kernver):
                 raise RuntimeError
             mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 'kernopts': kernopts}
@@ -46,7 +51,9 @@ class OsImage(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-
+    
+    def list_kernels(self):
+        return self.get_package_ver(self.path, 'kernel')
 
     def get_package_ver(self, path, package):
         import rpm
