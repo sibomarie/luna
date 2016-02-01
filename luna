@@ -1,9 +1,14 @@
 #!/usr/bin/env python
+import os
 import sys
-import argparse
 import luna
+import argparse
+import tempfile
+import subprocess
 
 def_format = '%20s%40s\n'
+
+#################### Cluster
 
 def cluster_init(nodeprefix, nodedigits):
     options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits )
@@ -31,6 +36,8 @@ def cluster_show(raw, out_format = def_format):
         out_str += out_format % (key, out_json[key])
     out_str = out_str.rstrip()
     print out_str
+
+#################### OsImage
 
 def osimage_list():
     lst = luna.list('osimage')
@@ -72,6 +79,8 @@ def osimage_change(**args):
             continue
         osimage.set(key, args[key])
 
+#################### BMCSetup
+
 def bmcsetup_list():
     lst = luna.list('bmcsetup')
     for elem in lst:
@@ -106,6 +115,80 @@ def bmcsetup_change(**args):
 def bmcsetup_delete(name):
     bmcsetup = luna.BMCSetup(name)
     bmcsetup.delete()
+
+
+#################### IfCfg
+
+def ifcfg_list():
+    lst = luna.list('ifcfg')
+    for elem in lst:
+        ifcfg = luna.IfCfg(elem)
+        net = ifcfg.get('NETWORK')
+        prefix = ifcfg.get('PREFIX')
+        print elem, str(net) + "/" + str(prefix)
+
+def ifcfg_show(name, raw, out_format = "%s=%s\n"):
+    ifcfg = luna.IfCfg(name = name)
+    if raw:
+        print ifcfg.nice_json
+        return None
+    out_json = ifcfg.show()
+    out_json.pop('name')
+    try:
+        out_json.pop('freelist')
+    except:
+        pass
+    out_str = ''
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_str.rstrip()
+    print out_str
+
+def ifcfg_add(name):
+    init = {'name': name, 'create': True}
+    if not sys.stdin.isatty():
+        for line in sys.stdin:
+            l1 = line.strip().split('=',1)
+            init[l1[0].upper()] = l1[1]
+    else:
+        EDITOR = os.environ.get('EDITOR','vim')
+        initial_message = """NETWORK=
+PREFIX="""
+        tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
+        tmpfile.write(initial_message)
+        tmpfile.flush()
+        subprocess.call([EDITOR, tmpfile.name])
+        tmpfile.file.seek(0)
+        for line in tmpfile.file.readlines():
+            l1 = line.strip().split('=',1)
+            init[l1[0].upper()] = l1[1]
+    ifcfg = luna.IfCfg(**init)
+
+def ifcfg_change(name):
+    new_dict = {}
+    ifcfg = luna.IfCfg(name)
+    if not sys.stdin.isatty():
+        for line in sys.stdin:
+            l1 = line.strip().split('=',1)
+            new_dict[l1[0].upper()] = l1[1]
+    else:
+        EDITOR = os.environ.get('EDITOR','vim')
+        initial_message = ifcfg.dump()
+        tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
+        tmpfile.write(initial_message)
+        tmpfile.flush()
+        subprocess.call([EDITOR, tmpfile.name])
+        tmpfile.file.seek(0)
+        for line in tmpfile.file.readlines():
+            l1 = line.strip().split('=',1)
+            new_dict[l1[0].upper()] = l1[1]
+    ifcfg.change(new_dict)
+
+def ifcfg_delete(name):
+    ifcfg = luna.IfCfg(name)
+    ifcfg.delete()
+
+
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
@@ -184,6 +267,27 @@ bmcsetup_command.add_argument('--mgmtchannel', '-M', type=int, help='Mgmtchannel
 # delete
 bmcsetup_command = bmcsetup_parser_actions.add_parser('delete', help='Delete osimage.')
 bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
+
+# IfCfg
+ifcfg_parser = luna_subparsers.add_parser('ifcfg', help='IfCfg operations.')
+ifcfg_parser_actions = ifcfg_parser.add_subparsers(dest='action')
+# list
+ifcfg_command = ifcfg_parser_actions.add_parser('list', help='List IfCfg instances.')
+# show
+ifcfg_command = ifcfg_parser_actions.add_parser('show', help='Show IfCfg instance.')
+ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+ifcfg_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+# add
+ifcfg_command = ifcfg_parser_actions.add_parser('add', help='Add IfCfg instance.')
+ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+# change
+ifcfg_command = ifcfg_parser_actions.add_parser('change', help='Change IfCfg instance.')
+ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+# delete
+ifcfg_command = ifcfg_parser_actions.add_parser('delete', help='Delete IfCfg instance.')
+ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+
+
 
 if __name__ == '__main__':
         args = parser.parse_args()

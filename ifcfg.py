@@ -121,7 +121,7 @@ class IfCfg(Base):
     True
 
     """
-    def __init__(self, name = None, create = False, id = None, NETWORK = '', PREFIX = '', NETMASK = ''):
+    def __init__(self, name = None, create = False, id = None, NETWORK = '', PREFIX = '', NETMASK = '', **args):
         """
         create  - should be True if we need create osimage
         NETWORK - network
@@ -135,11 +135,11 @@ class IfCfg(Base):
         if create:
             options = Options()
             prefix, netmask = self._calc_prefix_mask(PREFIX, NETMASK)
-            if not prefix or not network:
-                mongo_doc = {'name': name}
+            if not prefix or not NETWORK:
+                mongo_doc = dict({'name': name}.items() + args.items())
             else:
                 freelist = [{'start': 1, 'end': (1<<(32-prefix))-1}]
-                mongo_doc = {'name': name, 'NETWORK': network, 'PREFIX': prefix, 'NETMASK': netmask, 'freelist': freelist}
+                mongo_doc = dict({'name': name, 'NETWORK': NETWORK, 'PREFIX': prefix, 'NETMASK': netmask, 'freelist': freelist}.items() + args.items())
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -194,7 +194,7 @@ class IfCfg(Base):
         return self._get_net(net, prefix) == self._get_net(ip, prefix)
 
     def set(self, key, value):
-        if not bool(key) or type(key) is not str:
+        if not bool(key) or type(key) is not str :
             self._logger.error("Field should be specified")
             return None
         if key in self._masked_fields:
@@ -208,21 +208,21 @@ class IfCfg(Base):
             PREFIX = self.get('PREFIX')
             NETMASK = self.get('NETMASK')
             if not bool(PREFIX):
-                self._logger.error("Wrong prefix '{}' in db".format(PREFIX))
                 return None
             NETWORK = self._get_net(value, PREFIX)
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK for entered '{}'".format(value))
                 return None
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
-            need_update = True
+            #need_update = True
         elif key == 'PREFIX':
             PREFIX, NETMASK = self._calc_prefix_mask(value, '')
             if not PREFIX:
                 self._logger.error("Cannot convert PREFIX={} to PREFIX and NETMASK".format(value))
                 return None
             NETWORK = self.get('NETWORK')
-
+            if not bool(NETWORK):
+                return None
             NETWORK = self._get_net(NETWORK, PREFIX)
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK for prefix = '{}'".format(value))
@@ -230,13 +230,15 @@ class IfCfg(Base):
             if not self._set_uplimit_ip(PREFIX):
                 raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
-            need_update = True
+            #need_update = True
         elif key == 'NETMASK':
             PREFIX, NETMASK = self._calc_prefix_mask(33, value)
             if not PREFIX:
                 self._logger.error("Cannot convert NETMASK=\"{}\" to PREFIX and NETMASK".format(value))
                 return None
             NETWORK = self.get('NETWORK')
+            if not bool(NETWORK):
+                return None
             NETWORK = self._get_net(NETWORK, PREFIX)
             if not bool(NETWORK):
                 self._logger.error("Cannot compute NETWORK  for".format(value))
@@ -244,12 +246,12 @@ class IfCfg(Base):
             if not self._set_uplimit_ip(PREFIX):
                 raise RuntimeError
             json = {'NETWORK': NETWORK, 'PREFIX': PREFIX, 'NETMASK': NETMASK}
-            need_update = True
+            #need_update = True
         else:
             json = {key: value}
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': json}, multi=False, upsert=False)
-        if need_update:
-            self.update_nodes(json)
+        #if need_update:
+            #self.update_nodes(json)
         return not ret['err']
 
     def get(self, key):
@@ -266,6 +268,7 @@ class IfCfg(Base):
 
     def wipe(self, key):
         if not key or type(key) is not str:
+            self._logger.error("Cannot delete field '{}'. Wrong type.".format(key))
             return None
         key = key.upper()
         cant_delete_fields = []
@@ -304,14 +307,24 @@ class IfCfg(Base):
         obj_json = self.get_json()
         out = ""
         for key in obj_json.keys():
-            out += "{}=\"{}\"".format(key, obj_json[key]) + '\n'
+            out += "{}={}".format(key, obj_json[key]) + '\n'
         return out.strip()
 
-    def replace(self, net_json):
-        pass
+    def change(self, new_json):
+        old_json = self.get_json()
+        # old_json = {k.encode('ascii','ignore'): v.encode('ascii', 'ignore') for k, v in old_json.items()}
+        old_keys = old_json.keys()
+        old_keys = [k.encode('ascii','ignore') for k in old_keys]
+        keys_to_wipe = [val for val in old_keys if val not in new_json.keys()]
+        keys_to_set = new_json.keys()
+        for key in keys_to_wipe:
+            self.wipe(key)
+        for key in keys_to_set:
+            self.set(key, new_json[key])
+        return None
 
-    def update_nodes(self, net_json):
-        pass
+#    def update_nodes(self, net_json):
+#        pass
 
 #    def reserve_ip(self, ip = None):
 #        import struct, socket
