@@ -18,9 +18,12 @@ def cluster_change(**args):
         if not args[key]:
             continue
         options.set(key, args[key])
-
-def cluster_show(out_format = def_format):
+ 
+def cluster_show(raw, out_format = def_format):
     options = luna.Options()
+    if raw:
+        print options.nice_json
+        return None
     out_json = options.show()
     out_str = ''
     name = out_json.pop('name')
@@ -33,10 +36,13 @@ def osimage_list():
     lst = luna.list('osimage')
     for elem in lst:
         osimage = luna.OsImage(elem)
-        print elem, osimage.path, osimage.kernver
+        print elem, osimage.get('path'), osimage.get('kernver')
 
-def osimage_show(name, out_format = def_format):
+def osimage_show(name, raw, out_format = def_format):
     osimage = luna.OsImage(name = name)
+    if raw:
+        print osimage.nice_json
+        return None
     out_json = osimage.show()
     out_str = ''
     name = out_json.pop('name')
@@ -58,6 +64,49 @@ def osimage_delete(name):
     osimage = luna.OsImage(name)
     osimage.delete()
 
+def osimage_change(**args):
+    osimage = luna.OsImage(args['name'])
+    args.pop('name')
+    for key in args:
+        if not args[key]:
+            continue
+        osimage.set(key, args[key])
+
+def bmcsetup_list():
+    lst = luna.list('bmcsetup')
+    for elem in lst:
+        bmcsetup = luna.BMCSetup(elem)
+        print elem, bmcsetup.get('user'), bmcsetup.get('password')
+
+def bmcsetup_show(name, raw, out_format = def_format):
+    bmcsetup = luna.BMCSetup(name = name)
+    if raw:
+        print bmcsetup.nice_json
+        return None
+    out_json = bmcsetup.show()
+    out_str = ''
+    name = out_json.pop('name')
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_format % ('name', name) + out_str.rstrip()
+    print out_str
+
+def bmcsetup_add(**args):
+    args['create'] = True
+    bmcsetup = luna.BMCSetup(**args)
+
+def bmcsetup_change(**args):
+    bmcsetup = luna.BMCSetup(args['name'])
+    args.pop('name')
+    for key in args:
+        if not args[key]:
+            continue
+        bmcsetup.set(key, args[key])
+
+def bmcsetup_delete(name):
+    bmcsetup = luna.BMCSetup(name)
+    bmcsetup.delete()
+
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
 
@@ -66,6 +115,7 @@ cluster_parser = luna_subparsers.add_parser('cluster', help='Basic cluster opera
 cluster_parser_actions = cluster_parser.add_subparsers(dest='action')
 # show
 cluster_command = cluster_parser_actions.add_parser('show',help='Show options.')
+cluster_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
 # init
 cluster_command = cluster_parser_actions.add_parser('init', help='Create Luna Cluster.')
 cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.', default='node')
@@ -78,26 +128,62 @@ cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Z
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 
 # OsImage
-osimage_parser = luna_subparsers.add_parser('osimage', help='Osimage operations.')
+osimage_parser = luna_subparsers.add_parser('osimage', help='OsImage operations.')
 osimage_parser_actions = osimage_parser.add_subparsers(dest='action')
 # list
-osimage_command = osimage_parser_actions.add_parser('list', help='List osimages.')
+osimage_command = osimage_parser_actions.add_parser('list', help='List OsImages.')
 # show
-osimage_command = osimage_parser_actions.add_parser('show', help='Show osimage.')
-osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+osimage_command = osimage_parser_actions.add_parser('show', help='Show OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
 # listkerns
-osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in osimage.')
-osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 # add
 osimage_command = osimage_parser_actions.add_parser('add', help='Add osimage.')
-osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
-osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path to osimage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path to OsImage.')
 osimage_command.add_argument('--kernver', '-k', required=True, type=str, help='Kernel version. Can be "ANY" keyword.')
 osimage_command.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
+# change
+osimage_command = osimage_parser_actions.add_parser('change', help='Change OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command_group = osimage_command.add_mutually_exclusive_group()
+####osimage_command_group.add_argument('--path', '-p', type=str, help='Path to osimage.')
+osimage_command_group.add_argument('--kernver', '-k', type=str, help='Kernel version.')
+osimage_command_group.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
 # delete
-osimage_command = osimage_parser_actions.add_parser('delete', help='Delete osimage.')
-osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the osimage.')
+osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 
+# BMCSetup
+bmcsetup_parser = luna_subparsers.add_parser('bmcsetup', help='BMCSetup instance operations.')
+bmcsetup_parser_actions = bmcsetup_parser.add_subparsers(dest='action')
+# list
+bmcsetup_command = bmcsetup_parser_actions.add_parser('list', help='List BMCSetup instances.')
+# show
+bmcsetup_command = bmcsetup_parser_actions.add_parser('show', help='Show BMCSetup instance.')
+bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
+bmcsetup_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+# add
+bmcsetup_command = bmcsetup_parser_actions.add_parser('add', help='Add BMCSetup instance.')
+bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
+bmcsetup_command.add_argument('--user', '-u', type=str, help='User name', default='ladmin')
+bmcsetup_command.add_argument('--password', '-p', type=str, help='Password', default='ladmin')
+bmcsetup_command.add_argument('--userid', '-I', type=int, help='UserID', default=3)
+bmcsetup_command.add_argument('--netchannel', '-N', type=int, help='Netchannel', default=1)
+bmcsetup_command.add_argument('--mgmtchannel', '-M', type=int, help='Mgmtchannel', default=1)
+# change
+bmcsetup_command = bmcsetup_parser_actions.add_parser('change', help='Change BMCSetup instance.')
+bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
+bmcsetup_command.add_argument('--user', '-u', type=str, help='User name')
+bmcsetup_command.add_argument('--password', '-p', type=str, help='Password')
+bmcsetup_command.add_argument('--userid', '-I', type=int, help='UserID')
+bmcsetup_command.add_argument('--netchannel', '-N', type=int, help='Netchannel')
+bmcsetup_command.add_argument('--mgmtchannel', '-M', type=int, help='Mgmtchannel')
+# delete
+bmcsetup_command = bmcsetup_parser_actions.add_parser('delete', help='Delete osimage.')
+bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
 
 if __name__ == '__main__':
         args = parser.parse_args()

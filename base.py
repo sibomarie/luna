@@ -446,7 +446,14 @@ class Base():
             back_links = self.get_back_links(resolve=True)
             self._logger.error("Current object is being written as a dependency for the following objects:")
             for elem in back_links:
-                self._logger.error(json.dumps(elem, sort_keys=True ))
+                try:
+                    name = elem['DBRef'].id
+                    collection = elem['DBRef'].collection
+                    name = elem['name']
+                    collection = elem['collection']
+                except:
+                    pass
+                self._logger.error("[{}/{}]".format(collection, name))
             return None
         try:
             obj_json_use_arr = obj_json[use_key]

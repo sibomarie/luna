@@ -13,6 +13,7 @@ class BMCSetup(Base):
     """
     Class for operating with bmcsetup records
     """
+    _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, 
             userid = 3, user = 'ladmin', password = 'ladmin', netchannel = 1, mgmtchannel = 1):
         """

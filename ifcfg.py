@@ -135,15 +135,11 @@ class IfCfg(Base):
         if create:
             options = Options()
             prefix, netmask = self._calc_prefix_mask(PREFIX, NETMASK)
-            if not netmask:
-                self._logger.error("Wrong prefix '{}' entered".format(PREFIX))
-                raise RuntimeError
-            network = self._get_net(NETWORK, prefix)
-            if not network:
-                self._logger.error("Wrong netmorki '{}' entered".format(NETWORK))
-                raise RuntimeError
-            freelist = [{'start': 1, 'end': (1<<(32-prefix))-1}]
-            mongo_doc = {'name': name, 'NETWORK': network, 'PREFIX': prefix, 'NETMASK': netmask, 'freelist': freelist}
+            if not prefix or not network:
+                mongo_doc = {'name': name}
+            else:
+                freelist = [{'start': 1, 'end': (1<<(32-prefix))-1}]
+                mongo_doc = {'name': name, 'NETWORK': network, 'PREFIX': prefix, 'NETMASK': netmask, 'freelist': freelist}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -341,7 +337,10 @@ class IfCfg(Base):
 
     def _get_next_ip(self):
         obj_json = self._get_json()
-        freelist = obj_json['freelist']
+        try:
+            freelist = obj_json['freelist']
+        except:
+            return None
         if not bool(freelist):
             self._logger.error("No more IPs avalilable")
             return None
@@ -376,7 +375,10 @@ class IfCfg(Base):
             return ( find, [{'start': elem['start'], 'end': num-1}, {'start': num+1, 'end': elem['end']}] )
             
         obj_json = self._get_json()
-        freelist = obj_json['freelist']
+        try:
+            freelist = obj_json['freelist']
+        except:
+            return None
         if not bool(freelist):
             self._logger.error("No more IPs avalilable")
             return None
@@ -406,7 +408,10 @@ class IfCfg(Base):
     def _set_uplimit_ip(self, prefix):
         border = (1<<(32-prefix))-1
         obj_json = self._get_json()
-        freelist = obj_json['freelist']
+        try:
+            freelist = obj_json['freelist']
+        except:
+            return None
         last_elem = freelist[-1]
         if last_elem['start'] > border:
             self._logger.error("Cannot cut list of free IPs. Requested cut to '{}'".format(border))
@@ -432,7 +437,10 @@ class IfCfg(Base):
     def release_ip(self, num):
         insert_elem = {'start': num, 'end': num}
         obj_json = self._get_json()
-        freelist = obj_json['freelist']
+        try:
+            freelist = obj_json['freelist']
+        except:
+            return None
         filled_list = []
         for elem in freelist:
             try:

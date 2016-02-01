@@ -13,6 +13,7 @@ class OsImage(Base):
     """
     Class for operating with osimages records
     """
+    _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
         """
         create  - shoulld be True if we need create osimage
@@ -77,10 +78,12 @@ class OsImage(Base):
         if key == 'path':
             kernver = self.kernver
             if not self._check_kernel(value, kernver):
+                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
                 return None
         elif key == 'kernver':
             path = self.path
             if not self._check_kernel(path, value):
+                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
                 return None
         try:
             self._keylist[key]
