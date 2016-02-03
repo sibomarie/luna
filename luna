@@ -41,6 +41,7 @@ def cluster_show(raw, out_format = def_format):
 
 def osimage_list():
     lst = luna.list('osimage')
+    print 'name', 'path', 'kernel'
     for elem in lst:
         osimage = luna.OsImage(elem)
         print elem, osimage.get('path'), osimage.get('kernver')
@@ -83,6 +84,7 @@ def osimage_change(**args):
 
 def bmcsetup_list():
     lst = luna.list('bmcsetup')
+    print 'name', 'user', 'password'
     for elem in lst:
         bmcsetup = luna.BMCSetup(elem)
         print elem, bmcsetup.get('user'), bmcsetup.get('password')
@@ -121,6 +123,7 @@ def bmcsetup_delete(name):
 
 def ifcfg_list():
     lst = luna.list('ifcfg')
+    print 'name', 'network'
     for elem in lst:
         ifcfg = luna.IfCfg(elem)
         net = ifcfg.get('NETWORK')
@@ -153,7 +156,9 @@ def ifcfg_add(name):
     else:
         EDITOR = os.environ.get('EDITOR','vim')
         initial_message = """NETWORK=
-PREFIX="""
+PREFIX=
+ONBOOT=yes
+BOOTPROTO=none"""
         tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
         tmpfile.write(initial_message)
         tmpfile.flush()
@@ -188,6 +193,60 @@ def ifcfg_delete(name):
     ifcfg = luna.IfCfg(name)
     ifcfg.delete()
 
+
+#################### Group
+
+def group_list():
+    groups = luna.list('group')
+    print 'name', 'osimage', 'interfaces'
+    for elem in groups:
+        group = luna.Group(elem).show()
+        interfaces = ",".join(["%s:%s" % (k, v) for k, v in group['interfaces'].items()])
+        print elem, group['osimage'], interfaces
+
+def group_show(name, raw, out_format = '%20s%60s\n'):
+    group = luna.Group(name = name)
+    if raw:
+        print group.nice_json
+        return None
+    out_json = group.show()
+    out_json.pop('name')
+    interfaces = ",".join(["%s:%s" % (k, v) for k, v in out_json['interfaces'].items()])
+    out_json['interfaces'] = interfaces
+    out_str = ''
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_str.rstrip()
+    print out_str
+
+def group_add(**args):
+    print args
+
+def group_change(**args):
+    print args
+    return None
+    new_dict = {}
+    ifcfg = luna.IfCfg(name)
+    if not sys.stdin.isatty():
+        for line in sys.stdin:
+            l1 = line.strip().split('=',1)
+            new_dict[l1[0].upper()] = l1[1]
+    else:
+        EDITOR = os.environ.get('EDITOR','vim')
+        initial_message = ifcfg.dump()
+        tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
+        tmpfile.write(initial_message)
+        tmpfile.flush()
+        subprocess.call([EDITOR, tmpfile.name])
+        tmpfile.file.seek(0)
+        for line in tmpfile.file.readlines():
+            l1 = line.strip().split('=',1)
+            new_dict[l1[0].upper()] = l1[1]
+    ifcfg.change(new_dict)
+
+def group_delete(name):
+    group = luna.Group(name)
+    group.delete()
 
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
@@ -286,6 +345,38 @@ ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name o
 # delete
 ifcfg_command = ifcfg_parser_actions.add_parser('delete', help='Delete IfCfg instance.')
 ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+
+# Group
+group_parser = luna_subparsers.add_parser('group', help='Group operations.')
+group_parser_actions = group_parser.add_subparsers(dest='action')
+# list
+group_command = group_parser_actions.add_parser('list', help='List Groups.')
+# show
+group_command = group_parser_actions.add_parser('show', help='Show Group.')
+group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
+group_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+# add
+group_command = group_parser_actions.add_parser('add', help='Add Group.')
+group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
+group_command.add_argument('--osimage', '-o', required=True, type=str, help='Osimage assigned to Group.')
+group_command.add_argument('--bmcsetup', '-b', required=True, type=str, help='BMCSetup assigned to Group.')
+group_command.add_argument('--bmcnetwork', '--bn', required=True, type=str, help='IfCfg for BMC.')
+group_command.add_argument('--interface', '-i', action='append', metavar='INTERFACE:IFCFG',required=True, type=str, help='Interfaces specified in format -i eth0:ifcfg1 -i eth1:ifcfg2')
+# change
+group_command = group_parser_actions.add_parser('change', help='Change Group.')
+group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
+group_command.add_argument('--osimage', '-o', type=str, help='Osimage assigned to Group.')
+group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
+group_command.add_argument('--bmcnetwork', '--bn', type=str, help='IfCfg for BMC.')
+group_command.add_argument('--interface', '-i', type=str, help='Interface.')
+group_command.add_argument('--delete', '-d', action='store_true', help='Delete interface.')
+group_command.add_argument('--set', '-s', type=str, metavar='IFCFG', help='Set ifcfg.')
+
+
+
+# delete
+group_command = group_parser_actions.add_parser('delete', help='Delete Group.')
+group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
 
 
 

@@ -208,6 +208,7 @@ class IfCfg(Base):
             PREFIX = self.get('PREFIX')
             NETMASK = self.get('NETMASK')
             if not bool(PREFIX):
+                self._logger.error("Instance was created without NETWORK/PREFIX definition")
                 return None
             NETWORK = self._get_net(value, PREFIX)
             if not bool(NETWORK):
@@ -222,6 +223,7 @@ class IfCfg(Base):
                 return None
             NETWORK = self.get('NETWORK')
             if not bool(NETWORK):
+                self._logger.error("Instance was created without NETWORK/PREFIX definition")
                 return None
             NETWORK = self._get_net(NETWORK, PREFIX)
             if not bool(NETWORK):
@@ -238,6 +240,7 @@ class IfCfg(Base):
                 return None
             NETWORK = self.get('NETWORK')
             if not bool(NETWORK):
+                self._logger.error("Instance was created without NETWORK/PREFIX definition")
                 return None
             NETWORK = self._get_net(NETWORK, PREFIX)
             if not bool(NETWORK):
