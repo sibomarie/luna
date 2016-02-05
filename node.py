@@ -281,11 +281,11 @@ class Group(Base):
                 ifcfgobj_arr.extend([ifcfgobj])
                 ifcfgs[interface] = ifcfgobj.DBRef
             if not bool(partscript):
-                partscript = "mount -t ramfs ramfs /sysroot"
+                partscript = "#!/bin/bash\nmount -t ramfs ramfs /sysroot"
             if not bool(prescript):
-                prescript = ''
+                prescript = "#!/bin/bash"
             if not bool(postscript):
-                postscript = ''
+                postscript = "#!/bin/bash"
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj.DBRef, 'bmcnetwork': bmcnetobj.DBRef,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': ifcfgs, 
                                'postscript': postscript}
@@ -326,6 +326,28 @@ class Group(Base):
         self.link(bmcsetup.DBRef)
         return not res['err']
 
+    def bmcnetwork(self, bmcnet):
+        self._logger.error("Not implemented.")
+        return None
+        old_bmcnet_dbref = self._get_json()['bmcnetwork']
+        ifcfg = IfCfg(bmcnet)
+        reverse_links = self.get_back_links()
+        for link in reverse_links:
+            if link['collection'] != 'node':
+                continue
+            node = Node(id=link['DBRef'].id)
+            node.del_bmc_ip()
+        self.unlink(old_bmcnet_dbref)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': bmcsetup.DBRef}}, multi=False, upsert=False)
+        for link in reverse_links:
+            if link['collection'] != 'node':
+                continue
+            node = Node(id=link['DBRef'].id)
+            node.add_bmc_ip()
+        return True
+
+
+
     def add_interface(self, interface, ifcfgname):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -355,10 +377,6 @@ class Group(Base):
         interfaces = self._get_json()['interfaces']
         ifcfg = IfCfg(ifcfgname)
         interfaces.pop(interface)
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
-        if res['err']:
-            self._logger.error("Error adding interface '{}'".format(interface))
-            return None
         self.unlink(ifcfg.DBRef)
         reverse_links = self.get_back_links()
         for link in reverse_links:
@@ -366,6 +384,10 @@ class Group(Base):
                 continue
             node = Node(id=link['DBRef'].id)
             node.del_ip(interface)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error deleting interface '{}'".format(interface))
+            return None
         return True
 
 

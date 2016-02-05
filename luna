@@ -5,7 +5,10 @@ import luna
 import argparse
 import tempfile
 import subprocess
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('luna')
 def_format = '%20s%40s\n'
 
 #################### Cluster
@@ -220,29 +223,60 @@ def group_show(name, raw, out_format = '%20s%60s\n'):
     print out_str
 
 def group_add(**args):
-    print args
-
+    args['create'] = True
+    try:
+        interface_list  = args.pop('interface')
+        args['interfaces'] = dict( i.split(':') for i in interface_list)
+    except:
+        logger.error('Error parsing interface parameters.')
+        return None
+    group = luna.Group(**args)
+     
 def group_change(**args):
-    print args
-    return None
-    new_dict = {}
-    ifcfg = luna.IfCfg(name)
+    if bool(args['interface']) and not (bool(args['delete']) or bool(args['set'])):
+        logger.error('Operation for interface should be specified.')
+        return None
+    group = luna.Group(args['name'])
+    if bool(args['interface']):
+        if bool(args['delete']):
+            group.del_interface(args['interface'])
+        if bool(args['set']):
+            group.change_ifcfg(args['interface'], args['set'])
+        if bool(args['add']):
+            group.add_interface(args['interface'], args['set'])
+    if bool(args['osimage']):
+        group.osimage(args['osimage'])
+    if bool(args['bmcsetup']):
+        group.bmcsetup(args['bmcsetup'])
+    if bool(args['bmcnetwork']):
+        group.bmcnetwork(args['bmcnetwork'])
+
+    if   bool(args['prescript']):
+        scr_type = 'prescript'
+    elif bool(args['partscript']):
+        scr_type = 'partscript'
+    elif bool(args['postscript']):
+        scr_type = 'postscript'
+    else:
+        return None
+    old_script = group.show()[scr_type]
+    script = ''
     if not sys.stdin.isatty():
         for line in sys.stdin:
-            l1 = line.strip().split('=',1)
-            new_dict[l1[0].upper()] = l1[1]
+            script += line
     else:
         EDITOR = os.environ.get('EDITOR','vim')
-        initial_message = ifcfg.dump()
         tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
-        tmpfile.write(initial_message)
+        tmpfile.write(old_script)
         tmpfile.flush()
         subprocess.call([EDITOR, tmpfile.name])
         tmpfile.file.seek(0)
         for line in tmpfile.file.readlines():
-            l1 = line.strip().split('=',1)
-            new_dict[l1[0].upper()] = l1[1]
-    ifcfg.change(new_dict)
+            script += line
+    if not bool(script):
+        script = '#!/bin/bash'
+    group.set(scr_type, script)
+
 
 def group_delete(name):
     group = luna.Group(name)
@@ -371,6 +405,9 @@ group_command.add_argument('--bmcnetwork', '--bn', type=str, help='IfCfg for BMC
 group_command.add_argument('--interface', '-i', type=str, help='Interface.')
 group_command.add_argument('--delete', '-d', action='store_true', help='Delete interface.')
 group_command.add_argument('--set', '-s', type=str, metavar='IFCFG', help='Set ifcfg.')
+group_command.add_argument('--prescript', '--pre', action='store_true', help='Set prescript.')
+group_command.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
+group_command.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
 
 
 
