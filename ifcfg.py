@@ -121,6 +121,7 @@ class IfCfg(Base):
     True
 
     """
+    _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, NETWORK = '', PREFIX = '', NETMASK = '', **args):
         """
         create  - should be True if we need create osimage
@@ -149,6 +150,7 @@ class IfCfg(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+        self._logger = logging.getLogger(__name__ + '.' + self._name)
 
     def _calc_prefix_mask(self, prefix, netmask):
         import struct, socket
@@ -484,8 +486,38 @@ class IfCfg(Base):
         self._save_free_list(defrag_list)
         return True
 
+    def get_human_ip(self, ip):
+        import struct, socket
+        try:
+            json = self._get_json()
+            network = json['NETWORK']
+            prefix = json['PREFIX']
+        except:
+            # self._logger.error("No network configured for this ifcfg")
+            return None
+        net_num = struct.unpack('>L', (socket.inet_aton(network)))[0]
+        abs_num_ip = ip + net_num
+        abs_ip = socket.inet_ntoa(struct.pack('>L', (abs_num_ip)))
+        if not self._check_ip_in_range(network, prefix, abs_ip):
+            self._logger.error("Entered ip not in corresponding network range")
+            return None
+        return abs_ip
 
-        
+    def get_num_ip(self, ip):
+        import struct, socket
+        try:
+            json = self._get_json()
+            network = json['NETWORK']
+            prefix = json['PREFIX']
+        except:
+            # self._logger.error("No network configured for this ifcfg")
+            return None
+        if not self._check_ip_in_range(network, prefix, ip):
+            self._logger.error("Entered ip not in corresponding network range")
+            return None
+        net_num = struct.unpack('>L', (socket.inet_aton(network)))[0]
+        abs_num_ip = struct.unpack('>L', (socket.inet_aton(ip)))[0]
+        return abs_num_ip - net_num
 
 if __name__ == "__main__":
     import doctest

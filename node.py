@@ -16,6 +16,7 @@ class Node(Base):
     """
     Class for operating with node records
     """
+    _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, 
             group = None):
         """
@@ -44,6 +45,7 @@ class Node(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+        self._logger = logging.getLogger(__name__ + '.' + self._name)
 
     def _generate_name(self):
         options = Options()
@@ -244,11 +246,52 @@ class Node(Base):
         self._wipe_vars()
         return not ret['err']
 
+    def get_interfaces(self):
+        try:
+            return self._get_json()['interfaces'].keys()
+        except:
+            return {}
+
+    def get_human_ip(self, interface):
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        try:
+            ipnum = json['interfaces'][interface]['IPADDR']
+        except:
+            self._logger.error("No IPADDR for interface '{}' configured".format(interface))    
+            return None
+        return group.get_human_ip(interface, ipnum)
+
+    def _get_num_ip(self, interface, ip):
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        try:
+            num_ip = json['interfaces'][interface]
+        except:
+            self._logger.error("No such interface for node".format(interface))    
+            return None
+        return group.get_num_ip(interface, ip)
+
+    def get_human_bmc_ip(self):
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        try:
+            ipnum = json['bmcnetwork']['IPADDR']
+        except:
+            self._logger.error("No IPADDR for interface bmc configured")
+            return None
+        return group.get_human_bmc_ip(ipnum)
+
+    def _get_num_bmc_ip(self, ip):
+        json = self._get_json()
+        group = Group(id = json['group'].id)
+        return group.get_num_bmc_ip(ip)
 
 class Group(Base):
     """
     Class for operating with group records
     """
+    _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, 
             prescript = None, bmcsetup = None, bmcnetwork = None,
             partscript = None, osimage = None, interfaces = None, postscript = None):
@@ -303,6 +346,7 @@ class Group(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+        self._logger = logging.getLogger(__name__ + '.' + self._name)
         
     def osimage(self, osimage_name):
         if not self._id:
@@ -353,6 +397,14 @@ class Group(Base):
             self._logger.error("Was object deleted?")
             return None
         interfaces = self._get_json()['interfaces']
+        dbref = None
+        try:
+            dbref = interfaces[interface]
+        except:
+            pass
+        if dbref:
+            self._logger.error("Interface already exists")
+            return None
         ifcfg = IfCfg(ifcfgname)
         interfaces[interface] = ifcfg.DBRef
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
@@ -450,3 +502,46 @@ class Group(Base):
             return None
         ifcfg = IfCfg(id = net_dbref.id)
         return ifcfg.release_ip(ip)
+
+    def get_human_ip(self, interface, ipnum):
+        interfaces = self._get_json()['interfaces']
+        dbref = None
+        try:
+            dbref = interfaces[interface]
+        except:
+            self._logger.error("Interface is not configured for '{}'".format(interface))
+            return None
+        ifcfg = IfCfg(id = dbref.id)
+        return ifcfg.get_human_ip(ipnum)
+
+
+    def get_num_ip(self, interface, ip):
+        interfaces = self._get_json()['interfaces']
+        dbref = None
+        try:
+            dbref = interfaces[interface]
+        except:
+            self._logger.error("Interface is not configured for '{}'".format(interface))
+            return None
+        ifcfg = IfCfg(id = dbref.id)
+        return ifcfg.get_num_ip(ip)
+
+    def get_human_bmc_ip(self, ipnum):
+        dbref = None
+        try:
+            dbref = self._get_json()['bmcnetwork']
+        except:
+            self._logger.error("Interface is not configured for BMC")
+            return None
+        ifcfg = IfCfg(id = dbref.id)
+        return ifcfg.get_human_ip(ipnum)
+
+    def get_num_bmc_ip(self, ip):
+        dbref = None
+        try:
+            dbref = self._get_json()['bmcnetwork']
+        except:
+            self._logger.error("Interface is not configured for BMC")
+            return None
+        ifcfg = IfCfg(id = dbref.id)
+        return ifcfg.get_num_ip(ip)

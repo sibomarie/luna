@@ -282,6 +282,43 @@ def group_delete(name):
     group = luna.Group(name)
     group.delete()
 
+#################### Node
+
+def node_list():
+    nodes = luna.list('node')
+    print 'name', 'group', 'ips'
+    for elem in nodes:
+        ips = ''
+        node = luna.Node(elem)
+        interfaces = node.get_interfaces()
+        bmcip = node.get_human_bmc_ip()
+        if_str = ''
+        for interface in interfaces:
+            ip = node.get_human_ip(interface)
+            if_str += '%s:%s,' % (interface, ip)
+        if_str += '%s:%s' % ('BMC', bmcip)
+        print elem, out_str
+
+def node_show(name, raw, out_format = '%20s%60s\n'):
+    node = luna.Node(name = name)
+    if raw:
+        print node.nice_json
+        return None
+    out_json = node.show()
+    out_json.pop('name')
+    bmcip = node.get_human_bmc_ip()
+    if_str = ''
+    interfaces = node.get_interfaces()
+    for interface in interfaces:
+        ip = node.get_human_ip(interface)
+        if_str += '%s:%s,' % (interface, ip)
+    out_json['interfaces'] = if_str.rstrip(',')
+    out_json['bmcnetwork'] = bmcip
+    out_str = ''
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_str.rstrip()
+    print out_str
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
@@ -408,13 +445,24 @@ group_command.add_argument('--set', '-s', type=str, metavar='IFCFG', help='Set i
 group_command.add_argument('--prescript', '--pre', action='store_true', help='Set prescript.')
 group_command.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
 group_command.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
-
-
-
 # delete
 group_command = group_parser_actions.add_parser('delete', help='Delete Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
 
+# Node
+node_parser = luna_subparsers.add_parser('node', help='Node operations.')
+node_parser_actions = node_parser.add_subparsers(dest='action')
+# list
+node_command = node_parser_actions.add_parser('list', help='List Nodes.')
+# show
+node_command = node_parser_actions.add_parser('show', help='Show Node.')
+node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
+node_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+# add
+# change
+# delete
+node_command = node_parser_actions.add_parser('delete', help='Delete Node.')
+node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
 
 
 if __name__ == '__main__':

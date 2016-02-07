@@ -52,6 +52,8 @@ class OsImage(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+        self._logger = logging.getLogger(__name__ + '.' + self._name)
+
     
     def list_kernels(self):
         return self.get_package_ver(self.path, 'kernel')

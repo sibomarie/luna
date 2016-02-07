@@ -47,4 +47,5 @@ class BMCSetup(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+        self._logger = logging.getLogger(__name__ + '.' + self._name)
 
