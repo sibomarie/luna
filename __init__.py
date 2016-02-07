@@ -11,6 +11,7 @@ from bmcsetup import BMCSetup
 #from group import Group
 from node import Node, Group
 from switch import Switch
+from network import Network
 
 
 def list(collection):
