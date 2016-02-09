@@ -353,6 +353,7 @@ class Base():
             self._logger.error("Was object deleted?")
             return None
         remote_mongo_collection = self._mongo_db[dbref.collection]
+        # TODO FIX needs to increment and decrement link counter
         self._mongo_collection.update({'_id': self._id}, {'$addToSet': {use_key: dbref}}, multi=False, upsert=False)
         remote_mongo_collection.update({'_id': dbref.id}, {'$addToSet': {usedby_key: self._DBRef}}, multi=False, upsert=False)
 
@@ -416,6 +417,10 @@ class Base():
             return None
         output = []
         obj_json = self._get_json()
+        try:
+            obj_json[usedby_key]
+        except:
+            return output
         for dbref in obj_json[usedby_key]:
             remote_mongo_collection = self._mongo_db[dbref.collection]
             if not resolve:

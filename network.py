@@ -133,15 +133,16 @@ class Network(Base):
     def get(self, key):
         if not key or type(key) is not str:
             return None
-        if key not in self._keylist:
-            return None
         obj_json = self._get_json()
         if key == 'NETWORK':
             return self.absnum_to_ip(obj_json[key])
-        try:
-            return obj_json[key]
-        except:
-            return None
+        if key == 'NETMASK':
+            prefix = obj_json['PREFIX']
+            prefix_num = ((1<<32) -1) ^ ((1<<(33-prefix)-1) -1)
+            return socket.inet_ntoa(struct.pack('>L', (prefix_num)))
+        if key == 'PREFIX':
+            return obj_json['PREFIX']
+        return None
 
     def _get_next_ip(self):
         obj_json = self._get_json()

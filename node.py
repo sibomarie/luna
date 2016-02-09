@@ -8,7 +8,7 @@ from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.options import Options
-from luna.ifcfg import IfCfg
+from luna.network import Network
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
 
@@ -88,14 +88,14 @@ class Node(Base):
                 if not bool(ip):
                     self._logger.error("Cannot reserve ip for interface '{}'".format(iface))
                     return None
-                mongo_doc[iface] = {'IPADDR': ip}
+                mongo_doc[iface] = ip
         if bool(reqip):
             mongo_doc = json['interfaces']
             ip = group._reserve_ip(interface, reqip)
             if not bool(ip):
                 self._logger.error("Cannot reserve ip for interface '{}'".format(interface))
                 return None
-            mongo_doc[interface] = {'IPADDR': ip}
+            mongo_doc[interface] = ip
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
         return not res['err']
 
@@ -117,13 +117,13 @@ class Node(Base):
             return None
         if not bool(interface):
             for iface in json['interfaces']:
-                ip = json['interfaces'][iface]['IPADDR']
+                ip = json['interfaces'][iface]
                 group._release_ip(iface, ip)
                 mongo_doc.pop(iface)
             res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
             return not res['err']
         try:
-            ip = json['interfaces'][interface]['IPADDR']
+            ip = json['interfaces'][interface]
         except:
             self._logger.error("No such interface '{}' found. If it already deleted?".format(interface))
             return None
@@ -150,7 +150,7 @@ class Node(Base):
         if not bool(ip):
             self._logger.error("Cannot reserve ip for bmc interface")
             return None
-        mongo_doc = {'IPADDR': ip}
+        mongo_doc = ip
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': mongo_doc}}, multi=False, upsert=False)
         return not res['err']
 
@@ -161,7 +161,7 @@ class Node(Base):
         json = self._get_json()
         group = Group(id = json['group'].id)
         try:
-            ip = json['bmcnetwork']['IPADDR']
+            ip = json['bmcnetwork']
         except:
             self._logger.error("No IP configured on bmc network")
             return None
@@ -256,7 +256,7 @@ class Node(Base):
         json = self._get_json()
         group = Group(id = json['group'].id)
         try:
-            ipnum = json['interfaces'][interface]['IPADDR']
+            ipnum = json['interfaces'][interface]
         except:
             self._logger.error("No IPADDR for interface '{}' configured".format(interface))    
             return None
@@ -276,7 +276,7 @@ class Node(Base):
         json = self._get_json()
         group = Group(id = json['group'].id)
         try:
-            ipnum = json['bmcnetwork']['IPADDR']
+            ipnum = json['bmcnetwork']
         except:
             self._logger.error("No IPADDR for interface bmc configured")
             return None
@@ -298,11 +298,10 @@ class Group(Base):
         """
         prescript   - preinstall script
         bmcsetup    - bmcsetup options
-        bmcnetwork  - ifcfg options used for bmc networking
+        bmcnetwork  - used for bmc networking
         partscript  - parition script
         osimage     - osimage
-        interfaces  - dictionary of the newtork interfaces and ifcfg options:
-                        {'eth0': 'ifcfg-internal', 'eth1': 'ifcfg-storage'}
+        interfaces  - list of the newtork interfaces
         postscript  - postinstall script
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
@@ -312,17 +311,16 @@ class Group(Base):
         if create:
             options = Options()
             bmcobj = BMCSetup(bmcsetup)
-            bmcnetobj = IfCfg(bmcnetwork)
+            bmcnetobj = Network(bmcnetwork)
             osimageobj = OsImage(osimage)
-            if type(interfaces) is not type({}):
-                self._logger.error("'interfaces' should be dictionary") 
+            if bool(interfaces) and type(interfaces) is not type([]):
+                self._logger.error("'interfaces' should be list") 
                 raise RuntimeError
-            ifcfgs = {}
-            ifcfgobj_arr = []
+            if_dict = {}
+            if not bool(interfaces):
+                interfaces = []
             for interface in interfaces:
-                ifcfgobj = IfCfg(interfaces[interface])
-                ifcfgobj_arr.extend([ifcfgobj])
-                ifcfgs[interface] = ifcfgobj.DBRef
+                if_dict[interface] = {'network': None, 'params': ''}
             if not bool(partscript):
                 partscript = "#!/bin/bash\nmount -t ramfs ramfs /sysroot"
             if not bool(prescript):
@@ -330,10 +328,8 @@ class Group(Base):
             if not bool(postscript):
                 postscript = "#!/bin/bash"
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj.DBRef, 'bmcnetwork': bmcnetobj.DBRef,
-                               'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': ifcfgs, 
+                               'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
                                'postscript': postscript}
-
-
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -374,7 +370,7 @@ class Group(Base):
         self._logger.error("Not implemented.")
         return None
         old_bmcnet_dbref = self._get_json()['bmcnetwork']
-        ifcfg = IfCfg(bmcnet)
+        net = Network(bmcnet)
         reverse_links = self.get_back_links()
         for link in reverse_links:
             if link['collection'] != 'node':
@@ -382,7 +378,7 @@ class Group(Base):
             node = Node(id=link['DBRef'].id)
             node.del_bmc_ip()
         self.unlink(old_bmcnet_dbref)
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': bmcsetup.DBRef}}, multi=False, upsert=False)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': net.DBRef}}, multi=False, upsert=False)
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
@@ -390,62 +386,132 @@ class Group(Base):
             node.add_bmc_ip()
         return True
 
-
-
-    def add_interface(self, interface, ifcfgname):
+    def add_interface(self, interface):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
         interfaces = self._get_json()['interfaces']
-        dbref = None
+        old_parms = None
         try:
-            dbref = interfaces[interface]
+            old_parms = interfaces[interface]
         except:
             pass
-        if dbref:
+        if bool(old_parms):
             self._logger.error("Interface already exists")
             return None
-        ifcfg = IfCfg(ifcfgname)
-        interfaces[interface] = ifcfg.DBRef
+        interfaces[interface] = {'network': None, 'params': ''}
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
         if res['err']:
             self._logger.error("Error adding interface '{}'".format(interface))
             return None
-        self.link(ifcfg.DBRef)
+        return True
+
+    def get_if_parms(self, interface):
+        interfaces = self._get_json()['interfaces']
+        try:
+            interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return None
+        return interfaces[interface]['parms']
+
+    def set_if_parms(self, interface, parms = ''):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        interfaces = self._get_json()['interfaces']
+        try:
+            interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return None
+        interfaces[interface]['parms'] = parms
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error setting network parameters for interface '{}'".format(interface))
+            return None
+        return True
+
+    def set_net_to_if(self, interface, network):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        interfaces = self._get_json()['interfaces']
+        net = Network(network)
+        old_params = None
+        try:
+            old_parms = interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return None
+        old_net = None
+        try:
+            old_net = old_parms['network']
+        except:
+            pass
+        if bool(old_net):
+            self._logger.error("Network is already defined for this interface '{}'".format(interface))
+            return None
+        interfaces[interface]['network'] = net.DBRef
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error adding network for interface '{}'".format(interface))
+            return None
+        self.link(net.DBRef)
         reverse_links = self.get_back_links()
         for link in reverse_links:
-            print link
             if link['collection'] != 'node':
                 continue
             node = Node(id=link['DBRef'].id)
             node.add_ip(interface)
         return True
 
-
-    def del_interface(self, interface):
+    def del_net_from_if(self, interface):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
         interfaces = self._get_json()['interfaces']
-        ifcfg = IfCfg(ifcfgname)
-        interfaces.pop(interface)
-        self.unlink(ifcfg.DBRef)
+        old_params = None
+        try:
+            old_parms = interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return None
+        net_dbref = None
+        try:
+            net_dbref = old_parms['network']
+        except:
+            self._logger.error("Network is not configured for interface '{}'".format(interface))
+            return None
+        if not bool(net_dbref):
+            self._logger.error("Network is not configured for interface '{}'".format(interface))
+            return None
         reverse_links = self.get_back_links()
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
             node = Node(id=link['DBRef'].id)
             node.del_ip(interface)
+        self.unlink(net_dbref)
+        interfaces[interface]['network'] = None
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
+        if res['err']:
+            self._logger.error("Error adding network for interface '{}'".format(interface))
+            return None
+        return True
+
+    def del_interface(self, interface):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        self.del_net_from_if(interface)
+        interfaces = self._get_json()['interfaces']
+        interfaces.pop(interface)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
         if res['err']:
             self._logger.error("Error deleting interface '{}'".format(interface))
             return None
         return True
-
-
-    def change_ifcfg(self, interface, ifcfg):
-        self.del_interface(interface)
-        self.add_interface(interface, ifcfg)
 
     def _reserve_ip(self, interface = None, ip = None):
         if not bool(interface):
@@ -455,12 +521,12 @@ class Group(Base):
             self._logger.error("Was object deleted?")
             return None
         try:
-            net_dbref = self._get_json()['interfaces'][interface]
+            net_dbref = self._get_json()['interfaces'][interface]['network']
         except:
             self._logger.error("No such interface '{}'".format(interface))
             return None
-        ifcfg = IfCfg(id = net_dbref.id)
-        return ifcfg.reserve_ip(ip)
+        net = Network(id = net_dbref.id)
+        return net.reserve_ip(ip)
 
             
 
@@ -472,12 +538,12 @@ class Group(Base):
             self._logger.error("Was object deleted?")
             return None
         try:
-            net_dbref = self._get_json()['interfaces'][interface]
+            net_dbref = self._get_json()['interfaces'][interface]['network']
         except:
             self._logger.error("No such interface '{}'".format(interface))
             return None
-        ifcfg = IfCfg(id = net_dbref.id)
-        return ifcfg.release_ip(ip)
+        net = Network(id = net_dbref.id)
+        return net.release_ip(ip)
 
     def _reserve_bmc_ip(self, ip = None):
         if not self._id:
@@ -488,8 +554,8 @@ class Group(Base):
         except:
             self._logger.error("No bmc network configured")
             return None
-        ifcfg = IfCfg(id = net_dbref.id)
-        return ifcfg.reserve_ip(ip)
+        net = Network(id = net_dbref.id)
+        return net.reserve_ip(ip)
 
     def _release_bmc_ip(self, ip):
         if not self._id:
@@ -500,8 +566,8 @@ class Group(Base):
         except:
             self._logger.error("No bmc network configured")
             return None
-        ifcfg = IfCfg(id = net_dbref.id)
-        return ifcfg.release_ip(ip)
+        net = Network(id = net_dbref.id)
+        return net.release_ip(ip)
 
     def get_human_ip(self, interface, ipnum):
         interfaces = self._get_json()['interfaces']
@@ -511,8 +577,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
-        ifcfg = IfCfg(id = dbref.id)
-        return ifcfg.get_human_ip(ipnum)
+        net = Network(id = dbref.id)
+        return net.relnum_to_ip(ipnum)
 
 
     def get_num_ip(self, interface, ip):
@@ -523,8 +589,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
-        ifcfg = IfCfg(id = dbref.id)
-        return ifcfg.get_num_ip(ip)
+        net = Network(id = dbref.id)
+        return net.ip_to_relnum(ip)
 
     def get_human_bmc_ip(self, ipnum):
         dbref = None
@@ -533,8 +599,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for BMC")
             return None
-        ifcfg = IfCfg(id = dbref.id)
-        return ifcfg.get_human_ip(ipnum)
+        net = Network(id = dbref.id)
+        return net.relnum_to_ip(ipnum)
 
     def get_num_bmc_ip(self, ip):
         dbref = None
@@ -543,5 +609,5 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for BMC")
             return None
-        ifcfg = IfCfg(id = dbref.id)
-        return ifcfg.get_num_ip(ip)
+        net = Network(id = dbref.id)
+        return net.ip_to_relnum(ip)
