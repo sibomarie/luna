@@ -121,7 +121,7 @@ def bmcsetup_delete(name):
     bmcsetup = luna.BMCSetup(name)
     bmcsetup.delete()
 
-
+"""
 #################### IfCfg
 
 def ifcfg_list():
@@ -158,10 +158,10 @@ def ifcfg_add(name):
             init[l1[0].upper()] = l1[1]
     else:
         EDITOR = os.environ.get('EDITOR','vim')
-        initial_message = """NETWORK=
+        initial_message = "NETWORK=
 PREFIX=
 ONBOOT=yes
-BOOTPROTO=none"""
+BOOTPROTO=none"
         tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
         tmpfile.write(initial_message)
         tmpfile.flush()
@@ -196,6 +196,47 @@ def ifcfg_delete(name):
     ifcfg = luna.IfCfg(name)
     ifcfg.delete()
 
+"""
+#################### Network
+
+def network_list():
+    networks = luna.list('network')
+    print 'name', 'network'
+    for elem in networks:
+        net = luna.Network(elem)
+        print elem, net.get('NETWORK') + "/" + str(net.get('PREFIX'))
+
+def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
+    net = luna.Network(name = name)
+    if raw:
+        print net.nice_json
+        return None
+    if reservedips:
+        ips = net.get_used_ips()
+        print  "\n".join(["%s" % i for i in ips ])
+        return None
+    print "NETWORK=" + net.get('NETWORK')
+    print "PREFIX=" + str(net.get('PREFIX'))
+
+def network_add(name, network, prefix):
+    net = luna.Network(name = name, create = True, NETWORK = network, PREFIX = prefix)
+
+def network_change(name, network, prefix, reserve, release):
+    net = luna.Network(name = name)
+    if bool(network):
+        net.set('NETWORK', network)
+    if bool(prefix):
+        net.set('PREFIX', prefix)
+    if bool(reserve):
+        net.reserve_ip(reserve)
+    if bool(release):
+        net.release_ip(release)
+    return None
+
+def network_delete(name):
+    net = luna.Network(name)
+    net.delete()
+
 
 #################### Group
 
@@ -203,8 +244,9 @@ def group_list():
     groups = luna.list('group')
     print 'name', 'osimage', 'interfaces'
     for elem in groups:
-        group = luna.Group(elem).show()
-        interfaces = ",".join(["%s:%s" % (k, v) for k, v in group['interfaces'].items()])
+        group = luna.Group(elem)
+#        interfaces = ",".join(["%s:%s" % (k, v) for k, v in group['interfaces'].items()])
+        interfaces = ",".join(["%s:%s" % (k, group.show_if(k)) for k in group.show()['interfaces'].items()])
         print elem, group['osimage'], interfaces
 
 def group_show(name, raw, out_format = '%20s%60s\n'):
@@ -224,12 +266,12 @@ def group_show(name, raw, out_format = '%20s%60s\n'):
 
 def group_add(**args):
     args['create'] = True
-    try:
-        interface_list  = args.pop('interface')
-        args['interfaces'] = dict( i.split(':') for i in interface_list)
-    except:
-        logger.error('Error parsing interface parameters.')
-        return None
+#    try:
+#        interface_list  = args.pop('interface')
+#        args['interfaces'] = dict( i.split(':') for i in interface_list)
+#    except:
+#        logger.error('Error parsing interface parameters.')
+#        return None
     group = luna.Group(**args)
      
 def group_change(**args):
@@ -288,6 +330,8 @@ def node_list():
     nodes = luna.list('node')
     print 'name', 'group', 'ips'
     for elem in nodes:
+        print elem
+        continue
         ips = ''
         node = luna.Node(elem)
         interfaces = node.get_interfaces()
@@ -319,6 +363,10 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
         out_str += out_format % (key, out_json[key])
     out_str = out_str.rstrip()
     print out_str
+
+def node_delete(name):
+    node = luna.Node(name)
+    node.delete()
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
@@ -397,7 +445,7 @@ bmcsetup_command.add_argument('--mgmtchannel', '-M', type=int, help='Mgmtchannel
 # delete
 bmcsetup_command = bmcsetup_parser_actions.add_parser('delete', help='Delete osimage.')
 bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
-
+"""
 # IfCfg
 ifcfg_parser = luna_subparsers.add_parser('ifcfg', help='IfCfg operations.')
 ifcfg_parser_actions = ifcfg_parser.add_subparsers(dest='action')
@@ -416,6 +464,33 @@ ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name o
 # delete
 ifcfg_command = ifcfg_parser_actions.add_parser('delete', help='Delete IfCfg instance.')
 ifcfg_command.add_argument('--name', '-n', required=True, type=str, help='Name of the IfCfg instance.')
+"""
+# Network
+network_parser = luna_subparsers.add_parser('network', help='Node operations.')
+network_parser_actions = network_parser.add_subparsers(dest='action')
+# list
+network_command = network_parser_actions.add_parser('list', help='List Networks.')
+# show
+network_command = network_parser_actions.add_parser('show', help='Show Network.')
+network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
+network_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+network_command.add_argument('--reservedips', '-r', action='store_true', help='List reserved IPs.')
+# add
+network_command = network_parser_actions.add_parser('add', help='Add Network.')
+network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
+network_command.add_argument('--network', '-N', metavar='N.N.N.N', required=True, type=str, help='Network.')
+network_command.add_argument('--prefix', '-P', metavar='PP', required=True, type=int, help='Prefix.')
+# change
+network_command = network_parser_actions.add_parser('change', help='Change Network.')
+network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
+network_command.add_argument('--network', '-N', metavar='N.N.N.N', type=str, help='Network.')
+network_command.add_argument('--prefix', '-P', metavar='PP', type=int, help='Prefix.')
+network_command.add_argument('--reserve', '-R', metavar='X.X.X.X', type=str, help='Reserve IP.')
+network_command.add_argument('--release', metavar='X.X.X.X', type=str, help='Release IP.')
+# delete
+network_command = network_parser_actions.add_parser('delete', help='Delete Network.')
+network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
+
 
 # Group
 group_parser = luna_subparsers.add_parser('group', help='Group operations.')
@@ -448,6 +523,7 @@ group_command.add_argument('--partscript', '--part', action='store_true', help='
 # delete
 group_command = group_parser_actions.add_parser('delete', help='Delete Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
+
 
 # Node
 node_parser = luna_subparsers.add_parser('node', help='Node operations.')

@@ -69,7 +69,7 @@ class Network(Base):
 
     def ip_to_relnum(self, ip):
         num_net = self._get_json()['NETWORK']
-        num_ip = absnum_to_ip(ip)
+        num_ip = self.ip_to_absnum(ip)
         if not self.ip_in_net(ip):
             self._logger.error("Ip = '{}' is not in network.".format(ip))
             return None

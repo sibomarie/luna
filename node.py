@@ -386,6 +386,26 @@ class Group(Base):
             node.add_bmc_ip()
         return True
 
+    def show_if(self, interface):
+        interfaces = self._get_json()['interfaces']
+        try:
+            params = interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return ""
+        outstr = ""
+        try:
+            net = Network(id = params['network'].id)
+            outstr += net.get('NETWORK') + "\n"
+            outstr += net.get('PREFIX') + "\n"
+        except:
+            pass
+        try:
+            return outstr + params['params']
+        except:
+            return ""
+
+
     def add_interface(self, interface):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -413,7 +433,7 @@ class Group(Base):
         except:
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
-        return interfaces[interface]['parms']
+        return interfaces[interface]['params']
 
     def set_if_parms(self, interface, parms = ''):
         if not self._id:
@@ -425,7 +445,7 @@ class Group(Base):
         except:
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
-        interfaces[interface]['parms'] = parms
+        interfaces[interface]['params'] = parms
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': interfaces}}, multi=False, upsert=False)
         if res['err']:
             self._logger.error("Error setting network parameters for interface '{}'".format(interface))
