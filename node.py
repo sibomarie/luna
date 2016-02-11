@@ -310,8 +310,11 @@ class Group(Base):
         self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type('')}
         if create:
             options = Options()
-            bmcobj = BMCSetup(bmcsetup)
-            bmcnetobj = Network(bmcnetwork)
+            (bmcobj, bmcnetobj) = (None, None)
+            if bool(bmcsetup):
+                bmcobj = BMCSetup(bmcsetup).DBRef
+            if bool(bmcnetwork):
+                bmcnetobj = Network(bmcnetwork).DBRef
             osimageobj = OsImage(osimage)
             if bool(interfaces) and type(interfaces) is not type([]):
                 self._logger.error("'interfaces' should be list") 
@@ -327,7 +330,7 @@ class Group(Base):
                 prescript = "#!/bin/bash"
             if not bool(postscript):
                 postscript = "#!/bin/bash"
-            mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj.DBRef, 'bmcnetwork': bmcnetobj.DBRef,
+            mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
                                'postscript': postscript}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -335,14 +338,16 @@ class Group(Base):
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
             self.link(options)
-            self.link(bmcobj)
-            self.link(bmcnetobj)
+            if bmcobj:
+                self.link(bmcobj)
+            if bmcnetobj:
+                self.link(bmcnetobj)
             self.link(osimageobj)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._logger = logging.getLogger(__name__ + '.' + self._name)
+        self._logger = logging.getLogger('group.' + self._name)
         
     def osimage(self, osimage_name):
         if not self._id:
@@ -366,45 +371,75 @@ class Group(Base):
         self.link(bmcsetup.DBRef)
         return not res['err']
 
-    def bmcnetwork(self, bmcnet):
-        self._logger.error("Not implemented.")
-        return None
+    def set_bmcnetwork(self, bmcnet):
         old_bmcnet_dbref = self._get_json()['bmcnetwork']
         net = Network(bmcnet)
         reverse_links = self.get_back_links()
-        for link in reverse_links:
-            if link['collection'] != 'node':
-                continue
-            node = Node(id=link['DBRef'].id)
-            node.del_bmc_ip()
-        self.unlink(old_bmcnet_dbref)
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': net.DBRef}}, multi=False, upsert=False)
+        if bool(old_bmcnet_dbref):
+            self._logger.error("Network is already defined for BMC interface")
+            return None
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': net.DBRef}}, multi=False, upsert=False)
+        self.link(net.DBRef)
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
             node = Node(id=link['DBRef'].id)
             node.add_bmc_ip()
-        return True
+        return not res['err']
 
-    def show_if(self, interface):
+    def del_bmcnetwork(self):
+        old_bmcnet_dbref = self._get_json()['bmcnetwork']
+        if bool(old_bmcnet_dbref):
+            reverse_links = self.get_back_links()
+            for link in reverse_links:
+                if link['collection'] != 'node':
+                    continue
+                node = Node(id=link['DBRef'].id)
+                node.del_bmc_ip()
+            self.unlink(old_bmcnet_dbref)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': None}}, multi=False, upsert=False)
+        return not res['err']
+
+    
+    def show_bmc_if(self, brief = False):
+        bmcnetwork = self._get_json()['bmcnetwork']
+        if not bool(bmcnetwork):
+            return ''
+        (NETWORK, PREFIX) = ("", "")
+        try:
+            net = Network(id = bmcnetwork.id)
+            NETWORK = net.get('NETWORK')
+            PREFIX =  str(net.get('PREFIX'))
+        except:
+            pass
+        if brief:
+            return "[" +net.name + "]:"+ NETWORK + "/" + PREFIX
+        return NETWORK + "/" + PREFIX
+
+
+
+    def show_if(self, interface, brief = False):
         interfaces = self._get_json()['interfaces']
         try:
             params = interfaces[interface]
         except:
             self._logger.error("Interface '{}' does not exist".format(interface))
             return ""
-        outstr = ""
+        (outstr, NETWORK, PREFIX) = ("", "", "")
         try:
             net = Network(id = params['network'].id)
-            outstr += net.get('NETWORK') + "\n"
-            outstr += net.get('PREFIX') + "\n"
+            NETWORK = net.get('NETWORK')
+            PREFIX =  str(net.get('PREFIX'))
         except:
             pass
-        try:
-            return outstr + params['params']
-        except:
-            return ""
-
+        if NETWORK:
+            if brief:
+                return "[" +net.name + "]:" + NETWORK + "/" + PREFIX
+            outstr = "NETWORK=" + NETWORK + "\n"
+            outstr += "PREFIX=" + PREFIX
+        if params['params'] and not brief:
+            outstr += "\n" + params['params']
+        return outstr.rstrip()
 
     def add_interface(self, interface):
         if not self._id:

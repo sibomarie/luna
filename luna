@@ -246,8 +246,18 @@ def group_list():
     for elem in groups:
         group = luna.Group(elem)
 #        interfaces = ",".join(["%s:%s" % (k, v) for k, v in group['interfaces'].items()])
-        interfaces = ",".join(["%s:%s" % (k, group.show_if(k)) for k in group.show()['interfaces'].items()])
-        print elem, group['osimage'], interfaces
+        # dirty and ugly, but pyton-ish
+        bmcnet = group.show_bmc_if(brief = True)
+        interfaces = "BMC:" + str(bmcnet if bmcnet else None) + ","
+        for k in group.show()['interfaces'].keys():
+            brief_if = group.show_if(k, brief = True)
+            if bool(brief_if):
+                interfaces += "%s:%s" % (k, brief_if)
+            else:
+                interfaces += "%s:%s" % (k, None)
+#        interfaces += ",".join(["%s:%s" % (k, group.show_if(k, brief = True) if group.show_if(k) else None) for k in group.show()['interfaces'].keys()])
+
+        print elem, group.show()['osimage'], interfaces
 
 def group_show(name, raw, out_format = '%20s%60s\n'):
     group = luna.Group(name = name)
@@ -256,7 +266,10 @@ def group_show(name, raw, out_format = '%20s%60s\n'):
         return None
     out_json = group.show()
     out_json.pop('name')
-    interfaces = ",".join(["%s:%s" % (k, v) for k, v in out_json['interfaces'].items()])
+    bmcnet = group.show_bmc_if(brief = True)
+
+    interfaces = "BMC:" + str(bmcnet if bmcnet else None) + ","
+    interfaces += ",".join(["%s:%s" % (k, group.show_if(k, brief = True) if group.show_if(k) else None) for k in group.show()['interfaces'].keys()])
     out_json['interfaces'] = interfaces
     out_str = ''
     for key in sorted(out_json):
@@ -266,6 +279,8 @@ def group_show(name, raw, out_format = '%20s%60s\n'):
 
 def group_add(**args):
     args['create'] = True
+    args['interfaces'] = args['interface']
+    args.pop('interface')
 #    try:
 #        interface_list  = args.pop('interface')
 #        args['interfaces'] = dict( i.split(':') for i in interface_list)
@@ -275,17 +290,44 @@ def group_add(**args):
     group = luna.Group(**args)
      
 def group_change(**args):
-    if bool(args['interface']) and not (bool(args['delete']) or bool(args['set'])):
+    """
+    need_change_if = args['add'] or bool(args['delete']) or bool(args['setnet']) or args['delnet'] or args['edit']
+    if bool(args['interface']) and not need_change_if:
         logger.error('Operation for interface should be specified.')
+        return None
+    need_change_bmcnet = bool(args['setnet']) or args['delnet']
+    if bool(args['bmcnetwork']) and not need_change_bmcnet:
+        logger.error('Operation for BMC network should be specified.')
+        return None
+    """
+    parm_sum = 0
+    for elem in ['prescript', 'postscript', 'partscript', 'interface']:
+        parm_sum += int(bool(args[elem]))
+    if parm_sum > 1 and args['edit']:
+        logger.error('Only one element can be edited')
         return None
     group = luna.Group(args['name'])
     if bool(args['interface']):
-        if bool(args['delete']):
-            group.del_interface(args['interface'])
-        if bool(args['set']):
-            group.change_ifcfg(args['interface'], args['set'])
         if bool(args['add']):
-            group.add_interface(args['interface'], args['set'])
+            group.add_interface(args['interface'])
+        elif bool(args['delete']):
+            group.del_interface(args['interface'])
+        elif bool(args['setnet']):
+            group.set_net_to_if(args['interface'], args['setnet'])
+        elif bool(args['delnet']):
+            group.del_net_from_if(args['interface'])
+        elif args['edit']:
+            group.set_if_parms(args['interface'], _edit_script(group.get_if_parms(args['interface'])))
+        else:
+            print group.show_if(args['interface'])
+    elif bool(args['bmcnetwork']):
+        if bool(args['setnet']):
+            group.set_bmcnetwork(args['setnet'])
+        elif bool(args['delnet']):
+            group.del_bmcnetwork()
+        else:
+            print group.show_bmc_if()
+
     if bool(args['osimage']):
         group.osimage(args['osimage'])
     if bool(args['bmcsetup']):
@@ -302,6 +344,17 @@ def group_change(**args):
     else:
         return None
     old_script = group.show()[scr_type]
+    if not args['edit']:
+        print old_script
+        return None
+    script = _edit_script(old_script)
+    if not bool(script):
+        script = '#!/bin/bash'
+    group.set(scr_type, script)
+
+
+
+def _edit_script(old_script):
     script = ''
     if not sys.stdin.isatty():
         for line in sys.stdin:
@@ -311,14 +364,11 @@ def group_change(**args):
         tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
         tmpfile.write(old_script)
         tmpfile.flush()
-        subprocess.call([EDITOR, tmpfile.name])
+        subprocess.call([EDITOR, '+":set syn=sh"', tmpfile.name])
         tmpfile.file.seek(0)
         for line in tmpfile.file.readlines():
             script += line
-    if not bool(script):
-        script = '#!/bin/bash'
-    group.set(scr_type, script)
-
+    return script
 
 def group_delete(name):
     group = luna.Group(name)
@@ -505,21 +555,28 @@ group_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON ou
 group_command = group_parser_actions.add_parser('add', help='Add Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
 group_command.add_argument('--osimage', '-o', required=True, type=str, help='Osimage assigned to Group.')
-group_command.add_argument('--bmcsetup', '-b', required=True, type=str, help='BMCSetup assigned to Group.')
-group_command.add_argument('--bmcnetwork', '--bn', required=True, type=str, help='IfCfg for BMC.')
-group_command.add_argument('--interface', '-i', action='append', metavar='INTERFACE:IFCFG',required=True, type=str, help='Interfaces specified in format -i eth0:ifcfg1 -i eth1:ifcfg2')
+group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
+group_command.add_argument('--bmcnetwork', '--bn', type=str, help='Network for BMC.')
+group_command.add_argument('--interface', '-i', action='append', required=True, type=str, help='Interfaces specified in format -i eth0 -i eth1')
 # change
 group_command = group_parser_actions.add_parser('change', help='Change Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
 group_command.add_argument('--osimage', '-o', type=str, help='Osimage assigned to Group.')
-group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
-group_command.add_argument('--bmcnetwork', '--bn', type=str, help='IfCfg for BMC.')
-group_command.add_argument('--interface', '-i', type=str, help='Interface.')
-group_command.add_argument('--delete', '-d', action='store_true', help='Delete interface.')
-group_command.add_argument('--set', '-s', type=str, metavar='IFCFG', help='Set ifcfg.')
 group_command.add_argument('--prescript', '--pre', action='store_true', help='Set prescript.')
 group_command.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
 group_command.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
+group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
+
+group_command_group = group_command.add_mutually_exclusive_group()
+group_command_group.add_argument('--interface', '-i', type=str, help='Interface.')
+group_command_group.add_argument('--bmcnetwork', '--bn', action='store_true',  help='Network for BMC.')
+
+#group_command.add_argument('--interface', '-i', type=str, help='Interface. Can be \'-i eth0\' or \'-i BMC\'')
+group_command.add_argument('--add', '-A', action='store_true', help='Add interface.')
+group_command.add_argument('--delete', '-D', action='store_true', help='Delete interface.')
+group_command.add_argument('--setnet', '--sn', type=str, metavar='NETWORK', help='Set Network for interface or for BMC')
+group_command.add_argument('--delnet', '--dn', action='store_true', help='Delete Network for interface or for BMC')
+group_command.add_argument('--edit', '-e', action='store_true', help='Edit interface parameters or edit scripts')
 # delete
 group_command = group_parser_actions.add_parser('delete', help='Delete Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
