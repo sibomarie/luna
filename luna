@@ -49,10 +49,20 @@ def osimage_list():
         osimage = luna.OsImage(elem)
         print elem, osimage.get('path'), osimage.get('kernver')
 
-def osimage_show(name, raw, out_format = def_format):
-    osimage = luna.OsImage(name = name)
-    if raw:
+def osimage_show(out_format = def_format, **args):
+    osimage = luna.OsImage(name = args['name'])
+    if args['raw']:
         print osimage.nice_json
+        return None
+    if args['path']:
+        print osimage.get('path')
+        return None
+    if args['kernver']:
+        for elem in osimage.list_kernels():
+            if elem == osimage.get('kernver'):
+                print elem + ' <='
+                continue 
+            print elem
         return None
     out_json = osimage.show()
     out_str = ''
@@ -69,6 +79,8 @@ def osimage_listkerns(name):
 
 def osimage_add(**args):
     args['create'] = True
+    if not bool(args['kernver']):
+        args['kernver'] = 'ANY'
     osimage = luna.OsImage(**args)
 
 def osimage_delete(name):
@@ -248,21 +260,43 @@ def group_list():
 #        interfaces = ",".join(["%s:%s" % (k, v) for k, v in group['interfaces'].items()])
         # dirty and ugly, but pyton-ish
         bmcnet = group.show_bmc_if(brief = True)
-        interfaces = "BMC:" + str(bmcnet if bmcnet else None) + ","
+        interfaces = "BMC:" + str(bmcnet if bmcnet else None)
         for k in group.show()['interfaces'].keys():
             brief_if = group.show_if(k, brief = True)
             if bool(brief_if):
-                interfaces += "%s:%s" % (k, brief_if)
+                interfaces += ",%s:%s" % (k, brief_if)
             else:
-                interfaces += "%s:%s" % (k, None)
+                interfaces += ",%s:%s" % (k, None)
 #        interfaces += ",".join(["%s:%s" % (k, group.show_if(k, brief = True) if group.show_if(k) else None) for k in group.show()['interfaces'].keys()])
 
         print elem, group.show()['osimage'], interfaces
 
-def group_show(name, raw, out_format = '%20s%60s\n'):
-    group = luna.Group(name = name)
-    if raw:
+def group_show(out_format = '%20s%60s\n', **args):
+    group = luna.Group(name = args['name'])
+    if args['raw']:
         print group.nice_json
+        return None
+    if bool(args['interface']):
+        print group.show_if(args['interface'])
+        return None
+    elif bool(args['bmcnetwork']):
+        print group.show_bmc_if()
+        return None
+    scr_type =''
+    if   bool(args['prescript']):
+        scr_type = 'prescript'
+    elif bool(args['partscript']):
+        scr_type = 'partscript'
+    elif bool(args['postscript']):
+        scr_type = 'postscript'
+    if scr_type:
+        print group.show()[scr_type]
+        return None
+    if bool(args['osimage']):
+        print group.show()['osimage']
+        return None
+    if bool(args['bmcsetup']):
+        print group.show()['bmcsetup']
         return None
     out_json = group.show()
     out_json.pop('name')
@@ -290,22 +324,15 @@ def group_add(**args):
     group = luna.Group(**args)
      
 def group_change(**args):
-    """
-    need_change_if = args['add'] or bool(args['delete']) or bool(args['setnet']) or args['delnet'] or args['edit']
-    if bool(args['interface']) and not need_change_if:
-        logger.error('Operation for interface should be specified.')
-        return None
-    need_change_bmcnet = bool(args['setnet']) or args['delnet']
-    if bool(args['bmcnetwork']) and not need_change_bmcnet:
-        logger.error('Operation for BMC network should be specified.')
-        return None
-    """
     parm_sum = 0
     for elem in ['prescript', 'postscript', 'partscript', 'interface']:
         parm_sum += int(bool(args[elem]))
     if parm_sum > 1 and args['edit']:
         logger.error('Only one element can be edited')
         return None
+    #if args['interface'] == 'BMC':
+    #    args['interface'] = None
+    #    args['bmcnetwork'] = True
     group = luna.Group(args['name'])
     if bool(args['interface']):
         if bool(args['add']):
@@ -327,14 +354,12 @@ def group_change(**args):
             group.del_bmcnetwork()
         else:
             print group.show_bmc_if()
-
+    if bool(args['domain']):
+        group.set('domain',args['domain'])
     if bool(args['osimage']):
         group.osimage(args['osimage'])
     if bool(args['bmcsetup']):
         group.bmcsetup(args['bmcsetup'])
-    if bool(args['bmcnetwork']):
-        group.bmcnetwork(args['bmcnetwork'])
-
     if   bool(args['prescript']):
         scr_type = 'prescript'
     elif bool(args['partscript']):
@@ -414,6 +439,27 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
     out_str = out_str.rstrip()
     print out_str
 
+def node_add(name, group):
+    node = luna.Node(name = name, group = group, create = True)
+
+def node_change(**args):
+    node = luna.Node(args['name'])
+    if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
+        logger.error('Interface or BMC should be specified for given IP.')
+        return None
+    if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
+        logger.error('IP should be specified.')
+        return None
+    if bool(args['group']):
+        node.change_group(args['group'])
+        return None
+    if bool(args['interface']):
+        node.change_ip(args['interface'], args['ip'])
+        return None
+    if bool(args['bmcip']):
+        node.change_bmc_ip(args['ip'])
+        return None
+
 def node_delete(name):
     node = luna.Node(name)
     node.delete()
@@ -446,15 +492,19 @@ osimage_command = osimage_parser_actions.add_parser('list', help='List OsImages.
 # show
 osimage_command = osimage_parser_actions.add_parser('show', help='Show OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
-osimage_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+osimage_command_group = osimage_command.add_mutually_exclusive_group()
+osimage_command_group.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+osimage_command_group.add_argument('--path', '-p', action='store_true', help='Show path to OsImage.')
+osimage_command_group.add_argument('--kernver', '-k', action='store_true', help='Show kernel versions.')
+osimage_command_group.add_argument('--kernopts', '-o', action='store_true', help='Show kernel options.')
 # listkerns
-osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in OsImage.')
-osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+#osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in OsImage.')
+#osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 # add
 osimage_command = osimage_parser_actions.add_parser('add', help='Add osimage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path to OsImage.')
-osimage_command.add_argument('--kernver', '-k', required=True, type=str, help='Kernel version. Can be "ANY" keyword.')
+osimage_command.add_argument('--kernver', '-k', type=str, help='Kernel version. Can be "ANY" keyword (will be used when parameter is ommited).')
 osimage_command.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
 # change
 osimage_command = osimage_parser_actions.add_parser('change', help='Change OsImage.')
@@ -550,7 +600,15 @@ group_command = group_parser_actions.add_parser('list', help='List Groups.')
 # show
 group_command = group_parser_actions.add_parser('show', help='Show Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
-group_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+group_command_group = group_command.add_mutually_exclusive_group()
+group_command_group.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+group_command_group.add_argument('--osimage', '-o', action='store_true', help='Osimage assigned to Group.')
+group_command_group.add_argument('--prescript', '--pre', action='store_true', help='Set prescript.')
+group_command_group.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
+group_command_group.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
+group_command_group.add_argument('--bmcsetup', '-b', action='store_true', help='BMCSetup assigned to Group.')
+group_command_group.add_argument('--interface', '-i', type=str, help='Interface.')
+group_command_group.add_argument('--bmcnetwork', '--bn', action='store_true',  help='Network for BMC.')
 # add
 group_command = group_parser_actions.add_parser('add', help='Add Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
@@ -566,7 +624,7 @@ group_command.add_argument('--prescript', '--pre', action='store_true', help='Se
 group_command.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
 group_command.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
 group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
-
+group_command.add_argument('--domain', '-d', type=str, help='Domain name node belong to')
 group_command_group = group_command.add_mutually_exclusive_group()
 group_command_group.add_argument('--interface', '-i', type=str, help='Interface.')
 group_command_group.add_argument('--bmcnetwork', '--bn', action='store_true',  help='Network for BMC.')
@@ -590,9 +648,20 @@ node_command = node_parser_actions.add_parser('list', help='List Nodes.')
 # show
 node_command = node_parser_actions.add_parser('show', help='Show Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
-node_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
+node_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
+node_command = node_parser_actions.add_parser('add', help='Show Node.')
+node_command.add_argument('--name', '-n', type=str, help='Name of the Node.')
+node_command.add_argument('--group', '-g', required=True, type=str, help='Group.')
 # change
+node_command = node_parser_actions.add_parser('change', help='Change Node.')
+node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
+node_command_group = node_command.add_mutually_exclusive_group(required=True)
+node_command_group.add_argument('--group', '-g', type=str, help='Group.')
+node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
+node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
+node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='Name of the Node.')
+
 # delete
 node_command = node_parser_actions.add_parser('delete', help='Delete Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')

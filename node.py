@@ -37,7 +37,8 @@ class Node(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.add_ip()
+            for interface in group._get_json()['interfaces']:
+                self.add_ip(interface)
             self.add_bmc_ip()
             self.link(group)
             self.link(options)
@@ -64,9 +65,60 @@ class Node(Base):
         ret_name = prefix + str(max_num + 1).zfill(digits)
         return ret_name
 
-    def add_ip(self, interface = None, reqip = None):
-        if bool(reqip) and not bool(interface):
+    def change_group(self, new_group_name = None):
+        if not bool(new_group_name):
+            self._logger.error("Group needs to be specified")
+            return None
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        new_group = Group(new_group_name)
+        json = self._get_json()
+        old_group = Group(id = json['group'].id)
+        old_group_interfaces = old_group._get_json()['interfaces']
+        for interface in old_group_interfaces:
+            self.del_ip(interface)
+        self.del_bmc_ip()
+        self.unlink(old_group)
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'group': new_group.DBRef}}, multi=False, upsert=False)
+        self.link(new_group)
+        self.add_bmc_ip()
+        new_group_interfaces = new_group._get_json()['interfaces']
+        for interface in new_group_interfaces:
+            self.add_ip(interface)
+        return True
+
+    def change_ip(self, interface = None, reqip = None):
+        if not bool(interface):
             self._logger.error("'interfaces' should be specified")
+            return None
+        if not bool(reqip):
+            self._logger.error("IP address should be specified")
+            return None
+        self_group_name = self._get_json()['group']
+        group = Group(id = self_group_name.id)
+        if not bool(group.get_num_ip(interface, reqip)):
+            return None
+        if self.del_ip(interface):
+            return self.add_ip(interface, reqip)
+        return None
+
+    def change_bmc_ip(self, reqip = None):
+        if not bool(reqip):
+            self._logger.error("IP address should be specified")
+            return None
+        self_group_name = self._get_json()['group']
+        group = Group(id = self_group_name.id)
+        if not bool(group.get_num_bmc_ip(reqip)):
+            return None
+        if self.del_bmc_ip():
+            return self.add_bmc_ip(reqip)
+        return None
+        
+
+    def add_ip(self, interface = None, reqip = None):
+        if not bool(interface):
+            self._logger.error("'interface' should be specified")
             return None
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -74,8 +126,34 @@ class Node(Base):
         json = self._get_json()
         group = Group(id = json['group'].id)
         group_interfaces = group._get_json()['interfaces']
-        mongo_doc = {}
-        if not bool(json['interfaces']) or not interface:
+        node_interfaces = None
+        try:
+            node_interfaces = json['interfaces']
+        except:
+            pass
+        try:
+            group_interfaces[interface]
+        except:
+            self._logger.error("No such interface '{}' for group configured.".format(interface))
+            return None
+        old_ip = None
+        try:
+            old_ip = node_interfaces[interface]
+        except:
+            pass
+        if bool(old_ip):
+            self._logger.error("IP is already configured for interface '{}'.".format(interface))
+            return None
+        if not bool(node_interfaces):
+            node_interfaces = {}
+        ip = group._reserve_ip(interface, reqip)
+        if not bool(ip):
+            self._logger.error("Cannot reserve ip for interface '{}'.".format(interface))
+            return None
+        node_interfaces[interface] = ip
+
+        """
+        if not bool(mongo_doc) or not interface:
             for iface in group_interfaces:
                 try:
                     if bool(json['interfaces'][iface]):
@@ -96,7 +174,8 @@ class Node(Base):
                 self._logger.error("Cannot reserve ip for interface '{}'".format(interface))
                 return None
             mongo_doc[interface] = ip
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
+        """
+        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': node_interfaces}}, multi=False, upsert=False)
         return not res['err']
 
 
@@ -126,7 +205,7 @@ class Node(Base):
             ip = json['interfaces'][interface]
         except:
             self._logger.error("No such interface '{}' found. If it already deleted?".format(interface))
-            return None
+            return True
         group._release_ip(interface, ip)
         mongo_doc.pop(interface)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
@@ -287,6 +366,27 @@ class Node(Base):
         group = Group(id = json['group'].id)
         return group.get_num_bmc_ip(ip)
 
+    # TODO
+    @property
+    def prescript(self):
+        pass
+    @property
+    def bmcsetup(self):
+        pass
+    @property
+    def partscript(self):
+        pass
+    @property
+    def downloadscript(self):
+        pass
+    @property
+    def netconfigscript(self):
+        pass
+    @property
+    def postscript(self):
+        pass
+
+
 class Group(Base):
     """
     Class for operating with group records
@@ -294,7 +394,7 @@ class Group(Base):
     _logger = logging.getLogger(__name__)
     def __init__(self, name = None, create = False, id = None, 
             prescript = None, bmcsetup = None, bmcnetwork = None,
-            partscript = None, osimage = None, interfaces = None, postscript = None):
+            partscript = None, osimage = None, interfaces = None, postscript = None, domain = None):
         """
         prescript   - preinstall script
         bmcsetup    - bmcsetup options
@@ -307,7 +407,7 @@ class Group(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'group'
         mongo_doc = self._check_name(name, create, id)
-        self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type('')}
+        self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type(''), 'domain': type('')}
         if create:
             options = Options()
             (bmcobj, bmcnetobj) = (None, None)
@@ -332,7 +432,7 @@ class Group(Base):
                 postscript = "#!/bin/bash"
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
-                               'postscript': postscript}
+                               'postscript': postscript, 'domain': domain}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -628,7 +728,7 @@ class Group(Base):
         interfaces = self._get_json()['interfaces']
         dbref = None
         try:
-            dbref = interfaces[interface]
+            dbref = interfaces[interface]['network']
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
@@ -640,7 +740,7 @@ class Group(Base):
         interfaces = self._get_json()['interfaces']
         dbref = None
         try:
-            dbref = interfaces[interface]
+            dbref = interfaces[interface]['network']
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
