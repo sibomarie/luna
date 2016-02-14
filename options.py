@@ -40,7 +40,7 @@ class Options(Base):
             name = 'general'
         mongo_doc = self._check_name(name, create, id)
         if create:
-            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits}
+            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'tracker_port': 7050, 'tracker_interval': 10}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -49,7 +49,7 @@ class Options(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'testfield1': type('')}
+        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'tracker_port': type(0), 'tracker_interval': type(0)}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 

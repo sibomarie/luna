@@ -481,6 +481,8 @@ cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Z
 cluster_command = cluster_parser_actions.add_parser('change',help='Change cluster options')
 cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.')
 cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
+cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
+cluster_command.add_argument('--tracker_interval', type=int, help='Torrent tracker announce interval')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 
