@@ -13,8 +13,8 @@ def_format = '%20s%40s\n'
 
 #################### Cluster
 
-def cluster_init(nodeprefix, nodedigits):
-    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits )
+def cluster_init(nodeprefix, nodedigits, path, user):
+    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path )
 
 def cluster_delete():
     options = luna.Options()
@@ -22,10 +22,10 @@ def cluster_delete():
 
 def cluster_change(**args):
     options = luna.Options()
-    if args['tracker_clean']:
-        # TODO
-        print 'Not implemented'
-    args.pop('tracker_clean')
+#    if args['tracker_clean']:
+#        # TODO
+#        print 'Not implemented'
+#    args.pop('tracker_clean')
     for key in args:
         if not args[key]:
             continue
@@ -479,17 +479,27 @@ cluster_command = cluster_parser_actions.add_parser('show',help='Show options.')
 cluster_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output')
 # init
 cluster_command = cluster_parser_actions.add_parser('init', help='Create Luna Cluster.')
-cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.', default='node')
-cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding', default=3)
+cluster_command.add_argument('--nodeprefix', '--prefix', type=str, help='Auto-prefix for new nodes.', default='node')
+cluster_command.add_argument('--nodedigits', '--digits', type=int, help='Zero-autopadding', default=3)
+cluster_command.add_argument('--user', type=str, help='Username for running services.', default='luna')
+cluster_command.add_argument('--group', type=str, help='Groupname for running services.', default='luna')
+cluster_command.add_argument('--path', type=str, help='Path to store files.', default='/opt/luna')
+
 # change
 cluster_command = cluster_parser_actions.add_parser('change',help='Change cluster options')
 cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='Auto-prefix for new nodes.')
 cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
+cluster_command.add_argument('--path', type=str, help='Path to store files.')
+cluster_command.add_argument('--user', type=str, help='Username for running services.')
+cluster_command.add_argument('--group', type=str, help='Groupname for running services.')
+cluster_command.add_argument('--server_address', type=str, help='Torrent tracker address')
+cluster_command.add_argument('--server_port', type=int, help='Torrent tracker port')
+cluster_command.add_argument('--tracker_address', type=str, help='Torrent tracker address')
 cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
 cluster_command.add_argument('--tracker_interval', type=int, help='Torrent tracker announce interval')
 cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent tracker announce min interval')
 cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
-cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
+#cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 

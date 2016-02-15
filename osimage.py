@@ -4,10 +4,16 @@ import logging
 import inspect
 import sys
 import os
+import pwd
+import grp
+import subprocess
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.options import Options
+import libtorrent
+import uuid
+#import tarfile
 
 class OsImage(Base):
     """
@@ -27,7 +33,9 @@ class OsImage(Base):
         if bool(kernopts) and type(kernopts) is not str:
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
-        self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type('')}
+        self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type(''),
+                        'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''), 
+                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
         if create:
             options = Options()
             path = os.path.abspath(path)
@@ -68,7 +76,7 @@ class OsImage(Base):
             ver = "%s-%s.%s" % (h['VERSION'], h['RELEASE'], h['ARCH'])
             package_vers.extend([ver])
         return package_vers
-
+    """
     def __getattr__(self, key):
         try:
             self._keylist[key]
@@ -92,6 +100,7 @@ class OsImage(Base):
             self.set(key, value)
         except:
             self.__dict__[key] = value
+        """
 
     def _check_kernel(self, path, kernver):
         import os
@@ -121,3 +130,105 @@ class OsImage(Base):
     def path(self, value):
         self.set('path', value)
     """
+    def create_tarball(self):
+        path = Options().get('path')
+        if not path:
+            self._logger.error("Path needs to be configured.")
+            return None
+        user = Options().get('user')
+        if not user:
+            self._logger.error("User needs to be configured.")
+            return None
+        group = Options().get('group')
+        if not group:
+            self._logger.error("Group needs to be configured.")
+            return None
+        path_to_store = path + "/torrents"
+        user_id = pwd.getpwnam(user).pw_uid
+        grp_id = grp.getgrnam(group).gr_gid
+        if not os.path.exists(path_to_store):
+            os.makedirs(path_to_store)
+            os.chown(path_to_store, user_id, grp_id)
+        uid = str(uuid.uuid4())
+        tarfile_path = path_to_store + "/" + self.name + "-" + uid + ".tgz"
+        image_path = self.get('path')
+        #tarball = tarfile.open(tarfile_path, "w:gz")
+        #tarball.add(image_path, arcname=os.path.basename(image_path + "/."))
+        #tarball.close()
+        try:
+            subprocess.call(['/usr/bin/tar', '-C', image_path + '/.', '-c', '-z', '-f', tarfile_path, '.']) # dirty, but 4 times faster
+        except:
+            os.remove(tarfile_path)
+            return None
+        os.chown(tarfile_path, user_id, grp_id)
+        self.set('tarball', str(os.path.basename(tarfile_path)))
+        return os.path.basename(tarfile_path)
+    
+    def set(self, key, value):
+        res = super(OsImage, self).set(key, value)
+        if key == 'kernver' and res:
+            return self.place_bootfiles()
+        return res
+
+    def create_initrd(self):
+        path = Options().get('path')
+        if not path:
+            self._logger.error("Path needs to be configured.")
+            return None
+        path_to_store = "/tmp"
+        dracut_modules = self.get('dracutmodules') + " luna"
+        kern_modules = self.get('kernmodules')
+
+    def place_bootfiles(self):
+        path = Options().get('path')
+        if not path:
+            self._logger.error("Path needs to be configured.")
+            return None
+        path_to_store = path + "/boot"
+
+    def create_torrent(self):
+        try:
+            tarball = self.get('tarball')
+        except:
+            self._logger.error("No tarball in DB.")
+            return None
+        if not os.path.exists(tarball):
+            self._logger.error("Wrong path in DB.")
+            return None
+        tracker_address = Options().get('tracker_address')
+        if tracker_address == '':
+            self._logger.error("Tracker address needs to be configured.")
+            return None
+        tracker_port = Options().get('tracker_port')
+        if tracker_port == 0:
+            self._logger.error("Tracker port needs to be configured.")
+            return None
+        user = Options().get('user')
+        if not user:
+            self._logger.error("User needs to be configured.")
+            return None
+        group = Options().get('group')
+        if not group:
+            self._logger.error("Group needs to be configured.")
+            return None
+        user_id = pwd.getpwnam(user).pw_uid
+        grp_id = grp.getgrnam(group).gr_gid
+        old_cwd = os.getcwd()
+        os.chdir(os.path.dirname(tarball))
+        uid = str(uuid.uuid4())
+        torrentfile = os.path.basename(tarball) + ".torrent"
+        fs = libtorrent.file_storage()
+        libtorrent.add_files(fs, os.path.basename(tarball))
+        t = libtorrent.create_torrent(fs)
+        t.add_tracker("http://" + tracker_address + ":" + str(tracker_port) + "/announce")
+        t.set_creator("Luna")
+        t.set_comment(uid)
+        libtorrent.set_piece_hashes(t, ".")
+        f = open(torrentfile, 'w')
+        f.write(libtorrent.bencode(t.generate()))
+        f.close()
+        os.chown(torrentfile, user_id, grp_id)
+        self.set('torrent', str(torrentfile))
+        os.chdir(old_cwd)
+
+

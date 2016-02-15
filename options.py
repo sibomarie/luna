@@ -3,6 +3,10 @@ import pymongo
 import logging
 import inspect
 import sys
+import os
+import socket
+import pwd
+import grp
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
@@ -24,23 +28,41 @@ class Options(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, name = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0):
+    def __init__(self, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0, path = None, user = None, group = None):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
         nodeprefix='compute' and nodedigits='4' will give names like compute0001
-        name is used to give default name for mongo document.
-        Don't change it is are not sure what you are doing.
-
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._logger.debug("Connecting to MongoDB.")
         self._collection_name = 'options'
-        if name == None or name == '':
-            name = 'general'
+        name = 'general'
         mongo_doc = self._check_name(name, create, id)
         if create:
-            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'tracker_port': 7050, 'tracker_interval': 10, 'tracker_min_interval': 5, 'tracker_maxpeers': 200}
+            try:
+                path =  os.path.abspath(path)
+            except:
+                self._logger.error("No path specified.")
+                raise RuntimeError
+            if not os.path.exists(path):
+                self._logger.error("Wrong path specified.")
+                raise RuntimeError
+            try:
+                pwd.getpwnam(user)
+            except:
+                self._logger.error("No such user exists.")
+                raise RuntimeError
+            try:
+                grp.getgrnam(group)
+            except:
+                self._logger.error("No such group exists.")
+                raise RuntimeError
+
+            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, user: user, group: group,
+                        'debug': 0, 'path': path, 'server_address': '', 'server_port': 7050,
+                        'tracker_address': '','tracker_port': 7051, 'tracker_interval': 10, 
+                        'tracker_min_interval': 5, 'tracker_maxpeers': 200}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -49,7 +71,10 @@ class Options(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'tracker_port': type(0), 'tracker_interval': type(0), 'tracker_min_interval': type(0), 'tracker_maxpeers': type(0)}
+        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''), 'group': type(''),
+                        'path': type(''), 'server_address': type(''), 'server_port': type(0),
+                        'tracker_address': type(''), 'tracker_port': type(0), 'tracker_interval': type(0),
+                        'tracker_min_interval': type(0), 'tracker_maxpeers': type(0)}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -66,3 +91,38 @@ class Options(Base):
             self.set(key, value)
         except:
             self.__dict__[key] = value
+    def set(self, key, value):
+        if key == 'path':
+            try:
+                value =  os.path.abspath(value)
+            except:
+                self._logger.error("No path specified.")
+                return None
+            if not os.path.exists(value):
+                self._logger.error("Wrong path specified.")
+                return None
+            return super(Options, self).set(key, value)
+        if key in ['server_address', 'tracker_address']:
+            try:
+                socket.inet_aton(value)
+            except:
+                self._logger.error("Wrong ip address specified.")
+                return None
+            return super(Options, self).set(key, value)
+        if key == 'user':
+            try:
+                pwd.getpwnam(value)
+            except:
+                self._logger.error("No such user exists.")
+                return None
+        if key == 'group':
+            try:
+                grp.getgrnam(value)
+            except:
+                self._logger.error("No such group exists.")
+                return None
+        return super(Options, self).set(key, value)
+
+            
+
+

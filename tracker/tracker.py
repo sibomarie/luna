@@ -13,7 +13,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 
-from bencode import bencode
+from libtorrent import bencode
 from utils import *
 from luna import Options
 

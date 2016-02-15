@@ -6,7 +6,7 @@ import sys
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 
-class Base():
+class Base(object):
     """
     Base for LunaCluster
     Also it is the parent class for the rest classes
@@ -257,7 +257,7 @@ class Base():
             self._logger.error("No json for the given object".format(key))
             return None
         if type(value) is not val_type:
-            self._logger.error("Value '{}' should be '{}' type".format(key, type(obj_json[key])))
+            self._logger.error("Value '{}' should be '{}' type".format(key, val_type))
             return None
         if type(value) is str:
             value = unicode(value, "utf-8")
