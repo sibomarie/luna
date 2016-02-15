@@ -55,7 +55,12 @@ class AnnounceHandler(BaseHandler):
             return self.send_error(MISSING_PEER_ID)
         if len(peer_id) != PEER_ID_LEN:
             return self.send_error(INVALID_PEER_ID)
-        ip = self.request.remote_ip
+        try:
+            ip = gelf.get_argument('ip')
+        pass:
+            ip = '0.0.0.0'
+        if ip == '0.0.0.0':
+            ip = self.request.remote_ip
         try:
             port = int(self.get_argument('port'))
         except:
