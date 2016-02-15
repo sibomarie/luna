@@ -22,6 +22,10 @@ def cluster_delete():
 
 def cluster_change(**args):
     options = luna.Options()
+    if args['tracker_clean']:
+        # TODO
+        print 'Not implemented'
+    args.pop('tracker_clean')
     for key in args:
         if not args[key]:
             continue
@@ -483,6 +487,9 @@ cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='A
 cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
 cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
 cluster_command.add_argument('--tracker_interval', type=int, help='Torrent tracker announce interval')
+cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent tracker announce min interval')
+cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
+cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 

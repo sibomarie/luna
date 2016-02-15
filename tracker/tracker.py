@@ -20,6 +20,9 @@ from luna import Options
 
 logger = logging.getLogger('tornado.access')
 luna_opts = Options()
+luna_tracker_interval = luna_opts.get('tracker_interval')
+luna_tracker_min_interval = luna_opts.get('tracker_min_interval')
+luna_tracker_maxpeers = luna_opts.get('tracker_maxpeers')
 
 
 class TrackerStats(BaseHandler):
@@ -40,67 +43,88 @@ class AnnounceHandler(BaseHandler):
 
         # get all the required parameters from the HTTP request.
         info_hash = self.get_argument('info_hash')
-        peer_id = self.get_argument('peer_id')
-        ip = self.request.remote_ip
-        port = self.get_argument('port')
-
-        # send appropirate error code.
-        if not info_hash:
+        try:
+            info_hash = self.get_argument('info_hash')
+        except:
             return self.send_error(MISSING_INFO_HASH)
-        if not peer_id:
-            return self.send_error(MISSING_PEER_ID)
-        if not port:
-            return self.send_error(MISSING_PORT)
         if len(info_hash) != INFO_HASH_LEN:
             return self.send_error(INVALID_INFO_HASH)
+        try:
+            peer_id = self.get_argument('peer_id')
+        except:
+            return self.send_error(MISSING_PEER_ID)
         if len(peer_id) != PEER_ID_LEN:
             return self.send_error(INVALID_PEER_ID)
-        # Shelve in Python2 doesn't support unicode
+        ip = self.request.remote_ip
+        try:
+            port = int(self.get_argument('port'))
+        except:
+            return self.send_error(MISSING_PORT)
+        try:
+            uploaded = int(self.get_argument('uploaded'))
+        except:
+            uploaded = 0
+        try:
+            downloaded = int(self.get_argument('downloaded'))
+        except:
+            downloaded = 0
+        try:
+            left = int(self.get_argument('left'))
+        except:
+            left = 0
         info_hash = str(info_hash)
 
-        # get the optional parameters.
-        # FIXME: these parameters will be used in future versions
-        # uploaded = int(self.get_argument('uploaded', 0))
-        # downloaded = int(self.get_argument('downloaded', 0))
-        # left = int(self.get_argument('left', 0))
-        compact = int(self.get_argument('compact', 0))
-        no_peer_id = int(self.get_argument('no_peer_id', 0))
-        event = self.get_argument('event', '')
-        numwant = int(self.get_argument('numwant', DEFAULT_ALLOWED_PEERS))
-        if numwant > MAX_ALLOWED_PEERS:
+        try:
+            compact = int(self.get_argument('compact'))
+        except:
+            compact = 0
+        try:
+            event = self.get_argument('event')
+        except:
+            event = ''
+        try:
+            no_peer_id = int(self.get_argument('no_peer_id'))
+        except:
+            no_peer_id = 0
+        try:
+            numwant = int(self.get_argument('numwant'))
+        except:
+            numwant = DEFAULT_ALLOWED_PEERS
+        if numwant > luna_tracker_maxpeers:
             # XXX: cannot request more than MAX_ALLOWED_PEERS.
             return self.send_error(INVALID_NUMWANT)
-
-        # key = self.get_argument('key', '')
-        tracker_id = self.get_argument('trackerid', '')
-
-        # store the peer info
-        if event:
-            store_peer_info(info_hash, peer_id, ip, port, event)
+        try:
+            key = self.get_argument('key')
+        except:
+            key = ''
+        try:
+            tracker_id = self.get_argument('trackerid')
+        except:
+            tracker_id = ''
+            
+        update_peers(info_hash, peer_id, ip, port, event, uploaded, downloaded, left)
 
         # generate response
         response = {}
         # Interval in seconds that the client should wait between sending
         #    regular requests to the tracker.
-        response['interval'] = luna_opts.get('tracker_interval')
+        response['interval'] = luna_tracker_interval
         # Minimum announce interval. If present clients must not re-announce
         #    more frequently than this.
-        response['min interval'] = luna_opts.get('tracker_interval')
-        # FIXME
+        response['min interval'] = luna_tracker_min_interval
+        
+        res_complete, res_incomplete, res_peers = get_peers(info_hash, 
+                                                            numwant,
+                                                            compact,
+                                                            no_peer_id,
+                                                            luna_tracker_interval * 2)
+        response['complete'] = res_complete
+        response['incomplete'] = res_incomplete
+        response['peers'] = res_peers
         response['tracker id'] = tracker_id
-        response['complete'] = no_of_seeders(info_hash)
-        response['incomplete'] = no_of_leechers(info_hash)
-
-        # get the peer list for this announce
-        response['peers'] = get_peer_list(info_hash,
-                                          numwant,
-                                          compact,
-                                          no_peer_id)
-
-        # set error and warning messages for the client if any.
-        if failure_reason:
+        if bool(failure_reason):
             response['failure reason'] = failure_reason
-        if warning_message:
+        if bool(warning_message):
             response['warning message'] = warning_message
 
         # send the bencoded response as text/plain document.
@@ -119,10 +143,12 @@ class ScrapeHandler(BaseHandler):
         for info_hash in info_hashes:
             info_hash = str(info_hash)
             response[info_hash] = {}
-            response[info_hash]['complete'] = no_of_seeders(info_hash)
+            
+            res_complete, res_incomplete, _ = get_peers(info_hash, numwant, compact, no_peer_id, luna_tracker_interval * 2)
+            response[info_hash]['complete'] = res_complete
             # FIXME: number of times clients have registered completion.
-            response[info_hash]['downloaded'] = no_of_seeders(info_hash)
-            response[info_hash]['incomplete'] = no_of_leechers(info_hash)
+            response[info_hash]['downloaded'] = res_complete
+            response[info_hash]['incomplete'] = res_incomplete
             # this is possible typo:
             # response[info_hash]['name'] = bdecode(info_hash).get(name, '')
 
@@ -159,7 +185,7 @@ def start_tracker():
     (options, args) = parser.parse_args()
 
     # setup directories
-    create_pytt_dirs()
+    #create_pytt_dirs()
     # setup logging
     setup_logging(options.debug)
 
@@ -168,12 +194,12 @@ def start_tracker():
         run_app(int(options.port) or luna_opts.get('tracker_port'))
     except KeyboardInterrupt:
         logging.info('Tracker Stopped.')
-        close_db()
+        #close_db()
         close_mongo()
         sys.exit(0)
     except Exception as ex:
         logging.fatal('%s' % str(ex))
-        close_db()
+        #close_db()
         close_mongo()
         sys.exit(-1)
 
