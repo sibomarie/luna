@@ -46,23 +46,27 @@ class Options(Base):
                 self._logger.error("No path specified.")
                 raise RuntimeError
             if not os.path.exists(path):
-                self._logger.error("Wrong path specified.")
+                self._logger.error("Wrong path '{}' specified.".format(path))
                 raise RuntimeError
             try:
-                pwd.getpwnam(user)
+                user_id = pwd.getpwnam(user)
             except:
-                self._logger.error("No such user exists.")
+                self._logger.error("No such user '{}' exists.".format(user))
                 raise RuntimeError
             try:
-                grp.getgrnam(group)
+                group_id = grp.getgrnam(group)
             except:
-                self._logger.error("No such group exists.")
+                self._logger.error("No such group '{}' exists.".format(group))
                 raise RuntimeError
-
-            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, user: user, group: group,
+            path_stat = os.stat(path)
+            if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != group_id.gr_gid:
+                self._logger.error("Path is not owned by '{}:{}'".format(user, group))
+                raise RuntimeError
+            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user, 'group': group,
                         'debug': 0, 'path': path, 'server_address': '', 'server_port': 7050,
                         'tracker_address': '','tracker_port': 7051, 'tracker_interval': 10, 
-                        'tracker_min_interval': 5, 'tracker_maxpeers': 200}
+                        'tracker_min_interval': 5, 'tracker_maxpeers': 200,
+                        'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -74,7 +78,8 @@ class Options(Base):
         self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''), 'group': type(''),
                         'path': type(''), 'server_address': type(''), 'server_port': type(0),
                         'tracker_address': type(''), 'tracker_port': type(0), 'tracker_interval': type(0),
-                        'tracker_min_interval': type(0), 'tracker_maxpeers': type(0)}
+                        'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
+                        'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0)}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 

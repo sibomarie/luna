@@ -7,6 +7,7 @@ import os
 import pwd
 import grp
 import subprocess
+import threading
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
@@ -150,19 +151,36 @@ class OsImage(Base):
             os.makedirs(path_to_store)
             os.chown(path_to_store, user_id, grp_id)
         uid = str(uuid.uuid4())
-        tarfile_path = path_to_store + "/" + self.name + "-" + uid + ".tgz"
+        tarfile_path = path_to_store + "/" + uid + ".tgz"
         image_path = self.get('path')
         #tarball = tarfile.open(tarfile_path, "w:gz")
         #tarball.add(image_path, arcname=os.path.basename(image_path + "/."))
         #tarball.close()
         try:
-            subprocess.call(['/usr/bin/tar', '-C', image_path + '/.', '-c', '-z', '-f', tarfile_path, '.']) # dirty, but 4 times faster
+            tar_out = subprocess.Popen(['/usr/bin/tar', 
+                    '-C', image_path + '/.', 
+                    '--one-file-system', 
+                    '--xattrs', 
+                    '--selinux', 
+                    '--acls',
+                    '--checkpoint=100',
+                    '-c', '-z', '-f', tarfile_path, '.'], stderr=subprocess.PIPE) # dirty, but 4 times faster
+            stat_symb = ['\\', '|', '/', '-']
+            i = 0
+            while True:
+                line = tar_out.stderr.readline()
+                if line == '':
+                    break
+                i = i + 1
+                sys.stdout.write(stat_symb[i % len(stat_symb)])
+                sys.stdout.write('\r')
         except:
             os.remove(tarfile_path)
+            sys.stdout.write('\r')
             return None
         os.chown(tarfile_path, user_id, grp_id)
-        self.set('tarball', str(os.path.basename(tarfile_path)))
-        return os.path.basename(tarfile_path)
+        self.set('tarball', str(uid))
+        return True
     
     def set(self, key, value):
         res = super(OsImage, self).set(key, value)
@@ -187,11 +205,11 @@ class OsImage(Base):
         path_to_store = path + "/boot"
 
     def create_torrent(self):
-        try:
-            tarball = self.get('tarball')
-        except:
+        tarball_uid = self.get('tarball')
+        if not bool(tarball_uid):
             self._logger.error("No tarball in DB.")
             return None
+        tarball = Options().get('path') + "/torrents/" + tarball_uid + ".tgz"
         if not os.path.exists(tarball):
             self._logger.error("Wrong path in DB.")
             return None
@@ -216,19 +234,20 @@ class OsImage(Base):
         old_cwd = os.getcwd()
         os.chdir(os.path.dirname(tarball))
         uid = str(uuid.uuid4())
-        torrentfile = os.path.basename(tarball) + ".torrent"
+        torrentfile = Options().get('path') + "/torrents/" + uid + ".torrent"
         fs = libtorrent.file_storage()
         libtorrent.add_files(fs, os.path.basename(tarball))
         t = libtorrent.create_torrent(fs)
-        t.add_tracker("http://" + tracker_address + ":" + str(tracker_port) + "/announce")
-        t.set_creator("Luna")
+        t.add_tracker("http://" + str(tracker_address) + ":" + str(tracker_port) + "/announce")
+        t.set_creator(torrent_key)
         t.set_comment(uid)
         libtorrent.set_piece_hashes(t, ".")
         f = open(torrentfile, 'w')
         f.write(libtorrent.bencode(t.generate()))
         f.close()
+        self.set('torrent', str(uid))
         os.chown(torrentfile, user_id, grp_id)
-        self.set('torrent', str(torrentfile))
         os.chdir(old_cwd)
+        return True
 
 

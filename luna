@@ -13,8 +13,8 @@ def_format = '%20s%40s\n'
 
 #################### Cluster
 
-def cluster_init(nodeprefix, nodedigits, path, user):
-    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path )
+def cluster_init(nodeprefix, nodedigits, path, user, group):
+    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
 
 def cluster_delete():
     options = luna.Options()
@@ -98,6 +98,23 @@ def osimage_change(**args):
         if not args[key]:
             continue
         osimage.set(key, args[key])
+
+def osimage_pack(**args):
+    osimage = luna.OsImage(args['name'])
+    res = None
+    try:
+        print 'Creating tarball.'
+        res = osimage.create_tarball()
+        print 'Done.'
+    except:
+        return None
+    try:
+        print 'Creating torrent.'
+        res = osimage.create_torrent()
+        print 'Done.'
+    except:
+        return None
+    return True
 
 #################### BMCSetup
 
@@ -499,6 +516,8 @@ cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker p
 cluster_command.add_argument('--tracker_interval', type=int, help='Torrent tracker announce interval')
 cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent tracker announce min interval')
 cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
+cluster_command.add_argument('--torrent_listen_port_min', type=int, help='Torrent client listening port min')
+cluster_command.add_argument('--torrent_listen_port_max', type=int, help='Torrent client listening port max')
 #cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
@@ -532,6 +551,9 @@ osimage_command_group = osimage_command.add_mutually_exclusive_group()
 ####osimage_command_group.add_argument('--path', '-p', type=str, help='Path to osimage.')
 osimage_command_group.add_argument('--kernver', '-k', type=str, help='Kernel version.')
 osimage_command_group.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
+# pack
+osimage_command = osimage_parser_actions.add_parser('pack', help='Pack OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 # delete
 osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
