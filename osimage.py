@@ -15,6 +15,7 @@ from luna.options import Options
 import libtorrent
 import uuid
 #import tarfile
+import shutil
 
 class OsImage(Base):
     """
@@ -132,6 +133,7 @@ class OsImage(Base):
         self.set('path', value)
     """
     def create_tarball(self):
+        # TODO check if root
         path = Options().get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
@@ -205,6 +207,7 @@ class OsImage(Base):
         path_to_store = path + "/boot"
 
     def create_torrent(self):
+        # TODO check if root
         tarball_uid = self.get('tarball')
         if not bool(tarball_uid):
             self._logger.error("No tarball in DB.")
@@ -234,7 +237,7 @@ class OsImage(Base):
         old_cwd = os.getcwd()
         os.chdir(os.path.dirname(tarball))
         uid = str(uuid.uuid4())
-        torrentfile = Options().get('path') + "/torrents/" + uid + ".torrent"
+        torrentfile = str(Options().get('path')) + "/torrents/" + uid
         fs = libtorrent.file_storage()
         libtorrent.add_files(fs, os.path.basename(tarball))
         t = libtorrent.create_torrent(fs)
@@ -247,6 +250,7 @@ class OsImage(Base):
         f.close()
         self.set('torrent', str(uid))
         os.chown(torrentfile, user_id, grp_id)
+        shutil.move(torrentfile, torrentfile + ".torrent")
         os.chdir(old_cwd)
         return True
 
