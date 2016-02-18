@@ -4,15 +4,18 @@ import libtorrent as lt
 import os
 import threading
 import logging
+import logging.handlers
 import datetime
 import Queue
 import pwd, grp
 import time
+import shutil
+import signal
 
 
 logger = logging.getLogger('luna-torrent')
+
 torrents = {}
-#running_torrents = {}
 t_session = None
 
 SOFTTIMEOUT = 15
@@ -37,6 +40,10 @@ def setup_logging(debug=False):
         level = logging.DEBUG
     else:
         level = logging.INFO
+
+    handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
+    logger.propagate = False
+    logger.addHandler(handler)
 
 def get_now(shift = 0):
     return datetime.datetime.utcnow() + datetime.timedelta(seconds = shift)
@@ -65,11 +72,11 @@ class LunaTorrentFile(object):
         self._info_hash = self._info.info_hash()
         self._path = os.path.abspath(torrent_file)
         self._basename = os.path.basename(self._path)
-        self._dirname = os.path.dirname(self._path)
         self._tarball = self._info.orig_files().pop().path
         self._tarball_id = self._tarball[:36]
         self._id = self._info.comment()
         self._active = self.update_status()
+        self._dirname = os.path.dirname(self._path)
         if not os.path.exists(self._dirname + "/" + self._tarball):
             logger.error("Cannot find tarball '{}' for torrent '{}'.".format(self._dirname + "/" + self._tarball, torrent_file))
             raise RuntimeError
@@ -77,16 +84,23 @@ class LunaTorrentFile(object):
         self._need_to_delete = False
         self._duplicate = False
         self._uploaded = 0
+        self._seeding = False
 
     def __repr__(self):
         return str({'id': self._id,
                 'tarball_id': self._tarball_id,
                 'tarball': self._tarball,
                 'info_hash': str(self._info_hash),
+                'path': self._path,
+                'basename': self._basename,
                 'info': self._info,
                 'active': self._active,
                 'need_to_delete': self._need_to_delete,
-                'accessed': self._timestamp
+                'accessed': self._timestamp,
+                'duplicate': self._duplicate,
+                'uploaded': self._uploaded,
+                'become_inactive': self._become_inactive,
+                'seeding': self._seeding
             })
     @property
     def info_hash(self):
@@ -139,6 +153,12 @@ class LunaTorrentFile(object):
     @become_inactive.setter
     def become_inactive(self, val):
         self._become_inactive = val
+    @property
+    def seeding(self):
+        return self._seeding
+    @seeding.setter
+    def seeding(self, flag):
+        self._seeding = flag
 
     def accessed(self, set_flag = False):
         if not bool(set_flag):
@@ -228,12 +248,15 @@ def update_torrents():
             logger.error("Error with parsing torrent file '{}'".format(filename))
             continue
         #torrent_files_on_disk[tf.id] = True
+        old_tf = None
         try:
             old_tf = torrents[tf.id]
-            if tf.info_hash.as_string() != old_tf.info_hash.as_string():
+        except:
+            pass
+        if bool(old_tf):
+            if str(tf.info_hash) != str(old_tf.info_hash):
                 logger.error("Was '{}' replaced? It has the same name but different info_hash.".format(filename))
-                continue
-        except: 
+        else: 
             logger.info("New torrent file was found. '{}'".format(filename))
             torrents[tf.id] = tf
     find_old_torrents()
@@ -256,6 +279,9 @@ def find_duplicates():
         duplicates[info_hash] = True
     for file_id in torrents:
         tf = torrents[file_id]
+        if tf.need_to_delete:
+            continue
+
         if duplicates[str(tf.info_hash)] and not tf.active:
             logger.info("Duplicate '{}' info_hash was found in '{}'.".format(str(tf.info_hash), tf.basename))
             torrents[file_id].duplicate = True
@@ -291,7 +317,8 @@ def find_old_torrents():
         except:
             if tf.active:
                 logger.error("Torrent '{}' was deleted from luna DB.".format(tf.id))
-            tf.active = False
+                tf.active = False
+                tf.update_status()
 
 def start_torrent_client():
     global t_session
@@ -318,27 +345,40 @@ def start_torrent_client():
     except:
         logger.error("Failed to open listening ports.")
         raise RuntimeError
+    peer_id = lt.sha1_hash('lunalunalunalunaluna')
+    t_session.set_peer_id(peer_id)
     #t_session.flag_share_mode = True
     #t_session.flag_seed_mode = True
     #t_session.flag_super_seeding = 1
-    flags = flag_seed_mode | flag_upload_mode | flag_super_seeding
-    parm_dict = {"save_path": str(options.get('path')) + "/torrents", 'flags': flags}
     #t_session.async_add_torrent(parm_dict)
     #t_session.resume()
     #print torrents[0].id
     #print t_session.is_paused()
     #print t_session.find_torrent(torrents[0].id)
+    update_torrent_client()
+
+def update_torrent_client():
+    if not bool(t_session):
+        return None
+    options = luna.Options()
+    flags = flag_seed_mode | flag_upload_mode | flag_super_seeding
+    parm_dict = {"save_path": str(options.get('path')) + "/torrents", 'flags': flags }
     for tf in torrents:
         if torrents[tf].duplicate:
             continue
         if torrents[tf].need_to_delete:
             continue
+        if torrents[tf].seeding:
+            continue
         logger.info("Starting torrent '{}' for '{}'".format(torrents[tf].basename, torrents[tf].tarball))
         parm_dict['ti'] = torrents[tf].info
         t_session.async_add_torrent(parm_dict)
+        torrents[tf].seeding = True
         
 def get_lt_alerts():
     global t_session
+    if not bool(t_session):
+        return None
     alert = t_session.pop_alert()
     while alert:
         logger.info("Libtorrent alert: '{}'".format(str(alert)))
@@ -348,8 +388,11 @@ def main_loop():
         remove_files()
         get_lt_alerts()
         update_inactive_torrents()
+        #update_torrents()
+        #update_torrent_client()
+        #for i in torrents:
+            #print torrents[i].basename, torrents[i].seeding, torrents[i].need_to_delete, '---', str(torrents[i].become_inactive), '---', str(torrents[i].accessed())
         time.sleep(2)
-        print t_session.get_torrents()
 def update_inactive_torrents():
     for uid in torrents:
         tf = torrents[uid]
@@ -372,15 +415,48 @@ def update_inactive_torrents():
             logger.info("Timeout for inactive torrent '{}' for '{}'. Files will be deleted.".format(tf.basename, tf.tarball))
             tf.need_to_delete = True
             t_session.remove_torrent(active_torr)
+            tf.seeding = False
         if tf.become_inactive < get_now(-HARDTIMEOUT):
             logger.info("Hard timeout for inactive torrent '{}' for '{}'. Files will be deleted.".format(tf.basename, tf.tarball))
             tf.need_to_delete = True
             t_session.remove_torrent(active_torr)
+            tf.seeding = False
             
 
 def remove_files():
-    pass
+    def rm(path):
+        if not bool(path):
+            return None
+        try:
+            shutil.move(path, path + ".del")
+        except:
+            logger.error("Cannot remove '{}'".format(path))
+    uids = torrents.keys()
+    for uid in uids:
+        tf = torrents[uid]
+        if tf.seeding:
+            continue
+        if tf.active:
+            continue
+        if tf.duplicate:
+            logger.info("Removing torrent file as duplicate '{}'".format(tf.path))
+            rm(tf.path)
+            torrents.pop(uid)
+        if tf.need_to_delete:
+            tarball_path = os.path.dirname(tf.path) + "/" + tf.tarball
+            logger.info("Removing torrent file as it marked for deletion '{}'".format(tf.path))
+            logger.info("Removing tarball file as it marked for deletion '{}'".format(tarball_path))
+            rm(tf.path)
+            rm(tarball_path)
+            torrents.pop(uid)
 
+def sighup_handler(sig, frame):
+    logger.info("Re-reading torrent files")
+    update_torrent_client()
+    #update_inactive_torrents()
+    update_torrent_client()
+
+signal.signal(signal.SIGHUP, sighup_handler)
 
 if __name__ == '__main__':
     setup_logging()

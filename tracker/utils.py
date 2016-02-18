@@ -12,7 +12,8 @@ import datetime
 import os
 import logging
 import logging.handlers
-import shelve
+#import shelve
+import libtorrent
 from socket import inet_aton
 from struct import pack
 import tornado.web
@@ -318,11 +319,20 @@ def update_peers(info_hash, peer_id, ip, port, status, uploaded, downloaded, lef
 def get_peers(info_hash, numwant, compact, no_peer_id, age):
     mongo = get_mongo()
     time_age = datetime.datetime.utcnow() - datetime.timedelta(seconds = age)
+    # '6c756e616c756e616c756e616c756e616c756e61'
     mongo_cursor = mongo.find({'info_hash': info_hash, 'updated': {'$gte': time_age}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+    server_records = mongo.find({'info_hash': info_hash, 'peer_id': binascii.hexlify('lunalunalunalunaluna'), 'port': {'$ne': 0}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
     peer_tuple_list = []
     n_leechers = 0
     n_seeders = 0
     for doc in mongo_cursor:
+        try:
+            n_leechers += int(doc['status'] == 'started')
+            n_seeders += int(doc['status'] == 'completed')
+        except:
+            pass
+        peer_tuple_list.extend([(binascii.unhexlify(doc['peer_id']), doc['ip'], doc['port'])])
+    for doc in server_records:
         try:
             n_leechers += int(doc['status'] == 'started')
             n_seeders += int(doc['status'] == 'completed')
