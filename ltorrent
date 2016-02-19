@@ -2,6 +2,7 @@
 import luna
 import libtorrent as lt
 import os
+import sys
 import threading
 import logging
 import logging.handlers
@@ -11,15 +12,16 @@ import pwd, grp
 import time
 import shutil
 import signal
+import atexit
 
+runas_user = None
+runas_group = None
+torrents_path = None
+pidfile = None
+daemonize = None
+soft_timeout = None
+hard_timeout = None
 
-logger = logging.getLogger('luna-torrent')
-
-torrents = {}
-t_session = None
-
-SOFTTIMEOUT = 15
-HARDTIMEOUT = 60
 flag_seed_mode = 1
 flag_override_resume_data = 2
 flag_upload_mode = 4
@@ -35,15 +37,17 @@ flag_sequential_download = 2048
 flag_use_resume_save_path = 4096
 
 
-def setup_logging(debug=False):
-    if debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
 
-    handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
-    logger.propagate = False
-    logger.addHandler(handler)
+torrents = {}
+t_session = None
+
+
+#def setup_logging(debug=False):
+#    if debug:
+#        level = logging.DEBUG
+#    else:
+#        level = logging.INFO
+
 
 def get_now(shift = 0):
     return datetime.datetime.utcnow() + datetime.timedelta(seconds = shift)
@@ -190,44 +194,40 @@ def get_luna_torrents():
         luna_torrents[torr_uid]['tarball_id'] = tgz_id
     return luna_torrents
 
-def check_path():
-    options = luna.Options()
-    path = options.get('path')
-    if not path:
-        logger.error("Path needs to be configured")
-        raise RuntimeError
-    path = str(path) + "/torrents"
+def check_path(path):
     if not os.path.exists(path):
         logger.error("Path '{}' does not exist.".format(path))
         raise RuntimeError
-    user = options.get('user')
-    group = options.get('group')
-    if not user:
+    if not runas_user:
         logger.error("User needs to be configured.")
         raise RuntimeError
-    if not user:
-        logger.error("Gruop needs to be configured.")
+    if not runas_group:
+        logger.error("Group needs to be configured.")
         raise RuntimeError
     try:
-        user_id = pwd.getpwnam(user)
+        user_id = pwd.getpwnam(runas_user)
     except:
-        logger.error("No such user '{}' exists.".format(user))
+        logger.error("No such user '{}' exists.".format(runas_user))
         raise RuntimeError
     try:
-        group_id = grp.getgrnam(group)
+        group_id = grp.getgrnam(runas_group)
     except:
-        logger.error("No such group '{}' exists.".format(group))
+        logger.error("No such group '{}' exists.".format(runas_group))
         raise RuntimeError
     path_stat = os.stat(path)
     if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != group_id.gr_gid:
-        logger.error("Path is not owned by '{}:{}'".format(user, group))
+        logger.error("Path is not owned by '{}:{}'".format(runas_user, runas_user))
         raise RuntimeError
     return path
 
 def update_torrents():
     global torrents
+    path = torrents_path
+    if not path:
+        logger.error("Path needs to be configured")
+        raise RuntimeError
     try:
-        path = check_path()
+        path = check_path(path)
     except:
         logger.error("Error is occured with configured path.")
         return None
@@ -324,7 +324,7 @@ def start_torrent_client():
     global t_session
     global torrents
     try:
-        path = check_path()
+        path = check_path(torrents_path)
     except:
         logger.error("Error is occured with configured path.")
         return None
@@ -358,11 +358,12 @@ def start_torrent_client():
     update_torrent_client()
 
 def update_torrent_client():
+    #global torrents_path
     if not bool(t_session):
         return None
-    options = luna.Options()
+    #options = luna.Options()
     flags = flag_seed_mode | flag_upload_mode | flag_super_seeding
-    parm_dict = {"save_path": str(options.get('path')) + "/torrents", 'flags': flags }
+    parm_dict = {"save_path": torrents_path, 'flags': flags }
     for tf in torrents:
         if torrents[tf].duplicate:
             continue
@@ -383,7 +384,8 @@ def get_lt_alerts():
     while alert:
         logger.info("Libtorrent alert: '{}'".format(str(alert)))
         alert = t_session.pop_alert()
-def main_loop():
+
+def run():
     while True:
         remove_files()
         get_lt_alerts()
@@ -392,7 +394,8 @@ def main_loop():
         #update_torrent_client()
         #for i in torrents:
             #print torrents[i].basename, torrents[i].seeding, torrents[i].need_to_delete, '---', str(torrents[i].become_inactive), '---', str(torrents[i].accessed())
-        time.sleep(2)
+        time.sleep(5)
+
 def update_inactive_torrents():
     for uid in torrents:
         tf = torrents[uid]
@@ -411,12 +414,12 @@ def update_inactive_torrents():
                 logger.info("'{}' used by '{}'".format(tf.basename, i.ip))
             tf.uploaded = active_torr.status().total_upload
             tf.accessed(True)
-        if tf.accessed() < get_now(-SOFTTIMEOUT):
+        if tf.accessed() < get_now(-soft_timeout):
             logger.info("Timeout for inactive torrent '{}' for '{}'. Files will be deleted.".format(tf.basename, tf.tarball))
             tf.need_to_delete = True
             t_session.remove_torrent(active_torr)
             tf.seeding = False
-        if tf.become_inactive < get_now(-HARDTIMEOUT):
+        if tf.become_inactive < get_now(-hard_timeout):
             logger.info("Hard timeout for inactive torrent '{}' for '{}'. Files will be deleted.".format(tf.basename, tf.tarball))
             tf.need_to_delete = True
             t_session.remove_torrent(active_torr)
@@ -452,18 +455,204 @@ def remove_files():
 
 def sighup_handler(sig, frame):
     logger.info("Re-reading torrent files")
+    update_torrents()
     update_torrent_client()
     #update_inactive_torrents()
-    update_torrent_client()
+    #update_torrent_client()
 
-signal.signal(signal.SIGHUP, sighup_handler)
 
-if __name__ == '__main__':
-    setup_logging()
-#    get_luna_torrents()
+def daemonize():
+    global pidfile
+    """
+    do the UNIX double-fork magic, see Stevens' "Advanced
+    Programming in the UNIX Environment" for details (ISBN 0201563177)
+    http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
+    """
+    handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
+    logger.propagate = False
+    logger.addHandler(handler)
+    stdin = '/dev/null'
+    stdout = '/dev/null'
+    stderr = '/dev/null'
+    logger.info("Starting Luna Torrent as daemon")
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # exit first parent
+            sys.exit(0)
+    except OSError, e:
+        logger.error("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+        sys.exit(1)
+
+    # decouple from parent environment
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+
+    # do second fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # exit from second parent
+            sys.exit(0)
+    except OSError, e:
+        logger.error("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
+        sys.exit(1)
+
+    # redirect standard file descriptors
+    sys.stdout.flush()
+    sys.stderr.flush()
+    si = file(stdin, 'r')
+    so = file(stdout, 'a+')
+    se = file(stderr, 'a+', 0)
+    os.dup2(si.fileno(), sys.stdin.fileno())
+    os.dup2(so.fileno(), sys.stdout.fileno())
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+    # write pidfile
+    atexit.register(exit_handler)
+    pid = str(os.getpid())
+    f = open(pidfile, "w+")
+    f.write("%s\n" % pid)
+    f.close()
+
+def start():
+    """
+    Start the daemon
+    """
+    global pidfile
+    global runas_user
+    user_id = pwd.getpwnam(runas_user)
+    os.setgid(user_id.pw_gid)
+    os.setuid(user_id.pw_uid)
+    # Check for a pidfile to see if the daemon already runs
+    try:
+        pidfile = check_path(os.path.dirname(pidfile)) + "/torrent.pid"
+        pf = file(pidfile,'r')
+        pid = int(pf.read().strip())
+        pf.close()
+    except IOError:
+        pid = None
+
+    if pid:
+        message = "pidfile %s already exist. Daemon already running?\n"
+        sys.stderr.write(message % pidfile)
+        sys.exit(1)
+   
+    # Start the daemon
+    if daemon:
+        daemonize()
     update_torrents()
     start_torrent_client()
-    #print torrents
-    #get_lt_alerts()
-    main_loop()
+    run()
 
+def stop():
+    """
+    Stop the daemon
+    """
+    global pidfile
+    # Get the pid from the pidfile
+    logger.info("Stopping Luna Torrent")
+    try:
+        pf = file(pidfile,'r')
+        pid = int(pf.read().strip())
+        pf.close()
+    except IOError:
+        pid = None
+
+    if not pid:
+        message = "pidfile %s does not exist. Daemon not running?\n"
+        logger.error(message % pidfile)
+        return # not an error in a restart
+
+    # Try killing the daemon process       
+    try:
+        while 1:
+            os.kill(pid, signal.SIGTERM)
+            time.sleep(0.1)
+    except OSError, err:
+        err = str(err)
+        if err.find("No such process") > 0:
+            if os.path.exists(pidfile):
+                os.remove(pidfile)
+        else:
+            logger.error(err)
+            sys.exit(1)
+
+def lreload():
+    """
+    Reload the daemon
+    """
+    global pidfile
+    # Get the pid from the pidfile
+    try:
+        pf = file(pidfile,'r')
+        pid = int(pf.read().strip())
+        pf.close()
+    except IOError:
+        pid = None
+
+    if not pid:
+        message = "pidfile %s does not exist. Daemon not running?\n"
+        logger.error(message % pidfile)
+        return # not an error in a restart
+
+    # Try reload the daemon proces
+    try:
+        os.kill(pid, signal.SIGHUP)
+    except OSError, err:
+        err = str(err)
+        if err.find("No such process") > 0:
+            if os.path.exists(pidfile):
+                os.remove(pidfile)
+        else:
+            logger.error(err)
+            sys.exit(1)
+
+def restart():
+    """
+    Restart the daemon
+    """
+    stop()
+    start()
+
+def exit_handler():
+    global pidfile
+    os.remove(pidfile)
+
+if __name__ == '__main__':
+    logger = logging.getLogger('luna-torrent')
+    signal.signal(signal.SIGHUP, sighup_handler)
+    options = luna.Options()
+    runas_user = options.get('user')
+    if not bool(runas_user):
+        runas_user = 'luna'
+    runas_group = options.get('group')
+    if not bool(runas_group):
+        runas_user = 'luna'
+    pidfile = options.get('torrent_pidfile')
+    if not bool(pidfile):
+        pidfile = '/run/luna/torrent.pid'
+    soft_timeout = options.get('torrent_soft_timeout') or 600
+    hard_timeout = options.get('torrent_hard_timeout') or 3600
+    torrents_path = options.get('path')
+    if not bool(torrents_path):
+        torrents_path = '/opt/luna'
+    torrents_path = torrents_path + "/torrents"
+    daemon = True
+    if len(sys.argv) == 2:
+        if 'start' == sys.argv[1]:
+            start()
+        elif 'stop' == sys.argv[1]:
+            stop()
+        elif 'restart' == sys.argv[1]:
+            restart()
+        elif 'reload' == sys.argv[1]:
+            lreload()
+        else:
+            logger.error("Unknown command")
+            sys.exit(2)
+        sys.exit(0)
+    else:
+            logger.error("usage: %s start|stop|restart|reload" % sys.argv[0])
+            sys.exit(2)
