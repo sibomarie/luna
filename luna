@@ -248,8 +248,15 @@ def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
         ips = net.get_used_ips()
         print  "\n".join(["%s" % i for i in ips ])
         return None
-    print "NETWORK=" + net.get('NETWORK')
-    print "PREFIX=" + str(net.get('PREFIX'))
+    out_json = net.show()
+    out_str = ""
+    out_json.pop('freelist')
+    out_json.pop('name')
+    out_json['NETWORK'] = net.get('NETWORK')
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_format % ('name', name) + out_str.rstrip()
+    print out_str.rstrip()
 
 def network_add(name, network, prefix):
     net = luna.Network(name = name, create = True, NETWORK = network, PREFIX = prefix)
