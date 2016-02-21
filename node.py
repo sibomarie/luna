@@ -17,7 +17,7 @@ class Node(Base):
     Class for operating with node records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
             group = None):
         """
         name    - can be ommited
@@ -27,7 +27,7 @@ class Node(Base):
         self._collection_name = 'node'
         if not bool(name) and bool(create):
             name = self._generate_name()
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'port': type(0)}
         if create:
             options = Options()
@@ -386,7 +386,7 @@ class Group(Base):
     Class for operating with group records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
             prescript = None, bmcsetup = None, bmcnetwork = None,
             partscript = None, osimage = None, interfaces = None, postscript = None, domain = None):
         """
@@ -400,7 +400,7 @@ class Group(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'group'
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type(''), 'domain': type('')}
         if create:
             options = Options()

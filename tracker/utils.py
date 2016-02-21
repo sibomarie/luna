@@ -28,9 +28,9 @@ except ImportError:
 
 
 # Paths used by Pytt.
-CONFIG_PATH = os.path.expanduser('~/.pytt/config/pytt.conf')
-DB_PATH = os.path.expanduser('~/.pytt/db/pytt.db')
-LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
+#CONFIG_PATH = os.path.expanduser('~/.pytt/config/pytt.conf')
+#DB_PATH = os.path.expanduser('~/.pytt/db/pytt.db')
+#LOG_PATH = os.path.expanduser('~/.pytt/log/pytt.log')
 
 # Some global constants.
 PEER_INCREASE_LIMIT = 30

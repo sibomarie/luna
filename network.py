@@ -17,7 +17,7 @@ class Network(Base):
 
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, create = False, id = None, NETWORK = None, PREFIX = None):
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, NETWORK = None, PREFIX = None):
         """
         create  - should be True if we need create osimage
         NETWORK - network
@@ -26,7 +26,7 @@ class Network(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'network'
         self._keylist = {'NETWORK': long, 'PREFIX': int}
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
             options = Options()
             num_net = self.get_base_net(NETWORK, PREFIX)

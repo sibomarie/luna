@@ -12,6 +12,8 @@ from bmcsetup import BMCSetup
 from node import Node, Group
 from switch import Switch
 from network import Network
+from tracker import *
+from manager import Manager
 
 
 def list(collection):

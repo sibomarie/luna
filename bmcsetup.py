@@ -14,7 +14,7 @@ class BMCSetup(Base):
     Class for operating with bmcsetup records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
             userid = 3, user = 'ladmin', password = 'ladmin', netchannel = 1, mgmtchannel = 1):
         """
         userid      - default user id
@@ -25,7 +25,7 @@ class BMCSetup(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'bmcsetup'
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'userid': type(0), 'user': type(''), 'password': type(''), 'netchannel': type(0), 'mgmtchannel': type(0)}
         if create:
             import inspect

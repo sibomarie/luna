@@ -28,7 +28,7 @@ class Options(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0, path = None, user = None, group = None):
+    def __init__(self, mongo_db = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0, path = None, user = None, group = None):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -38,7 +38,7 @@ class Options(Base):
         self._logger.debug("Connecting to MongoDB.")
         self._collection_name = 'options'
         name = 'general'
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
             try:
                 path =  os.path.abspath(path)
@@ -64,7 +64,7 @@ class Options(Base):
                 raise RuntimeError
             mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user, 'group': group,
                         'debug': 0, 'path': path, 'server_address': '', 'server_port': 7050,
-                        'tracker_address': '','tracker_port': 7051, 'tracker_interval': 10, 
+                        'tracker_interval': 10, 
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
                         'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -77,7 +77,7 @@ class Options(Base):
             self._DBRef = DBRef(self._collection_name, self._id)
         self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''), 'group': type(''),
                         'path': type(''), 'server_address': type(''), 'server_port': type(0),
-                        'tracker_address': type(''), 'tracker_port': type(0), 'tracker_interval': type(0),
+                        'tracker_interval': type(0),
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0)}
 

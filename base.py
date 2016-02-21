@@ -35,14 +35,17 @@ class Base(object):
         raise RuntimeError
 
     
-    def _check_name(self, name, create, id):
-        try:
-            self._mongo_client = pymongo.MongoClient()
-        except:
-            self._logger.error("Unable to connect to MongoDB.")
-            raise RuntimeError
-        self._logger.debug("Connection to MongoDB was successful.")
-        self._mongo_db = self._mongo_client[db_name]
+    def _check_name(self, name, mongo_db, create, id):
+        if mongo_db:
+            self._mongo_db = mongo_db
+        else:
+            try:
+                self._mongo_client = pymongo.MongoClient()
+            except:
+                self._logger.error("Unable to connect to MongoDB.")
+                raise RuntimeError
+            self._logger.debug("Connection to MongoDB was successful.")
+            self._mongo_db = self._mongo_client[db_name]
         self._mongo_collection = self._mongo_db[self._collection_name]
         if id:
             mongo_doc = self._mongo_collection.find_one({'_id': id})

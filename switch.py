@@ -13,7 +13,7 @@ class Switch(Base):
     """
     Class for operating with switch records
     """
-    def __init__(self, name = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
             ip = None, read = None, rw = None):
         """
         ip      - ip of the switch
@@ -22,7 +22,7 @@ class Switch(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'switch'
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type('') }
         if create:
             import inspect

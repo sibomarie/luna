@@ -22,7 +22,7 @@ class OsImage(Base):
     Class for operating with osimages records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
         """
         create  - shoulld be True if we need create osimage
         path    - path to / of the image/ can be ralative, if needed (will be converted to absolute)
@@ -31,7 +31,7 @@ class OsImage(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'osimage'
-        mongo_doc = self._check_name(name, create, id)
+        mongo_doc = self._check_name(name, mongo_db, create, id)
         if bool(kernopts) and type(kernopts) is not str:
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
