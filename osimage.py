@@ -8,6 +8,7 @@ import pwd
 import grp
 import subprocess
 import threading
+import ctypes
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
@@ -37,7 +38,7 @@ class OsImage(Base):
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type(''),
                         'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''), 
-                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
+                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type(''), 'kernfile': type(''), 'initrdfile': type('')}
         if create:
             options = Options()
             path = os.path.abspath(path)
@@ -52,7 +53,9 @@ class OsImage(Base):
                     pass
             if not self._check_kernel(path, kernver):
                 raise RuntimeError
-            mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 'kernopts': kernopts}
+            mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 
+                        'kernopts': kernopts, 
+                        'dracutmodules': 'luna -i18n -plymouth', 'kernmodules': ''}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -254,4 +257,110 @@ class OsImage(Base):
         os.chdir(old_cwd)
         return True
 
+    def pack_boot(self):
+        def mount(source, target, fs):
+            subprocess.Popen(['/usr/bin/mount', '-t', fs, source, target])
+            #ret = ctypes.CDLL('libc.so.6', use_errno=True).mount(source, target, fs, 0, options)
+            #if ret < 0:
+            #    errno = ctypes.get_errno()
+            #    raise RuntimeError("Error mounting {} ({}) on {} with options '{}': {}".
+            #        format(source, fs, target, options, os.strerror(errno)))
+        def umount(source):
+            subprocess.Popen(['/usr/bin/umount', source])
+            #ret = ctypes.CDLL('libc.so.6', use_errno=True).umount(source)
+            #if ret < 0:
+            #    errno = ctypes.get_errno()
+            #    raise RuntimeError("Error umounting {}: .".
+            #        format(source, os.strerror(errno)))
+        def prepare_mounts(path):
+            mount('devtmpfs', path + '/dev', 'devtmpfs')
+            mount('proc', path + '/proc', 'proc')
+            mount('sysfs', path + '/sys', 'sysfs')
+        def cleanup_mounts(path):
+            umount(path + '/dev')
+            umount(path + '/proc')
+            umount(path + '/sys')
+            
+        
+        boot_prefix = '/boot'
+        image_path = str(self.get('path'))
+        kernver = str(self.get('kernver'))
+        tmp_path = '/tmp' # in chroot env
+        initrdfile = str(self.name) + '-initramfs-' + kernver
+        kernfile = str(self.name) + '-vmlinuz-' + kernver
+        #kernel_image = kernel_name + '-' + kernver
+        #kernel_path = image_path + boot_prefix +  '/' +  kernel_image
+        path = Options().get('path')
+        if not path:
+            self._logger.error("Path needs to be configured.")
+            return None
+        path = str(path)
+        user = Options().get('user')
+        if not user:
+            self._logger.error("User needs to be configured.")
+            return None
+        group = Options().get('group')
+        if not group:
+            self._logger.error("Group needs to be configured.")
+            return None
+        path_to_store = path + "/boot"
+        user_id = pwd.getpwnam(user).pw_uid
+        grp_id = grp.getgrnam(group).gr_gid
+        if not os.path.exists(path_to_store):
+            os.makedirs(path_to_store)
+            os.chown(path_to_store, user_id, grp_id)
+        modules_add = []
+        modules_remove = []
+        drivers_add = []
+        drivers_remove = []
+        dracutmodules = self.get('dracutmodules')
+        if dracutmodules:
+            dracutmodules = str(dracutmodules)
+            modules_add =    sum([['--add', i]      for i in dracutmodules.split(' ') if i[0] != '-'], [])
+            modules_remove = sum([['--omit', i[1:]] for i in dracutmodules.split(' ') if i[0] == '-'], [])
+        kernmodules = self.get('kernmodules')
+        if kernmodules:
+            kernmodules = str(kernmodules)
+            drivers_add =    sum([['--add-drivers',  i]     for i in kernmodules.split(' ') if i[0] != '-'])
+            drivers_remove = sum([['--omit-drivers', i[1:]] for i in kernmodules.split(' ') if i[0] == '-'])
+        prepare_mounts(image_path)
+        real_root = os.open("/", os.O_RDONLY)
+        os.chroot(image_path)
+        
+        try: 
+            dracut_modules = subprocess.Popen(['dracut', '--kver', kernver, '--list-modules'], stdout=subprocess.PIPE)
+            luna_exists = False
+            while dracut_modules.poll() is None:
+                line = dracut_modules.stdout.readline()
+                if line.strip() == 'luna':
+                    luna_exists = True
+            if not luna_exists:
+                self._logger.error("No luna dracut module in osimage '{}'".format(self.name))
+                raise RuntimeError
+            dracut_cmd =  ['/usr/sbin/dracut', '--force', '--kver', kernver] + modules_add + modules_remove + drivers_add + drivers_remove + [tmp_path + '/' + initrdfile]
+            dracut_create = subprocess.Popen(dracut_cmd, stdout=subprocess.PIPE)
+            while dracut_create.poll() is None:
+                line = dracut_create.stdout.readline()
+        except:
+            os.fchdir(real_root)
+            os.chroot(".")
+            os.close(real_root)
+            cleanup_mounts(image_path)
+            try:
+                pass
+                #os.remove(image_path + '/' + tmp_path + '/' + initrdfile)
+            except:
+                pass
+            return None
+        
+        os.fchdir(real_root)
+        os.chroot(".")
+        os.close(real_root)
+        cleanup_mounts(image_path)
+        shutil.copy(image_path + tmp_path + '/' + initrdfile, path_to_store)
+        shutil.copy(image_path + '/boot/vmlinuz-' + kernver, path_to_store + '/' + kernfile)
+        os.chown(path_to_store + '/' + initrdfile, user_id, grp_id)
+        os.chown(path_to_store + '/' + kernfile, user_id, grp_id)
+        self.set('kernfile', kernfile)
+        self.set('initrdfile', initrdfile)
 

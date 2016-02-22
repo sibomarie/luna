@@ -100,20 +100,34 @@ def osimage_change(**args):
         osimage.set(key, args[key])
 
 def osimage_pack(**args):
+    def pack_image(osimage):
+        try:
+            print 'Creating tarball.'
+            res = osimage.create_tarball()
+            print 'Done.'
+        except:
+            return None
+        try:
+            print 'Creating torrent.'
+            res = osimage.create_torrent()
+            print 'Done.'
+        except:
+            return None
+        return True
+    def pack_boot(osimage):
+       print 'Copying kernel & packing inirtd.'
+       osimage.pack_boot()
+       print "Done."
+
     osimage = luna.OsImage(args['name'])
-    res = None
-    try:
-        print 'Creating tarball.'
-        res = osimage.create_tarball()
-        print 'Done.'
-    except:
-        return None
-    try:
-        print 'Creating torrent.'
-        res = osimage.create_torrent()
-        print 'Done.'
-    except:
-        return None
+    if args['boot']:
+        pack_boot(osimage)
+        return True
+    if args['image']:
+        pack_image(osimage)
+        return True
+    pack_image(osimage)
+    pack_boot(osimage)
     return True
 
 #################### BMCSetup
@@ -558,9 +572,14 @@ osimage_command_group = osimage_command.add_mutually_exclusive_group()
 ####osimage_command_group.add_argument('--path', '-p', type=str, help='Path to osimage.')
 osimage_command_group.add_argument('--kernver', '-k', type=str, help='Kernel version.')
 osimage_command_group.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
+osimage_command_group.add_argument('--dracutmodules', '-d', type=str, help='Dracut modules')
+osimage_command_group.add_argument('--kernmodules', '-m', type=str, help='Kernel modules (drivers)')
 # pack
 osimage_command = osimage_parser_actions.add_parser('pack', help='Pack OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command_group = osimage_command.add_mutually_exclusive_group(required=False)
+osimage_command_group.add_argument('--image', '-i', action='store_true', help='Pack image only.')
+osimage_command_group.add_argument('--boot', '-b', action='store_true', help='Pack kernel and initrd only.')
 # delete
 osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
