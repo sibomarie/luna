@@ -379,6 +379,16 @@ class Node(Base):
     @property
     def postscript(self):
         pass
+    @property
+    def kernel(self):
+        return "compute-vmlinuz-3.10.0-327.3.1.el7.x86_64"
+    @property
+    def initrd(self):
+        return "compute-initramfs-3.10.0-327.3.1.el7.x86_64"
+    @property
+    def kernopts(self):
+        return "ip=10.141.0.1::10.24.255.254:255.255.0.0:node001:enp0s3:on"
+
 
 
 class Group(Base):
