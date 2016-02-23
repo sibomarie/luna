@@ -381,13 +381,37 @@ class Node(Base):
         pass
     @property
     def kernel(self):
+        
+        
         return "compute-vmlinuz-3.10.0-327.3.1.el7.x86_64"
     @property
     def initrd(self):
         return "compute-initramfs-3.10.0-327.3.1.el7.x86_64"
     @property
     def kernopts(self):
+        return 'luna.ip=enp0s3:10.141.0.1:16' # luna.ip=dhcp
         return "ip=10.141.0.1::10.24.255.254:255.255.0.0:node001:enp0s3:on"
+    @property
+    def boot_params(self):
+        """
+        will return dictionary with all needed params for booting:
+        kernel, initrd, kernel opts, ip, net, prefix
+        """
+        params = {}
+        group = Group(id = self.get('group').id, mongo_db = self._mongo_db)
+        group_params = group.boot_params()
+        params['boot_if'] = group_params['boot_if']
+        params['kernel_file'] = group_params['kernel_file']
+        params['initrd_file'] = group_params['initrd_file']
+        params['kern_opts'] = group_params['kern_opts']
+        params['boot_if'] = group_params['boot_if']
+        params['net_prefix'] = group_params['net_prefix']
+        if (params['boot_if']):
+            params['ip'] = self.get_human_ip(params['boot_if'])
+        return params
+
+
+
 
 
 
@@ -398,7 +422,7 @@ class Group(Base):
     _logger = logging.getLogger(__name__)
     def __init__(self, name = None, mongo_db = None, create = False, id = None, 
             prescript = None, bmcsetup = None, bmcnetwork = None,
-            partscript = None, osimage = None, interfaces = None, postscript = None, domain = None):
+            partscript = None, osimage = None, interfaces = None, postscript = None, boot_if = None, torrent_if = None):
         """
         prescript   - preinstall script
         bmcsetup    - bmcsetup options
@@ -411,7 +435,7 @@ class Group(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'group'
         mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type(''), 'domain': type('')}
+        self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type(''), 'boot_if': type(''), 'torrent_if': type('')}
         if create:
             options = Options()
             (bmcobj, bmcnetobj) = (None, None)
@@ -436,7 +460,7 @@ class Group(Base):
                 postscript = "#!/bin/bash"
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
-                               'postscript': postscript, 'domain': domain}
+                               'postscript': postscript, 'boot_if': boot_if, 'torrent_if': torrent_if}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -770,3 +794,54 @@ class Group(Base):
             return None
         net = Network(id = dbref.id)
         return net.ip_to_relnum(ip)
+
+    def boot_params(self):
+        params = {}
+        params['boot_if'] = None
+        params['net_prefix'] = None
+        osimage = OsImage(id = self.get('osimage').id, mongo_db = self._mongo_db)
+        try:
+            params['kernel_file'] = osimage.get('kernfile')
+        except:
+            params['kernel_file'] = ""
+        try:
+            params['initrd_file'] = osimage.get('initrdfile')
+        except:
+            params['initrd_file'] = ""
+        try:
+            params['kern_opts'] = osimage.get('kernopts')
+        except:
+            params['kern_opts'] = ""
+        try:
+            params['boot_if'] = self.get('boot_if')
+        except:
+            params['boot_if'] = ""
+            params['net_prefix'] = ""
+            return params
+        interfaces = self._get_json()['interfaces']
+        try:
+            if_params = interfaces[params['boot_if']]
+        except:
+            self._logger.error("Boot interface '{}' does not present in configured interface list '{}'.".format(params['boot_if'], interfaces.keys()))
+            params['boot_if'] = ""
+            params['net_prefix'] = ""
+            return params
+        net = None
+        try:
+            if_net = if_params['network']
+            net = Network(id = if_net.id)
+        except:
+            pass
+        if not bool(net):
+            self._logger.error("Boot interface '{}' has no network configured".format(params['boot_if']))
+            params['boot_if'] = ""
+            params['net_prefix'] = ""
+            return params
+        params['net_prefix'] = net.get('PREFIX')
+        return params
+
+        
+
+
+            
+

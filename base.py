@@ -203,7 +203,7 @@ class Base(object):
         
     def get(self, key):
         """
-        Allow to get variables from keylist
+        Allow to get variables
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         if not self._id:
@@ -211,7 +211,18 @@ class Base(object):
             return None
         obj_json = self._get_json()
         try:
-            return obj_json[key]
+            val = obj_json[key]
+            if type(val) == unicode:
+                val = str(val)
+            if not bool(val):
+                try:
+                    if self._keylist[key] == type(''):
+                        val = ''
+                    if self._keylist[key] == type(0):
+                        val = 0
+                except:
+                    pass
+            return val
         except:
             return None
 

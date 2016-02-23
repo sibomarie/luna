@@ -325,7 +325,7 @@ def group_show(out_format = '%20s%60s\n', **args):
         print group.show_bmc_if()
         return None
     scr_type =''
-    if   bool(args['prescript']):
+    if bool(args['prescript']):
         scr_type = 'prescript'
     elif bool(args['partscript']):
         scr_type = 'partscript'
@@ -396,8 +396,10 @@ def group_change(**args):
             group.del_bmcnetwork()
         else:
             print group.show_bmc_if()
-    if bool(args['domain']):
-        group.set('domain',args['domain'])
+    if type(args['boot_if']) == type(''):
+        group.set('boot_if',args['boot_if'])
+    if type(args['torrent_if']) == type(''):
+        group.set('torrent_if',args['torrent_if'])
     if bool(args['osimage']):
         group.osimage(args['osimage'])
     if bool(args['bmcsetup']):
@@ -691,7 +693,8 @@ group_command.add_argument('--prescript', '--pre', action='store_true', help='Se
 group_command.add_argument('--postscript', '--post', action='store_true', help='Set postscript.')
 group_command.add_argument('--partscript', '--part', action='store_true', help='Set partition script. Localdisk should be mounted under /sysimage')
 group_command.add_argument('--bmcsetup', '-b', type=str, help='BMCSetup assigned to Group.')
-group_command.add_argument('--domain', '-d', type=str, help='Domain name node belong to')
+group_command.add_argument('--boot_if', '--bi', type=str, help='Boot interface')
+group_command.add_argument('--torrent_if', '--ti', type=str, help='High-speed interface')
 group_command_group = group_command.add_mutually_exclusive_group()
 group_command_group.add_argument('--interface', '-i', type=str, help='Interface.')
 group_command_group.add_argument('--bmcnetwork', '--bn', action='store_true',  help='Network for BMC.')
