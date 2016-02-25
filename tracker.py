@@ -1,0 +1,288 @@
+#!/usr/bin/env python
+#
+# Based on Pytt by
+# @author: Sreejith K <sreejithemk@gmail.com>
+# Created on 12th May 2011
+# http://foobarnbaz.com
+#
+import logging
+#from optparse import OptionParser
+import sys
+import pymongo
+import binascii
+import datetime
+import random
+import libtorrent
+from socket import inet_aton
+from struct import pack
+
+
+import tornado.ioloop
+import tornado.web
+import tornado.httpserver
+
+from libtorrent import bencode
+import luna
+
+#db_name = 'luna'
+
+#logger = logging.getLogger('tornado.access')
+
+class BaseHandler(tornado.web.RequestHandler):
+    """
+    info_hach and peer_id can contain non-unicode symbols
+    """
+    def decode_argument(self, value, name):
+        # info_hash is raw_bytes, hexify it.
+        if name in ['info_hash', 'peer_id'] :
+            value = binascii.hexlify(value)
+        return super(BaseHandler, self).decode_argument(value, name)
+
+
+class AnnounceHandler(BaseHandler):
+    """Track the torrents. Respond with the peer-list.
+    """
+    def update_peers(self, info_hash, peer_id, ip, port, status, uploaded, downloaded, left):
+        """Store the information about the peer.
+        """
+        updated = datetime.datetime.utcnow()
+        # json = {'info_hash': info_hash, 'peer_id': peer_id, 
+        json = {'peer_id': peer_id, 'status': status, 'updated': updated,
+                'uploaded': uploaded, 'downloaded': downloaded, 'left': left}
+        if not bool(status):
+            json.pop('status')
+        self.mongo.find_and_modify({'info_hash': info_hash, 'ip': ip, 'port': port}, {'$set': json}, upsert = True)
+
+    def get_peers(self, info_hash, numwant, compact, no_peer_id, age):
+        time_age = datetime.datetime.utcnow() - datetime.timedelta(seconds = age)
+        # '6c756e616c756e616c756e616c756e616c756e61'
+        mongo_cursor = self.mongo.find({'info_hash': info_hash, 'updated': {'$gte': time_age}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+        server_records = self.mongo.find({'info_hash': info_hash, 'peer_id': binascii.hexlify('lunalunalunalunaluna'), 'port': {'$ne': 0}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+        peer_tuple_list = []
+        n_leechers = 0
+        n_seeders = 0
+        for doc in mongo_cursor:
+            try:
+                n_leechers += int(doc['status'] == 'started')
+                n_seeders += int(doc['status'] == 'completed')
+            except:
+                pass
+            peer_tuple_list.extend([(binascii.unhexlify(doc['peer_id']), doc['ip'], doc['port'])])
+        for doc in server_records:
+            try:
+                n_leechers += int(doc['status'] == 'started')
+                n_seeders += int(doc['status'] == 'completed')
+            except:
+                pass
+            peer_tuple_list.extend([(binascii.unhexlify(doc['peer_id']), doc['ip'], doc['port'])])
+        # It's believed it will get better 'cohesion'
+        if numwant > len(peer_tuple_list):
+            numwant = len(peer_tuple_list)
+        random_peer_list = random.sample(peer_tuple_list, numwant)
+        compact_peers = b''
+        peers = []
+        for peer_info in random_peer_list:
+            if compact:
+                ip = inet_aton(peer_info[1])
+                port = pack('>H', int(peer_info[2]))
+                compact_peers += (ip+port)
+                continue
+            p = {}
+            p['peer_id'], p['ip'], p['port'] = peer_info
+            peers.append(p)
+        if compact:
+            logging.debug('compact peer list: %r' % compact_peers)
+            return (n_seeders, n_leechers, compact_peers)
+        logging.debug('peer list: %r' % peers)
+        return (n_seeders, n_leechers, peers)
+
+    def initialize(self, params):
+        self.PEER_INCREASE_LIMIT = 30
+        self.DEFAULT_ALLOWED_PEERS = 50
+        self.MAX_ALLOWED_PEERS = 200
+        self.INFO_HASH_LEN = 20 * 2  # info_hash is hexified.
+        self.PEER_ID_LEN = 20  * 2  # peer_hash is hexified.
+
+        # HTTP Error Codes for BitTorrent Tracker
+        self.INVALID_REQUEST_TYPE = 100
+        self.MISSING_INFO_HASH = 101
+        self.MISSING_PEER_ID = 102
+        self.MISSING_PORT = 103
+        self.INVALID_INFO_HASH = 150
+        self.INVALID_PEER_ID = 151
+        self.INVALID_NUMWANT = 152
+        self.GENERIC_ERROR = 900
+
+        self.luna_tracker_interval = params['luna_tracker_interval']
+        self.luna_tracker_min_interval = params['luna_tracker_min_interval']
+        self.luna_tracker_maxpeers = params['luna_tracker_maxpeers']
+        self.mongo = params['mongo']
+
+    @tornado.web.asynchronous
+    def get(self):
+        failure_reason = ''
+        warning_message = ''
+
+        # get all the required parameters from the HTTP request.
+        info_hash = self.get_argument('info_hash')
+        try:
+            info_hash = self.get_argument('info_hash')
+        except:
+            return self.send_error(self.MISSING_INFO_HASH)
+        if len(info_hash) != self.INFO_HASH_LEN:
+            return self.send_error(self.INVALID_INFO_HASH)
+        try:
+            peer_id = self.get_argument('peer_id')
+        except:
+            return self.send_error(self.MISSING_PEER_ID)
+        if len(peer_id) != self.PEER_ID_LEN:
+            return self.send_error(self.INVALID_PEER_ID)
+        try:
+            ip = self.get_argument('ip')
+        except:
+            ip = '0.0.0.0'
+        if ip == '0.0.0.0':
+            ip = self.request.remote_ip
+        try:
+            port = int(self.get_argument('port'))
+        except:
+            return self.send_error(self.MISSING_PORT)
+        try:
+            uploaded = int(self.get_argument('uploaded'))
+        except:
+            uploaded = 0
+        try:
+            downloaded = int(self.get_argument('downloaded'))
+        except:
+            downloaded = 0
+        try:
+            left = int(self.get_argument('left'))
+        except:
+            left = 0
+        info_hash = str(info_hash)
+
+        try:
+            compact = int(self.get_argument('compact'))
+        except:
+            compact = 0
+        try:
+            event = self.get_argument('event')
+        except:
+            event = ''
+        try:
+            no_peer_id = int(self.get_argument('no_peer_id'))
+        except:
+            no_peer_id = 0
+        try:
+            numwant = int(self.get_argument('numwant'))
+        except:
+            numwant = self.DEFAULT_ALLOWED_PEERS
+        if numwant > self.luna_tracker_maxpeers:
+            # XXX: cannot request more than MAX_ALLOWED_PEERS.
+            return self.send_error(self.INVALID_NUMWANT)
+        try:
+            key = self.get_argument('key')
+        except:
+            key = ''
+        try:
+            tracker_id = self.get_argument('trackerid')
+        except:
+            tracker_id = ''
+            
+        self.update_peers(info_hash, peer_id, ip, port, event, uploaded, downloaded, left)
+
+        # generate response
+        response = {}
+        # Interval in seconds that the client should wait between sending
+        #    regular requests to the tracker.
+        response['interval'] = self.luna_tracker_interval
+        # Minimum announce interval. If present clients must not re-announce
+        #    more frequently than this.
+        response['min interval'] = self.luna_tracker_min_interval
+        
+        res_complete, res_incomplete, res_peers = self.get_peers(info_hash, 
+                                                            numwant,
+                                                            compact,
+                                                            no_peer_id,
+                                                            self.luna_tracker_interval * 2)
+        response['complete'] = res_complete
+        response['incomplete'] = res_incomplete
+        response['peers'] = res_peers
+        response['tracker id'] = tracker_id
+        if bool(failure_reason):
+            response['failure reason'] = failure_reason
+        if bool(warning_message):
+            response['warning message'] = warning_message
+
+        # send the bencoded response as text/plain document.
+        self.set_header('Content-Type', 'text/plain')
+        self.write(bencode(response))
+        self.finish()
+
+
+class ScrapeHandler(AnnounceHandler):
+    """Returns the state of all torrents this tracker is managing.
+    """
+    @tornado.web.asynchronous
+    def get(self):
+        info_hashes = self.get_arguments('info_hash')
+        response = {}
+        for info_hash in info_hashes:
+            info_hash = str(info_hash)
+            response[info_hash] = {}
+            
+            res_complete, res_incomplete, _ = self.get_peers(info_hash, numwant, compact, no_peer_id, self.luna_tracker_interval * 2)
+            response[info_hash]['complete'] = res_complete
+            response[info_hash]['downloaded'] = res_complete
+            response[info_hash]['incomplete'] = res_incomplete
+
+        self.set_header('content-type', 'text/plain')
+        self.write(bencode(response))
+        self.finish()
+
+"""
+def run_app(mongo_client):
+    mongo_db =  mongo_client[db_name]
+    
+    logger = logging.getLogger('tornado.access')
+    luna_opts = luna.Options()
+    port = luna_opts.get('tracker_port') or 7051
+    params = {}
+    params['luna_tracker_interval'] = luna_opts.get('tracker_interval') or 30
+    params['luna_tracker_min_interval'] = luna_opts.get('tracker_min_interval') or 20
+    params['luna_tracker_maxpeers'] = luna_opts.get('tracker_maxpeers') or 200
+    params['mongo'] = mongo_db['tracker']
+
+    tracker = tornado.web.Application([
+        (r"/announce.*", AnnounceHandler, dict(params=params)),
+        (r"/scrape.*", ScrapeHandler, dict(params=params))
+    ])
+    logging.info('Starting Pytt on port %d' % port)
+    http_server = tornado.httpserver.HTTPServer(tracker)
+    http_server.listen(port)
+    tornado.ioloop.IOLoop.instance().start()
+
+
+
+
+
+if __name__ == '__main__':
+    try:
+        mongo_client = pymongo.MongoClient()
+    except:
+        logger.error("Unable to connect to MongoDB.")
+        raise RuntimeError
+    logger.debug("Connection to MongoDB was successful.")
+    try:
+        run_app(mongo_client)
+    except KeyboardInterrupt:
+        logging.info('Tracker Stopped.')
+        mongo_client.close()
+        logger.debug("Connection to MongoDB closed.")
+        sys.exit(0)
+    except Exception as ex:
+        logging.fatal('%s' % str(ex))
+        sys.exit(-1)
+        mongo_client.close()
+        logger.debug("Connection to MongoDB closed.")
+"""

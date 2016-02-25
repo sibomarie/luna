@@ -409,6 +409,9 @@ class Node(Base):
         if (params['boot_if']):
             params['ip'] = self.get_human_ip(params['boot_if'])
         return params
+    @property
+    def install_params(self):
+        pass
 
 
 
