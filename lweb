@@ -53,6 +53,7 @@ def run_app(mongo_client):
         (r"/scrape.*", luna.ScrapeHandler, dict(params=tracker_params)),
         (r"/luna.*", luna.Manager, dict(params=manager_params)),
         (r"/boot/(.*)",  tornado.web.StaticFileHandler, {'path': path + '/boot'}),
+        (r"/torrents/(.*\.torrent)",  tornado.web.StaticFileHandler, {'path': path + '/torrents'}),
     ], template_path = template_path)
     logging.info('Starting lweb on port %d' % port)
     http_server = tornado.httpserver.HTTPServer(tracker)

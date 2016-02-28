@@ -163,7 +163,7 @@ class Base(object):
         """
         Name of the object
         """
-        return self._name
+        return str(self._name)
 
     @property
     def id(self):

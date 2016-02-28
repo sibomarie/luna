@@ -56,26 +56,28 @@ class Manager(tornado.web.RequestHandler):
                         mac = macs[i]
                         break
                 if mac:
+                    mac = mac.lower()
                     self.mongo['mac'].find_and_modify({'_id': mac}, {'$set': {'name': req_nodename}}, upsert = True)
             macs = set(hwdata.split('|'))
             find_name = None
             for mac in macs:
                 if not bool(mac):
                     continue
+                mac = mac.lower()
                 find_name_json = self.mongo['mac'].find_one({'_id': mac}, {'_id': 0, 'name': 1})
                 if bool(find_name):
                     break
             try:
                 find_name = find_name_json['name']
             except:
-                self.app_logger.error("No name configured for mad '{}'".format(mac))
+                self.app_logger.error("No name configured for mad '{}'".format(mac.lower()))
                 return self.send_error(404)
             if not bool(find_name):
                 return self.send_error(404)
             try:
                 node = luna.Node(name = find_name, mongo_db = self.mongo)
             except:
-                self.app_logger.error("Mac '{}' exists, but node does not '{}'".format(mac, find_name))
+                self.app_logger.error("Mac '{}' exists, but node does not '{}'".format(mac.lower(), find_name))
             http_path = "http://" + self.server_ip + ":" + str(self.server_port) + "/boot/"
             boot_params = node.boot_params
             if not boot_params['boot_if']:

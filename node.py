@@ -256,17 +256,27 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         if type(mac) == type('') and re.match('(([a-fA-F0-9]{2}:){4}([a-fA-F0-9]{2}))', mac):
-            res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
+            mac = mac.lower()
+            res = self._mongo_db['mac'].find_and_modify({'_id': mac}, {'$set': {'name': self.name}}, upsert = True)
+            #res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
             return not res['err']
         return None
 
+    def get_mac(self):
+        if not self._id:
+            self._logger.error("Was object deleted?")
+            return None
+        try:
+            mac = str(self._mongo_db['mac'].find_one({'name': self.name})['_id'])
+        except:
+            mac = None
+        return mac
         
-
     def clear_mac(self):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': None}}, multi=False, upsert=False)
+        res = self._mongo_db['mac'].delete_one({'name': self.name})
         return not res['err']
         
 
@@ -411,7 +421,23 @@ class Node(Base):
         return params
     @property
     def install_params(self):
-        pass
+        params = {}
+        group = Group(id = self.get('group').id, mongo_db = self._mongo_db)
+        params = group.install_params
+        for interface in params['interfaces']:
+            params['interfaces'][interface] = params['interfaces'][interface].strip() + "\n" + "IPADDR=" + self.get_human_ip(interface)
+        if params['bmcsetup']:
+            try:
+                ip = self.get_human_bmc_ip()
+                params['bmcsetup']['ip'] = ip
+            except:
+                pass
+        params['name'] = self.name
+        if params['domain']:
+            params['hostname'] = self.name + "." +  params['domain']
+        else:
+            params['hostname'] = self.name
+        return params
 
 
 
@@ -844,7 +870,63 @@ class Group(Base):
         return params
 
         
-
-
-            
-
+    @property
+    def install_params(self):
+        params = {}
+        params['prescript'] = self.get('prescript')
+        params['partscript'] = self.get('partscript')
+        params['postscript'] = self.get('postscript')
+        try:
+            params['boot_if'] = self.get('boot_if')
+        except:
+            params['boot_if'] = ''
+        try:
+            params['torrent_if'] = self.get('torrent_if')
+        except:
+            params['torrent_if'] = ''
+        json = self._get_json()
+        try:
+            net_dbref = json['interfaces'][self.get('boot_if')]['network']
+            net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+            params['domain'] = str(net.name)
+        except:
+            params['domain'] = ""
+        params['interfaces'] = {}
+        try:
+            interfaces = json['interfaces'].keys()
+            for interface in interfaces:
+                params['interfaces'][str(interface)] = str(self.get_if_parms(interface))
+        except:
+            pass
+        try:
+            interfaces = json['interfaces'].keys()
+            for interface in interfaces:
+                net_dbref = json['interfaces'][interface]['network']
+                net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+                params['interfaces'][str(interface)] = params['interfaces'][str(interface)].strip() + "\n" + "PREFIX=" + str(net.get('PREFIX'))
+        except:
+            pass
+        osimage = OsImage(id = self.get('osimage').id, mongo_db = self._mongo_db)
+        try:
+            params['torrent'] = osimage.get('torrent') + ".torrent"
+            params['tarball'] = osimage.get('tarball') + ".tgz"
+        except:
+             params['torrent'] = ""
+             params['tarball'] = ""
+        params['kernver'] = osimage.get('kernver')
+        params['kernopts'] = osimage.get('kernopts')
+        params['bmcsetup'] = {}
+        if self.get('bmcsetup'):
+            bmcsetup = BMCSetup(id = self.get('bmcsetup').id, mongo_db = self._mongo_db)
+            params['bmcsetup']['mgmtchannel'] = bmcsetup.get('mgmtchannel') or 1
+            params['bmcsetup']['netchannel'] = bmcsetup.get('netchannel') or 1
+            params['bmcsetup']['userid'] = bmcsetup.get('userid') or 3
+            params['bmcsetup']['user'] = bmcsetup.get('user') or "ladmin"
+            params['bmcsetup']['password'] = bmcsetup.get('password') or "ladmin"
+            try:
+                net_dbref = json['bmcnetwork']
+                net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+                params['bmcsetup']['netmask'] = net.get('NETMASK')
+            except:
+                params['bmcsetup']['netmask'] = ''
+        return params

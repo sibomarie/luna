@@ -141,6 +141,14 @@ class OsImage(Base):
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
+        tracker_address = Options().get('tracker_address') or Options().get('server_address')
+        if tracker_address == '':
+            self._logger.error("Tracker address needs to be configured.")
+            return None
+        tracker_port = Options().get('tracker_port') or Options().get('server_port')
+        if tracker_port == 0:
+            self._logger.error("Tracker port needs to be configured.")
+            return None
         user = Options().get('user')
         if not user:
             self._logger.error("User needs to be configured.")
@@ -219,11 +227,11 @@ class OsImage(Base):
         if not os.path.exists(tarball):
             self._logger.error("Wrong path in DB.")
             return None
-        tracker_address = Options().get('tracker_address')
+        tracker_address = Options().get('tracker_address') or Options().get('server_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('tracker_port')
+        tracker_port = Options().get('tracker_port') or Options().get('server_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
