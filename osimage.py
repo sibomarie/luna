@@ -55,7 +55,7 @@ class OsImage(Base):
                 raise RuntimeError
             mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 
                         'kernopts': kernopts, 
-                        'dracutmodules': 'luna -i18n -plymouth', 'kernmodules': ''}
+                        'dracutmodules': 'luna -i18n -plymouth', 'kernmodules': 'ipmi_devintf ipmi_si ipmi_msghandler'}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -141,11 +141,11 @@ class OsImage(Base):
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
-        tracker_address = Options().get('tracker_address') or Options().get('server_address')
+        tracker_address = Options().get('server_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('tracker_port') or Options().get('server_port')
+        tracker_port = Options().get('server_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
@@ -227,11 +227,11 @@ class OsImage(Base):
         if not os.path.exists(tarball):
             self._logger.error("Wrong path in DB.")
             return None
-        tracker_address = Options().get('tracker_address') or Options().get('server_address')
+        tracker_address = Options().get('server_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('tracker_port') or Options().get('server_port')
+        tracker_port = Options().get('server_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
@@ -329,8 +329,8 @@ class OsImage(Base):
         kernmodules = self.get('kernmodules')
         if kernmodules:
             kernmodules = str(kernmodules)
-            drivers_add =    sum([['--add-drivers',  i]     for i in kernmodules.split(' ') if i[0] != '-'])
-            drivers_remove = sum([['--omit-drivers', i[1:]] for i in kernmodules.split(' ') if i[0] == '-'])
+            drivers_add =    sum([['--add-drivers',  i]     for i in kernmodules.split(' ') if i[0] != '-'], [])
+            drivers_remove = sum([['--omit-drivers', i[1:]] for i in kernmodules.split(' ') if i[0] == '-'], [])
         prepare_mounts(image_path)
         real_root = os.open("/", os.O_RDONLY)
         os.chroot(image_path)

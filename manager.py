@@ -100,6 +100,8 @@ class Manager(tornado.web.RequestHandler):
                 self.app_logger.error("No such node for install step found '{}'.".format(node_name))
                 return self.send_error(400)
             install_params = node.install_params
-            self.render("templ_install.cfg", p = install_params)
+            if not bool(install_params['torrent']):
+                return self.send_error(404)
+            self.render("templ_install.cfg", p = install_params, server_ip = self.server_ip, server_port = self.server_port,)
 
 

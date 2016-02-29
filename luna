@@ -418,7 +418,7 @@ def group_change(**args):
         return None
     script = _edit_script(old_script)
     if not bool(script):
-        script = '#!/bin/bash'
+        script = ''
     group.set(scr_type, script)
 
 
@@ -447,20 +447,21 @@ def group_delete(name):
 
 def node_list():
     nodes = luna.list('node')
-    print 'name', 'group', 'ips'
+    print 'name', 'group', 'mac', 'ips'
     for elem in nodes:
-        print elem
-        continue
         ips = ''
         node = luna.Node(elem)
+        out_json = node.show()
         interfaces = node.get_interfaces()
         bmcip = node.get_human_bmc_ip()
+        group = out_json['group']
+        mac = node.get_mac()
         if_str = ''
         for interface in interfaces:
             ip = node.get_human_ip(interface)
             if_str += '%s:%s,' % (interface, ip)
         if_str += '%s:%s' % ('BMC', bmcip)
-        print elem, out_str
+        print elem, group, mac, if_str
 
 def node_show(name, raw, out_format = '%20s%60s\n'):
     node = luna.Node(name = name)
@@ -477,6 +478,7 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
         if_str += '%s:%s,' % (interface, ip)
     out_json['interfaces'] = if_str.rstrip(',')
     out_json['bmcnetwork'] = bmcip
+    out_json['mac'] = node.get_mac()
     out_str = ''
     for key in sorted(out_json):
         out_str += out_format % (key, out_json[key])
@@ -502,6 +504,12 @@ def node_change(**args):
         return None
     if bool(args['bmcip']):
         node.change_bmc_ip(args['ip'])
+        return None
+    if args['mac'] == '':
+        node.clear_mac()
+        return None
+    if bool(args['mac']):
+        node.set_mac(args['mac'])
         return None
 
 def node_delete(name):
@@ -534,8 +542,8 @@ cluster_command.add_argument('--user', type=str, help='Username for running serv
 cluster_command.add_argument('--group', type=str, help='Groupname for running services.')
 cluster_command.add_argument('--server_address', type=str, help='Server address')
 cluster_command.add_argument('--server_port', type=int, help='Server port')
-#cluster_command.add_argument('--tracker_address', type=str, help='Torrent tracker address')
-#cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
+###cluster_command.add_argument('--tracker_address', type=str, help='Torrent tracker address')
+###cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
 cluster_command.add_argument('--tracker_interval', type=int, help='Torrent tracker announce interval')
 cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent tracker announce min interval')
 cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
@@ -730,7 +738,8 @@ node_command_group = node_command.add_mutually_exclusive_group(required=True)
 node_command_group.add_argument('--group', '-g', type=str, help='Group.')
 node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
 node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
-node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='Name of the Node.')
+node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
+node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address.')
 
 # delete
 node_command = node_parser_actions.add_parser('delete', help='Delete Node.')

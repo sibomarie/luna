@@ -14,16 +14,21 @@ class Switch(Base):
     Class for operating with switch records
     """
     def __init__(self, name = None, mongo_db = None, create = False, id = None, 
-            ip = None, read = None, rw = None):
+            ip = None, read = 'public', rw = 'private', oid = None):
         """
         ip      - ip of the switch
         read    - read community
         rw      - rw community
+        oid     - could be, for instance 
+                1.3.6.1.2.1.17.7.1.2.2.1.2
+                1.3.6.1.2.1.17.4.3.1.2
+                1.3.6.1.2.1.17.7.1.2.2
+                1.3.6.1.2.1.17.4.3.1.2
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'switch'
         mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type('') }
+        self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type(''), 'oid': type('') }
         if create:
             import inspect
             options = Options()
@@ -32,7 +37,7 @@ class Switch(Base):
                 if type(passed_vars[key]) is not self._keylist[key]:
                     self._logger.error("Argument '{}' should be '{}'".format(key, self._keylist[key]))
                     raise RuntimeError
-            mongo_doc = { 'name': name, 'ip': ip, 'read': read, 'rw': rw }
+            mongo_doc = { 'name': name, 'ip': ip, 'read': read, 'rw': rw, 'oid': oid}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)

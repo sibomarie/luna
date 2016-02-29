@@ -257,9 +257,9 @@ class Node(Base):
             return None
         if type(mac) == type('') and re.match('(([a-fA-F0-9]{2}:){4}([a-fA-F0-9]{2}))', mac):
             mac = mac.lower()
-            res = self._mongo_db['mac'].find_and_modify({'_id': mac}, {'$set': {'name': self.name}}, upsert = True)
+            self._mongo_db['mac'].find_and_modify({'_id': mac}, {'$set': {'name': self.name}}, upsert = True)
             #res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
-            return not res['err']
+            return True
         return None
 
     def get_mac(self):
@@ -276,7 +276,7 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        res = self._mongo_db['mac'].delete_one({'name': self.name})
+        res = self._mongo_db['mac'].remove({'name': self.name})
         return not res['err']
         
 
@@ -424,6 +424,8 @@ class Node(Base):
         params = {}
         group = Group(id = self.get('group').id, mongo_db = self._mongo_db)
         params = group.install_params
+        if bool(params['torrent_if']):
+            params['torrent_if_ip'] = self.get_human_ip(params['torrent_if'])
         for interface in params['interfaces']:
             params['interfaces'][interface] = params['interfaces'][interface].strip() + "\n" + "IPADDR=" + self.get_human_ip(interface)
         if params['bmcsetup']:
@@ -885,6 +887,13 @@ class Group(Base):
         except:
             params['torrent_if'] = ''
         json = self._get_json()
+        if bool(params['torrent_if']):
+            try:
+                net_dbref = json['interfaces'][params['torrent_if']]['network']
+                net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+                params['torrent_if_net_prefix'] = str(net.get('PREFIX'))
+            except:
+                params['torrent_if'] = ''
         try:
             net_dbref = json['interfaces'][self.get('boot_if')]['network']
             net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
