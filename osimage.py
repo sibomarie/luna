@@ -141,11 +141,11 @@ class OsImage(Base):
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
-        tracker_address = Options().get('server_address')
+        tracker_address = Options().get('fronend_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('server_port')
+        tracker_port = Options().get('frontend_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
@@ -163,6 +163,7 @@ class OsImage(Base):
         if not os.path.exists(path_to_store):
             os.makedirs(path_to_store)
             os.chown(path_to_store, user_id, grp_id)
+            os.chmod(path_to_store, 644)
         uid = str(uuid.uuid4())
         tarfile_path = path_to_store + "/" + uid + ".tgz"
         image_path = self.get('path')
@@ -192,6 +193,7 @@ class OsImage(Base):
             sys.stdout.write('\r')
             return None
         os.chown(tarfile_path, user_id, grp_id)
+        os.chmod(tarfile_path, 644)
         self.set('tarball', str(uid))
         return True
     
@@ -227,11 +229,11 @@ class OsImage(Base):
         if not os.path.exists(tarball):
             self._logger.error("Wrong path in DB.")
             return None
-        tracker_address = Options().get('server_address')
+        tracker_address = Options().get('frontend_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('server_port')
+        tracker_port = Options().get('frontend_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
@@ -368,7 +370,9 @@ class OsImage(Base):
         shutil.copy(image_path + tmp_path + '/' + initrdfile, path_to_store)
         shutil.copy(image_path + '/boot/vmlinuz-' + kernver, path_to_store + '/' + kernfile)
         os.chown(path_to_store + '/' + initrdfile, user_id, grp_id)
+        os.chmod(path_to_store + '/' + initrdfile, 644)
         os.chown(path_to_store + '/' + kernfile, user_id, grp_id)
+        os.chmod(path_to_store + '/' + kernfile, 644)
         self.set('kernfile', kernfile)
         self.set('initrdfile', initrdfile)
 

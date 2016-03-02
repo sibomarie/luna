@@ -4,6 +4,7 @@ import logging
 #from optparse import OptionParser
 import sys
 import pymongo
+#import motor
 #import binascii
 #import datetime
 #import random
@@ -23,15 +24,15 @@ logger = logging.getLogger('tornado.access')
 app_logger = logging.getLogger(__name__)
 db_name = 'luna'
 
-def run_app(mongo_client):
+def run_app():
     """Start Tornado IOLoop for this application.
     """
-    mongo_db =  mongo_client[db_name]
 
     logger = logging.getLogger('tornado.access')
-    luna_opts = luna.Options(mongo_db = mongo_db)
-    port = luna_opts.get('server_port') or 7050
-    server_ip = luna_opts.get('server_address')
+    luna_opts = luna.Options()
+    port = luna_opts.get('frontend_port') or 7050
+    lweb_port = luna_opts.get('server_port') or 7051
+    server_ip = luna_opts.get('frontend_address')
     path = luna_opts.get('path')
     if not bool(server_ip):
         logger.error('Server IP needs to be configured')
@@ -40,44 +41,65 @@ def run_app(mongo_client):
     tracker_params['luna_tracker_interval'] = luna_opts.get('tracker_interval') or 30
     tracker_params['luna_tracker_min_interval'] = luna_opts.get('tracker_min_interval') or 20
     tracker_params['luna_tracker_maxpeers'] = luna_opts.get('tracker_maxpeers') or 200
-    tracker_params['mongo'] = mongo_db['tracker']
+#    tracker_params['mongo'] = mongo_db['tracker']
     manager_params = {}
     manager_params['server_ip'] = server_ip
     manager_params['server_port'] = port
-    manager_params['mongo'] = mongo_db
     manager_params['app_logger'] = app_logger
+    #manager_params['mongo'] = mongo_db
     template_path = path + '/templates'
-
+#
+#    tracker = tornado.web.Application([
+#        (r"/announce.*", luna.AnnounceHandler, dict(params=tracker_params)),
+#        (r"/scrape.*", luna.ScrapeHandler, dict(params=tracker_params)),
+#        (r"/luna.*", luna.Manager, dict(params=manager_params)),
+#        (r"/boot/(.*)",  tornado.web.StaticFileHandler, {'path': path + '/boot'}),
+#        (r"/torrents/(.*\.torrent)",  tornado.web.StaticFileHandler, {'path': path + '/torrents'}),
+#    ], mongo_db = mongo_db, template_path = template_path)
     tracker = tornado.web.Application([
         (r"/announce.*", luna.AnnounceHandler, dict(params=tracker_params)),
         (r"/scrape.*", luna.ScrapeHandler, dict(params=tracker_params)),
         (r"/luna.*", luna.Manager, dict(params=manager_params)),
-        (r"/boot/(.*)",  tornado.web.StaticFileHandler, {'path': path + '/boot'}),
-        (r"/torrents/(.*\.torrent)",  tornado.web.StaticFileHandler, {'path': path + '/torrents'}),
-    ], template_path = template_path)
-    logging.info('Starting lweb on port %d' % port)
+    ], template_path = template_path, xheaders=True)
+    logging.info('Starting lweb on port %d' % lweb_port)
     http_server = tornado.httpserver.HTTPServer(tracker)
-    http_server.listen(port)
+    http_server.bind(lweb_port, address='127.0.0.1')
+    http_server.start(0)
+    try:
+        #mongo_db =  motor.motor_tornado.MotorClient()[db_name]
+        mongo_db = pymongo.MongoClient()[db_name]
+    except:
+        logger.error("Unable to connect to MongoDB.")
+        raise RuntimeError
+    try:
+        mongo_db['tracker'].create_index("updated", expireAfterSeconds = 3600 )
+    except:
+        pass
+    tracker_params['mongo_db'] = mongo_db
+    manager_params['mongo_db'] = mongo_db
     tornado.ioloop.IOLoop.instance().start()
 
 
 if __name__ == '__main__':
+    """
     try:
         mongo_client = pymongo.MongoClient()
+        #mongo_client = motor.motor_tornado.MotorClient()
     except:
         logger.error("Unable to connect to MongoDB.")
         raise RuntimeError
     logger.debug("Connection to MongoDB was successful.")
+    """
     try:
-        run_app(mongo_client)
+        run_app()
     except KeyboardInterrupt:
         logging.info('Tracker Stopped.')
-        mongo_client.close()
-        logger.debug("Connection to MongoDB closed.")
+        #mongo_client.close()
+        #logger.debug("Connection to MongoDB closed.")
         sys.exit(0)
     except Exception as ex:
         logging.fatal('%s' % str(ex))
         sys.exit(-1)
-        mongo_client.close()
-        logger.debug("Connection to MongoDB closed.")
+        #mongo_client.close()
+        #logger.debug("Connection to MongoDB closed.")
 

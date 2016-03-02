@@ -9,12 +9,15 @@ import logging
 #from optparse import OptionParser
 import sys
 import pymongo
+#import motor
+from tornado.concurrent import Future
 import binascii
 import datetime
 import random
 import libtorrent
 from socket import inet_aton
 from struct import pack
+from httplib import responses
 
 
 import tornado.ioloop
@@ -42,6 +45,8 @@ class BaseHandler(tornado.web.RequestHandler):
 class AnnounceHandler(BaseHandler):
     """Track the torrents. Respond with the peer-list.
     """
+    @tornado.web.asynchronous
+    @tornado.gen.coroutine
     def update_peers(self, info_hash, peer_id, ip, port, status, uploaded, downloaded, left):
         """Store the information about the peer.
         """
@@ -51,24 +56,30 @@ class AnnounceHandler(BaseHandler):
                 'uploaded': uploaded, 'downloaded': downloaded, 'left': left}
         if not bool(status):
             json.pop('status')
-        self.mongo.find_and_modify({'info_hash': info_hash, 'ip': ip, 'port': port}, {'$set': json}, upsert = True)
+        self.mongo_db['tracker'].find_and_modify({'info_hash': info_hash, 'ip': ip, 'port': port}, {'$set': json}, upsert = True)
 
+    @tornado.gen.coroutine
     def get_peers(self, info_hash, numwant, compact, no_peer_id, age):
         time_age = datetime.datetime.utcnow() - datetime.timedelta(seconds = age)
         # '6c756e616c756e616c756e616c756e616c756e61'
-        mongo_cursor = self.mongo.find({'info_hash': info_hash, 'updated': {'$gte': time_age}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
-        server_records = self.mongo.find({'info_hash': info_hash, 'peer_id': binascii.hexlify('lunalunalunalunaluna'), 'port': {'$ne': 0}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+        #node_records, server_records = yield [node_future, server_future]
         peer_tuple_list = []
         n_leechers = 0
         n_seeders = 0
-        for doc in mongo_cursor:
+        node_cursor = self.mongo_db['tracker'].find({'info_hash': info_hash, 'updated': {'$gte': time_age}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+        #while (yield node_cursor.fetch_next):
+        #    doc = node_cursor.next_object()
+        for doc in node_cursor:
             try:
                 n_leechers += int(doc['status'] == 'started')
                 n_seeders += int(doc['status'] == 'completed')
             except:
                 pass
             peer_tuple_list.extend([(binascii.unhexlify(doc['peer_id']), doc['ip'], doc['port'])])
-        for doc in server_records:
+        server_cursor = self.mongo_db['tracker'].find({'info_hash': info_hash, 'peer_id': binascii.hexlify('lunalunalunalunaluna'), 'port': {'$ne': 0}}, {'peer_id': 1, 'ip': 1, 'port': 1, 'status': 1})
+        #while (yield server_cursor.fetch_next):
+        #    doc = server_cursor.next_object()
+        for doc in server_cursor:
             try:
                 n_leechers += int(doc['status'] == 'started')
                 n_seeders += int(doc['status'] == 'completed')
@@ -83,18 +94,29 @@ class AnnounceHandler(BaseHandler):
         peers = []
         for peer_info in random_peer_list:
             if compact:
-                ip = inet_aton(peer_info[1])
-                port = pack('>H', int(peer_info[2]))
-                compact_peers += (ip+port)
+                try:
+                    ip = inet_aton(peer_info[1])
+                    port = pack('>H', int(peer_info[2]))
+                    compact_peers += (ip+port)
+                except:
+                    pass
                 continue
             p = {}
             p['peer_id'], p['ip'], p['port'] = peer_info
             peers.append(p)
+        #self.response['complete'] = n_seeders
+        #self.response['incomplete'] = n_leechers
         if compact:
             logging.debug('compact peer list: %r' % compact_peers)
-            return (n_seeders, n_leechers, compact_peers)
-        logging.debug('peer list: %r' % peers)
+            peers = compact_peers
+            #self.response['peers'] = compact_peers
+        else:
+            logging.debug('peer list: %r' % peers)
+            #self.response['peers'] = peers
         return (n_seeders, n_leechers, peers)
+        #self.write(bencode(self.response))
+
+
 
     def initialize(self, params):
         self.PEER_INCREASE_LIMIT = 30
@@ -112,13 +134,25 @@ class AnnounceHandler(BaseHandler):
         self.INVALID_PEER_ID = 151
         self.INVALID_NUMWANT = 152
         self.GENERIC_ERROR = 900
+        self.PYTT_RESPONSE_MESSAGES = {
+            self.INVALID_REQUEST_TYPE: 'Invalid Request type',
+            self.MISSING_INFO_HASH: 'Missing info_hash field',
+            self.MISSING_PEER_ID: 'Missing peer_id field',
+            self.MISSING_PORT: 'Missing port field',
+            self.INVALID_INFO_HASH: 'info_hash is not %d bytes' % self.INFO_HASH_LEN,
+            self.INVALID_PEER_ID: 'peer_id is not %d bytes' % self.PEER_ID_LEN,
+            self.INVALID_NUMWANT: 'Peers more than %d is not allowed.' % self.MAX_ALLOWED_PEERS,
+            self.GENERIC_ERROR: 'Error in request',
+        }
+        responses.update(self.PYTT_RESPONSE_MESSAGES)
 
         self.luna_tracker_interval = params['luna_tracker_interval']
         self.luna_tracker_min_interval = params['luna_tracker_min_interval']
         self.luna_tracker_maxpeers = params['luna_tracker_maxpeers']
-        self.mongo = params['mongo']
+        self.mongo_db = params['mongo_db']
 
     @tornado.web.asynchronous
+    @tornado.gen.coroutine
     def get(self):
         failure_reason = ''
         warning_message = ''
@@ -128,17 +162,21 @@ class AnnounceHandler(BaseHandler):
         try:
             info_hash = self.get_argument('info_hash')
         except:
-            return self.send_error(self.MISSING_INFO_HASH)
+            self.send_error(self.MISSING_INFO_HASH)
+            return
         if len(info_hash) != self.INFO_HASH_LEN:
-            return self.send_error(self.INVALID_INFO_HASH)
+            self.send_error(self.INVALID_INFO_HASH)
+            return
         try:
             peer_id = self.get_argument('peer_id')
         except:
-            return self.send_error(self.MISSING_PEER_ID)
+            self.send_error(self.MISSING_PEER_ID)
+            return
         if len(peer_id) != self.PEER_ID_LEN:
-            return self.send_error(self.INVALID_PEER_ID)
+            self.send_error(self.INVALID_PEER_ID)
+            return
         try:
-            ip = self.get_argument('ip')
+            ip = self.request.headers.get("X-Real-IP")
         except:
             ip = '0.0.0.0'
         if ip == '0.0.0.0':
@@ -146,7 +184,8 @@ class AnnounceHandler(BaseHandler):
         try:
             port = int(self.get_argument('port'))
         except:
-            return self.send_error(self.MISSING_PORT)
+            self.send_error(self.MISSING_PORT)
+            return
         try:
             uploaded = int(self.get_argument('uploaded'))
         except:
@@ -179,7 +218,8 @@ class AnnounceHandler(BaseHandler):
             numwant = self.DEFAULT_ALLOWED_PEERS
         if numwant > self.luna_tracker_maxpeers:
             # XXX: cannot request more than MAX_ALLOWED_PEERS.
-            return self.send_error(self.INVALID_NUMWANT)
+            self.send_error(self.INVALID_NUMWANT)
+            return 
         try:
             key = self.get_argument('key')
         except:
@@ -192,32 +232,34 @@ class AnnounceHandler(BaseHandler):
         self.update_peers(info_hash, peer_id, ip, port, event, uploaded, downloaded, left)
 
         # generate response
-        response = {}
+        self.response = {}
         # Interval in seconds that the client should wait between sending
         #    regular requests to the tracker.
-        response['interval'] = self.luna_tracker_interval
+        self.response['interval'] = self.luna_tracker_interval
         # Minimum announce interval. If present clients must not re-announce
         #    more frequently than this.
-        response['min interval'] = self.luna_tracker_min_interval
-        
-        res_complete, res_incomplete, res_peers = self.get_peers(info_hash, 
+        self.response['min interval'] = self.luna_tracker_min_interval
+        self.response['tracker id'] = tracker_id
+        if bool(failure_reason):
+            self.response['failure reason'] = failure_reason
+        if bool(warning_message):
+            self.response['warning message'] = warning_message
+
+        self.set_header('Content-Type', 'text/plain')
+        #yield self.get_peers(info_hash, 
+        #                                                    numwant,
+        #                                                    compact,
+        #                                                    no_peer_id,
+        #                                                    self.luna_tracker_interval * 2)
+        res_complete, res_incomplete, res_peers = yield self.get_peers(info_hash, 
                                                             numwant,
                                                             compact,
                                                             no_peer_id,
                                                             self.luna_tracker_interval * 2)
-        response['complete'] = res_complete
-        response['incomplete'] = res_incomplete
-        response['peers'] = res_peers
-        response['tracker id'] = tracker_id
-        if bool(failure_reason):
-            response['failure reason'] = failure_reason
-        if bool(warning_message):
-            response['warning message'] = warning_message
-
-        # send the bencoded response as text/plain document.
-        self.set_header('Content-Type', 'text/plain')
-        self.write(bencode(response))
-        self.finish()
+        self.response['complete'] = res_complete
+        self.response['incomplete'] = res_incomplete
+        self.response['peers'] = res_peers
+        self.write(bencode(self.response))
 
 
 class ScrapeHandler(AnnounceHandler):
@@ -238,7 +280,7 @@ class ScrapeHandler(AnnounceHandler):
 
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
-        self.finish()
+        #self.finish()
 
 """
 def run_app(mongo_client):

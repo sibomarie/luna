@@ -63,8 +63,8 @@ class Options(Base):
                 self._logger.error("Path is not owned by '{}:{}'".format(user, group))
                 raise RuntimeError
             mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user, 'group': group,
-                        'debug': 0, 'path': path, 'server_address': '', 'server_port': 7050,
-                        'tracker_interval': 10, 
+                        'debug': 0, 'path': path, 'frontend_address': '', 'frontend_port': '7050',
+                        'server_port': 7051, 'tracker_interval': 10, 
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
                         'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -76,8 +76,8 @@ class Options(Base):
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''), 'group': type(''),
-                        'path': type(''), 'server_address': type(''), 'server_port': type(0),
-                        'tracker_interval': type(0),
+                        'path': type(''), 'frontend_address': type(''), 'frontend_port': type(0),
+                        'server_port': type(0), 'tracker_interval': type(0),
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0)}
 

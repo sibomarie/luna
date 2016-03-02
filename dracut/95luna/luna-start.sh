@@ -69,12 +69,16 @@ if [ "x$luna_service" = "x1" ]; then
     echo "Luna: Entering Service mode."
     setsid -c /bin/sh -i -l 0<>$luna_ctty 1<>$luna_ctty 2<>$luna_ctty
 else
-    echo "Luna: Trying to get install script."
-    while ! curl -f -s -m 60 --connect-timeout 10 "$luna_url?step=install&node=$luna_node" > /luna/install.sh; do 
-        echo "Luna: Could not get install script. Sleeping $luna_delay sec."
-        sleep $luna_delay
+    RES="failure"
+    while [ "x$RES"="xfailure" ]; do
+        echo "Luna: Trying to get install script."
+        while ! curl -f -s -m 60 --connect-timeout 10 "$luna_url?step=install&node=$luna_node" > /luna/install.sh; do 
+            echo "Luna: Could not get install script. Sleeping $luna_delay sec."
+            sleep $luna_delay
+        done
+        /bin/sh /luna/install.sh && RES="success"
+        sleep 10
     done
-    /bin/sh /luna/install.sh
 fi
 luna_finish
 echo 'Exit from Luna Installer'

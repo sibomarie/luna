@@ -511,10 +511,60 @@ def node_change(**args):
     if bool(args['mac']):
         node.set_mac(args['mac'])
         return None
+    if args['switch'] == '':
+        node.clear_switch()
+        return None
+    if args['port'] == '':
+        node.clear_port()
+        return None
+    if bool(args['switch']):
+        node.set_switch(args['switch'])
+        return None
+    if bool(args['port']):
+        node.set_port(args['port'])
+        return None
 
 def node_delete(name):
     node = luna.Node(name)
     node.delete()
+
+#################### Switch
+
+def switch_list():
+    switches = luna.list('switch')
+    print 'name', 'ip'
+    for elem in switches:
+        switch = luna.Switch(elem)
+        print elem, switch.get('ip')
+
+def switch_show(name, raw, out_format = def_format):
+    switch = luna.Switch(name = name)
+    if raw:
+        print switch.nice_json
+        return None
+    out_json = switch.show()
+    out_str = ''
+    name = out_json.pop('name')
+    for key in sorted(out_json):
+        out_str += out_format % (key, out_json[key])
+    out_str = out_format % ('name', name) + out_str.rstrip()
+    print out_str
+
+def switch_add(**args):
+    args['create'] = True
+    switch = luna.Switch(**args)
+
+def switch_change(**args):
+    switch = luna.Switch(args['name'])
+    args.pop('name')
+    for key in args:
+        if not args[key]:
+            continue
+        switch.set(key, args[key])
+
+def switch_delete(name):
+    switch = luna.Switch(name)
+    switch.delete()
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
@@ -540,7 +590,8 @@ cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Z
 cluster_command.add_argument('--path', type=str, help='Path to store files.')
 cluster_command.add_argument('--user', type=str, help='Username for running services.')
 cluster_command.add_argument('--group', type=str, help='Groupname for running services.')
-cluster_command.add_argument('--server_address', type=str, help='Server address')
+cluster_command.add_argument('--frontend_address', type=str, help='Server address')
+cluster_command.add_argument('--frontend_port', type=int, help='Server address')
 cluster_command.add_argument('--server_port', type=int, help='Server port')
 ###cluster_command.add_argument('--tracker_address', type=str, help='Torrent tracker address')
 ###cluster_command.add_argument('--tracker_port', type=int, help='Torrent tracker port')
@@ -740,11 +791,40 @@ node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip a
 node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
 node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
 node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address.')
+node_command_group.add_argument('--switch', '-s', type=str, help='Switch.')
+node_command_group.add_argument('--port', '-p', type=str, help='Port.')
 
 # delete
 node_command = node_parser_actions.add_parser('delete', help='Delete Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
 
+
+# Switch
+switch_parser = luna_subparsers.add_parser('switch', help='Switch operations.')
+switch_parser_actions = switch_parser.add_subparsers(dest='action')
+# list
+switch_command = switch_parser_actions.add_parser('list', help='List Switches.')
+# show
+switch_command = switch_parser_actions.add_parser('show', help='Show Switch.')
+switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
+# add
+switch_command = switch_parser_actions.add_parser('add', help='Show Switch.')
+switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the Switch.')
+switch_command.add_argument('--read', '-r', type=str, help='Read community', default = 'public')
+switch_command.add_argument('--rw', '-w', type=str, help='Write community', default = 'private')
+switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.', default = '1.3.6.1.2.1.17.7.1.2.2.1.2')
+# change
+switch_command = switch_parser_actions.add_parser('change', help='Change Switch.')
+switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--ip', '-i', type=str, help='IP of the Switch.')
+switch_command.add_argument('--read', '-r', type=str, help='Read community')
+switch_command.add_argument('--rw', '-w', type=str, help='Write community')
+switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.')
+# delete
+switch_command = switch_parser_actions.add_parser('delete', help='Delete Switch.')
+switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 
 if __name__ == '__main__':
         args = parser.parse_args()

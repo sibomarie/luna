@@ -11,6 +11,7 @@ from luna.options import Options
 from luna.network import Network
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
+from luna.switch import Switch
 
 class Node(Base):
     """
@@ -28,7 +29,7 @@ class Node(Base):
         if not bool(name) and bool(create):
             name = self._generate_name()
         mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = {'port': type(0)}
+        self._keylist = {'port': type('')}
         if create:
             options = Options()
             group = Group(group)
@@ -284,24 +285,31 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        switch = switch(name)
+        switch = Switch(name)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'switch': switch.DBRef}}, multi=False, upsert=False)
-        if not res['err']:
+        if res['ok'] == 1:
             self.link(switch.DBRef)
-        return not res['err']
+        return bool(res['ok'])
 
     def clear_switch(self):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        switch = switch(name)
+        json = self._get_json()
+        try:
+            switch_id = json['switch'].id
+        except:
+            return None
+        switch = Switch(id = switch_id)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'switch': None}}, multi=False, upsert=False)
-        if not res['err']:
+        if res['ok'] == 1:
             self.unlink(switch.DBRef)
-        return not res['err']
+        return bool(res['ok'])
         
     def set_port(self, num):
         self.set('port', num)
+    def clear_port(self):
+        self.set('port', '')
 
     def delete(self):
         """
@@ -370,29 +378,8 @@ class Node(Base):
         group = Group(id = json['group'].id)
         return group.get_num_bmc_ip(ip)
 
-    # TODO
-    @property
-    def prescript(self):
-        pass
-    @property
-    def bmcsetup(self):
-        pass
-    @property
-    def partscript(self):
-        pass
-    @property
-    def downloadscript(self):
-        pass
-    @property
-    def netconfigscript(self):
-        pass
-    @property
-    def postscript(self):
-        pass
     @property
     def kernel(self):
-        
-        
         return "compute-vmlinuz-3.10.0-327.3.1.el7.x86_64"
     @property
     def initrd(self):
