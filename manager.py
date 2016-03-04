@@ -32,6 +32,7 @@ lock_switch_table_updater_running = threading.Lock()
 switch_mac_table = None
 lock_switch_mac_table = threading.Lock()
 
+
 class Manager(tornado.web.RequestHandler):
     """
     def get_name_from_known_macs(self, macs):

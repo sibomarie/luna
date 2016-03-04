@@ -21,6 +21,7 @@ pidfile = None
 daemonize = None
 soft_timeout = None
 hard_timeout = None
+log_dir = '/var/log/luna'
 
 flag_seed_mode = 1
 flag_override_resume_data = 2
@@ -328,6 +329,11 @@ def start_torrent_client():
     except:
         logger.error("Error is occured with configured path.")
         return None
+    try:
+        log_dir = check_path(log_dir)
+    except:
+        logger.error("Error is occured with log_dir.")
+        return None
     if not bool(torrents):
         logger.info("No torrents. Exiting.")
         return None
@@ -468,9 +474,11 @@ def daemonize():
     Programming in the UNIX Environment" for details (ISBN 0201563177)
     http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
     """
-    handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
+    #handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
+    log_handler = logging.handlers.RotatingFileHandler( log_dir + '/ltorrent', maxBytes = 1073741824, backupCount = 5)
+    log_handler.doRollover()
     logger.propagate = False
-    logger.addHandler(handler)
+    logger.addHandler(log_handler)
     stdin = '/dev/null'
     stdout = '/dev/null'
     stderr = '/dev/null'
@@ -629,7 +637,7 @@ if __name__ == '__main__':
         runas_user = 'luna'
     runas_group = options.get('group')
     if not bool(runas_group):
-        runas_user = 'luna'
+        runas_group = 'luna'
     pidfile = options.get('torrent_pidfile')
     if not bool(pidfile):
         pidfile = '/run/luna/torrent.pid'

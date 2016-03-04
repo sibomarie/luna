@@ -19,16 +19,17 @@ import tornado.httpserver
 
 #from libtorrent import bencode
 import luna
+from luna import MacUpdater
 
-logger = logging.getLogger('tornado.access')
-app_logger = logging.getLogger(__name__)
 db_name = 'luna'
 
 def run_app():
     """Start Tornado IOLoop for this application.
     """
 
+    app_logger = logging.getLogger(__name__)
     logger = logging.getLogger('tornado.access')
+
     luna_opts = luna.Options()
     port = luna_opts.get('frontend_port') or 7050
     lweb_port = luna_opts.get('server_port') or 7051
@@ -77,6 +78,7 @@ def run_app():
         pass
     tracker_params['mongo_db'] = mongo_db
     manager_params['mongo_db'] = mongo_db
+    macupdater = MacUpdater(mongo_db, logger = app_logger,  aging = 3600, interval = 10)
     tornado.ioloop.IOLoop.instance().start()
 
 

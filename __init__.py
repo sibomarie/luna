@@ -10,7 +10,7 @@ from ifcfg import IfCfg
 from bmcsetup import BMCSetup
 #from group import Group
 from node import Node, Group
-from switch import Switch
+from switch import Switch, MacUpdater
 from network import Network
 from tracker import *
 from manager import Manager

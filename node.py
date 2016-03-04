@@ -278,7 +278,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         res = self._mongo_db['mac'].remove({'name': self.name})
-        return not res['err']
+        return res['ok']
         
 
     def set_switch(self, name):

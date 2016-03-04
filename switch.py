@@ -4,6 +4,9 @@ import logging
 import inspect
 import sys
 import os
+import time
+import threading
+
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
@@ -48,12 +51,67 @@ class Switch(Base):
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
 
-# >>> l1 = netsnmp.VarList(netsnmp.Varbind('1.3.6.1.2.1.17.7.1.2.2.1.2'))
-# >>> res = netsnmp.snmpwalk(l1, Version = 1,  DestHost = 'switch', Community='public')
-# >>> for i in range(len(l1)):
-#...     print "%s %s" % (l1[i].tag,  l1[i].val)
-#... 
-#>>> s = '64.141.92.54.133.134'
-#>>> for n in s.split('.'):
-#...     print hex(int(n)).split('x')[1]
-# 1.3.6.1.2.1.17.4.3.1.2     1.3.6.1.2.1.17.7.1.2.2      1.3.6.1.2.1.17.4.3.1.2
+class MacUpdater(object):
+
+    def __init__(self, mongo_db, logger = None, aging = None, interval = 30):
+        self.switch_collection = mongo_db['switch']
+        self.known_mac_collection = mongo_db['switch_mac']
+        aging = aging or 3600
+        self.logger = logger
+        self.interval = interval
+        self.logger.name = 'MAcUpdater'
+        self.active = True
+        self.known_mac_collection.create_index("updated", expireAfterSeconds = aging )
+        thread = threading.Thread(target=self.run, args=())
+        thread.daemon = True
+        thread.start()
+    
+    def run(self):
+        counter = self.interval
+        while self.active:
+            if counter >= self.interval:
+                self.update()
+                counter = 0
+            counter += 1
+            time.sleep(1)
+
+    def stop(self):
+        self.active = False
+
+    def update(self):
+        self.logger.info("Updating known mac addresses")
+        switches = self.switch_collection.find()
+        mac_count = 0
+        for switch in switches:
+            oid = switch['oid']
+            ip = switch['ip']
+            read = switch['read']
+            switch_id = switch['_id']
+            mongo_doc = {}
+            mongo_doc['switch_id'] = switch_id
+            try:
+                self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (oid, ip, read, switch_id))
+                varlist = netsnmp.VarList(netsnmp.Varbind(oid))
+                res = netsnmp.snmpwalk(varlist, Version = 1,  DestHost = ip, Community = read)
+                for i in range(len(varlist)):
+                    mac = ''
+                    port = str(varlist[i].val)
+                    for elem in varlist[i].tag.split('.')[-6:]:
+                        mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
+                    mac = mac[:-1]
+                    mongo_doc['mac'] = mac
+                    mongo_doc['port'] = port
+                    self.known_mac_collection.insert(mongo_doc)
+                    mac_count += 1
+            except NameError:
+                if self.logger:
+                    self.logger.error("Cannot reach '{}'".format(ip))
+            except:
+                err = sys.exc_info()[0]
+                if self.logger:
+                    self.logger.error(err)
+        self.logger.info("Was added {} mac addresses.".format(mac_count))
+        return True
+
+                
+
