@@ -6,6 +6,7 @@ import sys
 import os
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
+from luna.utils import set_mac_node
 from luna.base import Base
 from luna.options import Options
 from luna.network import Network
@@ -258,7 +259,7 @@ class Node(Base):
             return None
         if type(mac) == type('') and re.match('(([a-fA-F0-9]{2}:){4}([a-fA-F0-9]{2}))', mac):
             mac = mac.lower()
-            self._mongo_db['mac'].find_and_modify({'_id': mac}, {'$set': {'name': self.name}}, upsert = True)
+            set_mac_node(mac, self.DBRef, (self._mongo_db))
             #res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
             return True
         return None
@@ -268,7 +269,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         try:
-            mac = str(self._mongo_db['mac'].find_one({'name': self.name})['_id'])
+            mac = str(self._mongo_db['mac'].find_one({'node': self.DBRef})['mac'])
         except:
             mac = None
         return mac
@@ -277,7 +278,7 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        res = self._mongo_db['mac'].remove({'name': self.name})
+        res = self._mongo_db['mac'].remove({'node': self.DBRef})
         return res['ok']
         
 

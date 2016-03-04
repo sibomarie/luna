@@ -18,6 +18,7 @@ import time
 from socket import inet_aton
 from struct import pack
 from bson.dbref import DBRef
+from luna.utils import set_mac_node
 
 
 import tornado.ioloop
@@ -111,6 +112,8 @@ class Manager(tornado.web.RequestHandler):
                 req_nodename = self.get_argument('node')
             except:
                 req_nodename = None
+            macs = set(hwdata.split('|'))
+            # enter node name manualy from ipxe
             if req_nodename:
                 try:
                     node = luna.Node(name = req_nodename, mongo_db = self.mongo['node'])
@@ -118,7 +121,6 @@ class Manager(tornado.web.RequestHandler):
                     self.app_logger.error("No such node configured in DB. '{}'".format(req_nodename))
                     self.send_error(400)
                     return
-                macs = hwdata.split('|')
                 mac = None
                 for i in range(len(macs)):
                     if bool(macs[i]):
@@ -126,54 +128,69 @@ class Manager(tornado.web.RequestHandler):
                         break
                 if mac:
                     mac = mac.lower()
-                    self.mongo['mac'].find_and_modify({'_id': mac}, {'$set': {'name': req_nodename}}, upsert = True)
-            macs = set(hwdata.split('|'))
-            find_name = None
+                    set_mac_node(mac, node.DBRef)
+                else:
+                    self.send_error(400) #  Bad Request
+                    return
+            # need to find node fo given macs.
+            # first step - trying to find in know macs
+            found_node_dbref = None
             for mac in macs:
                 if not bool(mac):
                     continue
                 mac = mac.lower()
-                find_name_json = self.mongo['mac'].find_one({'_id': mac}, {'_id': 0, 'name': 1})
-                if bool(find_name):
+                try:
+                    found_node_dbref = self.mongo['mac'].find_one({'mac': mac}, {'_id': 0, 'node': 1})['node']
+                except:
+                    #self.app_logger.error("Mac record exists, but no node configured for given mac '{}'".format(mac))
+                    #self.send_error(404)
+                    #return
+                    continue
+                if bool(found_node_dbref):
                     break
-            try:
-                find_name = find_name_json['name']
-            except:
-                self.app_logger.error("No name configured for mac '{}'".format(mac.lower()))
-                #return self.send_error(404)
-                self.send_error(404)
-                return
-            if not bool(find_name):
-                """
-                (find_name, mac) = self.get_name_from_known_macs(macs)
-                if not bool(find_name):
-                    resp = yield tornado.gen.Task(self.switch_table_updater)
-                    self.send_error(404)
-                    return
-                """
-                finded_mac = None
+
+            # second step. now try to find in learned switch macs if we have switch/port configured
+            if not bool(found_node_dbref):
+                mac_from_cache = None
                 for mac in macs:
                     mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
                     for elem in mac_cursor:
                         switch_id = elem['switch_id']
                         port = elem['port']
                         try:
-                            find_name = self.mongo['node'].find_one({'switch': DBRef('switch', switch_id), 'port': port}, {})['name']
-                            finded_mac = mac
+                            found_name_from_learned = self.mongo['node'].find_one({'switch': DBRef('switch', switch_id), 'port': port}, {})['name']
+                            mac_from_cache = mac
                         except:
-                            finded_mac = None
-                        if finded_mac:
+                            found_name_from_learned = None
+                            mac_from_cache = None
+                        if mac_from_cache:
                             break
-                    if finded_mac:
+                    if mac_from_cache:
                         break
-                if not bool(finded_mac):
+                if not bool(mac_from_cache):
+                    self.app_logger.info("Cannot find '{}' in learned macs.".format(macs))
+                    # did not find in learned macs
                     self.send_error(404)
                     return
-                self.mongo['mac'].find_and_modify({'_id': finded_mac}, {'$set': {'name': find_name}}, upsert = True)
+                # here we should have found_name_from_learned and mac_from_cache
+                try:
+                    node = luna.Node(name = found_name_from_learned, mongo_db = self.mongo)
+                    set_mac_node(mac_from_cache, node.DBRef)
+                    found_node_dbref = node.DBRef
+                except:
+                    # should not be here
+                    self.app_logger.info("Cannot create node object for '{}' and '{}'".format(found_name_from_learned, self.mongo))
+                    self.send_error(404)
+                    return
+            # here we should have found_node_dbref
             try:
-                node = luna.Node(name = find_name, mongo_db = self.mongo)
+                node = luna.Node(id = found_node_dbref.id, mongo_db = self.mongo)
             except:
-                self.app_logger.error("Mac '{}' exists, but node does not '{}'".format(mac.lower(), find_name))
+                # should not be here
+                self.app_logger.info("Cannot create node object for '{}' and '{}'".format(found_node_dbref, self.mongo))
+                self.send_error(404)
+                return
+            # found node finally
             http_path = "http://" + self.server_ip + ":" + str(self.server_port) + "/boot/"
             boot_params = node.boot_params
             if not boot_params['boot_if']:

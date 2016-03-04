@@ -324,6 +324,7 @@ def find_old_torrents():
 def start_torrent_client():
     global t_session
     global torrents
+    global log_dir
     try:
         path = check_path(torrents_path)
     except:
