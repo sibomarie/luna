@@ -63,9 +63,6 @@ def run_app():
         (r"/luna.*", luna.Manager, dict(params=manager_params)),
     ], template_path = template_path, xheaders=True)
     logging.info('Starting lweb on port %d' % lweb_port)
-    http_server = tornado.httpserver.HTTPServer(tracker)
-    http_server.bind(lweb_port, address='127.0.0.1')
-    http_server.start(0)
     try:
         #mongo_db =  motor.motor_tornado.MotorClient()[db_name]
         mongo_db = pymongo.MongoClient()[db_name]
@@ -76,9 +73,12 @@ def run_app():
         mongo_db['tracker'].create_index("updated", expireAfterSeconds = 3600 )
     except:
         pass
+    macupdater = MacUpdater(mongo_db, logger = app_logger,  aging = 3600, interval = 30)
+    http_server = tornado.httpserver.HTTPServer(tracker)
+    http_server.bind(lweb_port, address='127.0.0.1')
+    http_server.start(0)
     tracker_params['mongo_db'] = mongo_db
     manager_params['mongo_db'] = mongo_db
-    macupdater = MacUpdater(mongo_db, logger = app_logger,  aging = 3600, interval = 10)
     tornado.ioloop.IOLoop.instance().start()
 
 

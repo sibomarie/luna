@@ -472,11 +472,11 @@ class Group(Base):
             for interface in interfaces:
                 if_dict[interface] = {'network': None, 'params': ''}
             if not bool(partscript):
-                partscript = "#!/bin/bash\nmount -t ramfs ramfs /sysroot"
+                partscript = "mount -t ramfs ramfs /sysroot"
             if not bool(prescript):
-                prescript = "#!/bin/bash"
+                prescript = ""
             if not bool(postscript):
-                postscript = "#!/bin/bash"
+                postscript = ""
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
                                'postscript': postscript, 'boot_if': boot_if, 'torrent_if': torrent_if}
@@ -513,7 +513,8 @@ class Group(Base):
             return None
         bmcsetup = BMCSetup(bmcsetup_name)
         old_dbref = self._get_json()['bmcsetup']
-        self.unlink(old_dbref)
+        if bool(old_dbref):
+            self.unlink(old_dbref)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': bmcsetup.DBRef}}, multi=False, upsert=False)
         self.link(bmcsetup.DBRef)
         return not res['err']

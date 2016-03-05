@@ -6,6 +6,7 @@ import sys
 import os
 import time
 import threading
+import netsnmp
 
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
@@ -23,10 +24,10 @@ class Switch(Base):
         read    - read community
         rw      - rw community
         oid     - could be, for instance 
-                1.3.6.1.2.1.17.7.1.2.2.1.2
-                1.3.6.1.2.1.17.4.3.1.2
-                1.3.6.1.2.1.17.7.1.2.2
-                1.3.6.1.2.1.17.4.3.1.2
+                .1.3.6.1.2.1.17.7.1.2.2.1.2
+                .1.3.6.1.2.1.17.4.3.1.2
+                .1.3.6.1.2.1.17.7.1.2.2
+                .1.3.6.1.2.1.17.4.3.1.2
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'switch'
@@ -102,6 +103,7 @@ class MacUpdater(object):
                     mongo_doc['mac'] = mac
                     mongo_doc['port'] = port
                     self.known_mac_collection.insert(mongo_doc)
+                    mongo_doc.pop('_id')
                     mac_count += 1
             except NameError:
                 if self.logger:
