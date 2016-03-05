@@ -108,4 +108,5 @@ The last one is not the service. Will daemonize it later. Please run it in scree
 curl "http://10.30.255.254:7050/luna?step=boot"
 wget "http://10.30.255.254:7050/boot/compute-vmlinuz-3.10.0-327.10.1.el7.x86_64"
 curl "http://10.30.255.254:7050/luna?step=install&node=node001"
+```
 # Boot node
