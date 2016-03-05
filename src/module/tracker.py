@@ -106,16 +106,16 @@ class AnnounceHandler(BaseHandler):
             p = {}
             p['peer_id'], p['ip'], p['port'] = peer_info
             peers.append(p)
-        #self.response['complete'] = n_seeders
-        #self.response['incomplete'] = n_leechers
+        self.response['complete'] = n_seeders
+        self.response['incomplete'] = n_leechers
         if compact:
             logging.debug('compact peer list: %r' % compact_peers)
             peers = compact_peers
-            #self.response['peers'] = compact_peers
+            self.response['peers'] = compact_peers
         else:
             logging.debug('peer list: %r' % peers)
-            #self.response['peers'] = peers
-        return (n_seeders, n_leechers, peers)
+            self.response['peers'] = peers
+        #return (n_seeders, n_leechers, peers)
         #self.write(bencode(self.response))
 
 
@@ -154,7 +154,7 @@ class AnnounceHandler(BaseHandler):
         self.mongo_db = params['mongo_db']
 
     @tornado.web.asynchronous
-    @tornado.gen.engine
+    ###@tornado.gen.engine
     def get(self):
         failure_reason = ''
         warning_message = ''
@@ -253,15 +253,17 @@ class AnnounceHandler(BaseHandler):
         #                                                    compact,
         #                                                    no_peer_id,
         #                                                    self.luna_tracker_interval * 2)
-        res_complete, res_incomplete, res_peers = yield self.get_peers(info_hash, 
+        #res_complete, res_incomplete, res_peers = 
+        self.get_peers(info_hash, 
                                                             numwant,
                                                             compact,
                                                             no_peer_id,
                                                             self.luna_tracker_interval * 2)
-        self.response['complete'] = res_complete
-        self.response['incomplete'] = res_incomplete
-        self.response['peers'] = res_peers
+        #self.response['complete'] = res_complete
+        #self.response['incomplete'] = res_incomplete
+        #self.response['peers'] = res_peers
         self.write(bencode(self.response))
+        self.finish()
 
 
 class ScrapeHandler(AnnounceHandler):
