@@ -23,6 +23,7 @@ from httplib import responses
 import tornado.ioloop
 import tornado.web
 import tornado.httpserver
+import tornado.gen
 
 from libtorrent import bencode
 import luna
@@ -46,7 +47,7 @@ class AnnounceHandler(BaseHandler):
     """Track the torrents. Respond with the peer-list.
     """
     @tornado.web.asynchronous
-    #####@tornado.gen.coroutine
+    @tornado.gen.engine
     def update_peers(self, info_hash, peer_id, ip, port, status, uploaded, downloaded, left):
         """Store the information about the peer.
         """
@@ -59,7 +60,7 @@ class AnnounceHandler(BaseHandler):
         self.mongo_db['tracker'].find_and_modify({'info_hash': info_hash, 'ip': ip, 'port': port}, {'$set': json}, upsert = True)
 
     @tornado.web.asynchronous
-    #####@tornado.gen.coroutine
+    @tornado.gen.engine
     def get_peers(self, info_hash, numwant, compact, no_peer_id, age):
         time_age = datetime.datetime.utcnow() - datetime.timedelta(seconds = age)
         # '6c756e616c756e616c756e616c756e616c756e61'
@@ -153,7 +154,7 @@ class AnnounceHandler(BaseHandler):
         self.mongo_db = params['mongo_db']
 
     @tornado.web.asynchronous
-    #####@tornado.gen.coroutine
+    @tornado.gen.engine
     def get(self):
         failure_reason = ''
         warning_message = ''
@@ -267,6 +268,7 @@ class ScrapeHandler(AnnounceHandler):
     """Returns the state of all torrents this tracker is managing.
     """
     @tornado.web.asynchronous
+    @tornado.gen.engine
     def get(self):
         info_hashes = self.get_arguments('info_hash')
         response = {}
