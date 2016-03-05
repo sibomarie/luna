@@ -271,7 +271,7 @@ class Network(Base):
         prefix = self._get_json()['PREFIX']
         upborder = (1<<(32-prefix))-1
         if num <= upborder and num > freelist[-1]['end']:
-            filled_list.extend([insert_num])
+            filled_list.extend([num])
         if len(freelist) == len(filled_list):
             self._logger.error("Cannot release IP. No place for '{}' in list: ''".format(num, freelist))
             return False
