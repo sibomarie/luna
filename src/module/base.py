@@ -2,7 +2,7 @@ from config import *
 import pymongo
 import logging
 import inspect
-import sys
+import json
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
 
@@ -34,7 +34,6 @@ class Base(object):
         self._logger.error("Please do not call this class directly")
         raise RuntimeError
 
-    
     def _check_name(self, name, mongo_db, create, id):
         if mongo_db:
             self._mongo_db = mongo_db
@@ -67,7 +66,7 @@ class Base(object):
         """
         Outputs name of the calling function and parameters passed into
         """
-        if not logging.getLogger().getEffectiveLevel() == 10:
+        if logging.getLogger().getEffectiveLevel() != 10:
             return None
         caller = inspect.currentframe().f_back
         f_name = inspect.getframeinfo(caller)[2]
@@ -78,7 +77,7 @@ class Base(object):
         """
         Outputs tuple of internal data from class
         """
-        if not logging.getLogger().getEffectiveLevel() == 10:
+        if logging.getLogger().getEffectiveLevel() != 10:
             return None
         return (self._name, self._id, self._DBRef, self.nice_json)
 
@@ -105,14 +104,14 @@ class Base(object):
         """
         from bson.json_util import dumps
         return dumps(self._get_json(), sort_keys=True, indent=4, separators=(',', ': '))
-        
+
     def __str__(self):
         """
         Returns name
         """
         return self._name
 
-    def show(self, out_format = '%20s%20s\n'):
+    def show(self):
         def get_value(value):
             if type(value) is not DBRef:
                 return value
@@ -142,7 +141,7 @@ class Base(object):
                     continue
                 internal_json[key] = get_value(val)
             return internal_json
-                        
+
         json = self._get_json()
         try:
             json.pop('_id')
@@ -178,7 +177,7 @@ class Base(object):
         MongoDB DBRef of the document
         """
         return self._DBRef
-    
+
     @property
     def json(self):
         """
@@ -200,7 +199,7 @@ class Base(object):
         List of the 'simple' fields one can change (no data structures here)
         """
         return self._keylist
-        
+
     def get(self, key):
         """
         Allow to get variables
@@ -237,14 +236,14 @@ class Base(object):
         try:
             val_type = self._keylist[key]
         except:
-            self._logger.error("No such key for the given object".format(key))
+            self._logger.error("No such key '{}' for the given object".format(key))
             return None
         if not bool(key) or type(key) is not str:
             self._logger.error("Field should be specified")
             return None
         obj_json = self._get_json()
         if not obj_json:
-            self._logger.error("No json for the given object".format(key))
+            self._logger.error("No json for the given object")
             return None
         if type(value) is not val_type:
             self._logger.error("Value '{}' should be '{}' type".format(key, val_type))
@@ -425,7 +424,6 @@ class Base(object):
                 output.extend([{'collection': dbref.collection, 'name': name, 'DBRef': dbref}])
         return output
 
-
     def get_back_links(self, resolve=False, collection = None):
         """
         Enumerates all reverse references
@@ -460,7 +458,7 @@ class Base(object):
                         name = str(dbref.id)
                 output.extend([{'collection': dbref.collection, 'name': name, 'DBRef': dbref}])
         return output
-        
+
     def delete(self):
         """
         Is used to delete the document from MongoDB.
@@ -469,7 +467,6 @@ class Base(object):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        import json
         links = self.get_links(resolve=True)
         back_links = self.get_back_links(resolve=True)
         if len(back_links) > 0:

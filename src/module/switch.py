@@ -1,14 +1,10 @@
 from config import *
-import pymongo
 import logging
-import inspect
 import sys
-import os
 import time
 import threading
 import netsnmp
 
-from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.options import Options
@@ -17,13 +13,13 @@ class Switch(Base):
     """
     Class for operating with switch records
     """
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None,
             ip = None, read = 'public', rw = 'private', oid = None):
         """
         ip      - ip of the switch
         read    - read community
         rw      - rw community
-        oid     - could be, for instance 
+        oid     - could be, for instance
                 .1.3.6.1.2.1.17.7.1.2.2.1.2
                 .1.3.6.1.2.1.17.4.3.1.2
                 .1.3.6.1.2.1.17.7.1.2.2
@@ -34,7 +30,6 @@ class Switch(Base):
         mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type(''), 'oid': type('') }
         if create:
-            import inspect
             options = Options()
             passed_vars = inspect.currentframe().f_locals
             for key in self._keylist:
@@ -66,7 +61,7 @@ class MacUpdater(object):
         thread = threading.Thread(target=self.run, args=())
         thread.daemon = True
         thread.start()
-    
+ 
     def run(self):
         counter = self.interval
         while self.active:
@@ -114,6 +109,3 @@ class MacUpdater(object):
                     self.logger.error(err)
         self.logger.info("Was added {} mac addresses.".format(mac_count))
         return True
-
-                
-

@@ -1,15 +1,12 @@
 from config import *
-import pymongo
 import logging
-import inspect
 import sys
 import os
 import pwd
 import grp
 import subprocess
-import threading
 import ctypes
-from bson.objectid import ObjectId
+import rpm
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.options import Options
@@ -37,8 +34,8 @@ class OsImage(Base):
             self._logger.error("Kernel options should be 'str' type")
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type(''),
-                        'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''), 
-                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type(''), 'kernfile': type(''), 'initrdfile': type('')}
+                        'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''),
+                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
         if create:
             options = Options()
             path = os.path.abspath(path)
@@ -53,9 +50,10 @@ class OsImage(Base):
                     pass
             if not self._check_kernel(path, kernver):
                 raise RuntimeError
-            mongo_doc = {'name': name, 'path': path, 'kernver': kernver, 
-                        'kernopts': kernopts, 
-                        'dracutmodules': 'luna -i18n -plymouth', 'kernmodules': 'ipmi_devintf ipmi_si ipmi_msghandler'}
+            mongo_doc = {'name': name, 'path': path,
+                        'kernver': kernver, 'kernopts': kernopts,
+                        'dracutmodules': 'luna -i18n -plymouth',
+                        'kernmodules': 'ipmi_devintf ipmi_si ipmi_msghandler'}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -67,12 +65,10 @@ class OsImage(Base):
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger(__name__ + '.' + self._name)
 
-    
     def list_kernels(self):
         return self.get_package_ver(self.path, 'kernel')
 
     def get_package_ver(self, path, package):
-        import rpm
         rpm.addMacro("_dbpath", path + '/var/lib/rpm')
         ts = rpm.TransactionSet()
         package_vers = list()
@@ -108,16 +104,15 @@ class OsImage(Base):
         """
 
     def _check_kernel(self, path, kernver):
-        import os
         os_image_kernvers = None
-        req_kernver = None
         if not os.path.isdir(path):
             self._logger.error("{} is not valid dir".format(path))
             return None
         try:
             os_image_kernvers = self.get_package_ver(path,'kernel')
-            req_kernver = os_image_kernvers.index(kernver)
+            #req_kernver = os_image_kernvers.index(kernver)
         except:
+            #req_kernver = None
             if os_image_kernvers == []:
                 self._logger.error("No kernel package installed in {}".format(path))
                 return None
@@ -171,11 +166,11 @@ class OsImage(Base):
         #tarball.add(image_path, arcname=os.path.basename(image_path + "/."))
         #tarball.close()
         try:
-            tar_out = subprocess.Popen(['/usr/bin/tar', 
-                    '-C', image_path + '/.', 
-                    '--one-file-system', 
-                    '--xattrs', 
-                    '--selinux', 
+            tar_out = subprocess.Popen(['/usr/bin/tar',
+                    '-C', image_path + '/.',
+                    '--one-file-system',
+                    '--xattrs',
+                    '--selinux',
                     '--acls',
                     '--checkpoint=100',
                     '-c', '-z', '-f', tarfile_path, '.'], stderr=subprocess.PIPE) # dirty, but 4 times faster
@@ -196,13 +191,15 @@ class OsImage(Base):
         os.chmod(tarfile_path, 644)
         self.set('tarball', str(uid))
         return True
-    
+
+    """ 
     def set(self, key, value):
         res = super(OsImage, self).set(key, value)
         if key == 'kernver' and res:
             return self.place_bootfiles()
         return res
-
+    
+    
     def create_initrd(self):
         path = Options().get('path')
         if not path:
@@ -211,13 +208,14 @@ class OsImage(Base):
         path_to_store = "/tmp"
         dracut_modules = self.get('dracutmodules') + " luna"
         kern_modules = self.get('kernmodules')
-
+    
     def place_bootfiles(self):
         path = Options().get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
         path_to_store = path + "/boot"
+    """
 
     def create_torrent(self):
         # TODO check if root
@@ -290,9 +288,8 @@ class OsImage(Base):
             umount(path + '/dev')
             umount(path + '/proc')
             umount(path + '/sys')
-            
-        
-        boot_prefix = '/boot'
+
+        #boot_prefix = '/boot'
         image_path = str(self.get('path'))
         kernver = str(self.get('kernver'))
         tmp_path = '/tmp' # in chroot env
@@ -336,8 +333,8 @@ class OsImage(Base):
         prepare_mounts(image_path)
         real_root = os.open("/", os.O_RDONLY)
         os.chroot(image_path)
-        
-        try: 
+
+        try:
             dracut_modules = subprocess.Popen(['dracut', '--kver', kernver, '--list-modules'], stdout=subprocess.PIPE)
             luna_exists = False
             while dracut_modules.poll() is None:
@@ -362,7 +359,7 @@ class OsImage(Base):
             except:
                 pass
             return None
-        
+
         os.fchdir(real_root)
         os.chroot(".")
         os.close(real_root)

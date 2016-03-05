@@ -5,26 +5,11 @@ import tornado.ioloop
 import tornado.web
 import tornado.httpserver
 import tornado.gen
-import logging
-import sys
-import pymongo
-import binascii
-import datetime
-import random
-import libtorrent
 import threading
 import datetime
 import time
-from socket import inet_aton
-from struct import pack
 from bson.dbref import DBRef
 from luna.utils import set_mac_node
-
-
-import tornado.ioloop
-import tornado.web
-import tornado.httpserver
-
 
 last_switch_update = None
 lock_last_switch_update = threading.Lock()
@@ -35,58 +20,7 @@ lock_switch_mac_table = threading.Lock()
 
 
 class Manager(tornado.web.RequestHandler):
-    """
-    def get_name_from_known_macs(self, macs):
-        global last_switch_update
-        global switch_mac_table
-        cur_time = datetime.datetime.utcnow()
-        if last_switch_update and cur_time - datetime.timedelta(seconds = 5) > last_switch_update:
-            return (None, None)
-        out_mac = None
-        if not bool(switch_mac_table):
-            return (None, None)
-        switch_mac_table_local = switch_mac_table[:]
-        for record in switch_mac_table_local:
-            for mac in macs:
-                if mac != record[0]:
-                    continue
-                try:
-                    node_name = self.mongo['node'].find_one({'switch': record[1], 'port': record[2]}, {'_id': 0, 'name': 1})['name']
-                except:
-                    node_name = None
-                if bool(node_name):
-                    out_mac = mac
-                    break
-            if bool(node_name):
-                break
-        if not bool(node_name):
-            return (None, None)
-        return (node_name, out_mac)
-    
-    def switch_table_updater_2(self,  callback=None):
-        print '------'
-        time.sleep(1)
-        callback(123)
 
-    def switch_table_updater(self,  callback=None):
-        global last_switch_update
-        global lock_switch_table_updater_running
-        cur_time = datetime.datetime.utcnow()
-        if last_switch_update and cur_time - datetime.timedelta(seconds = 5) <= last_switch_update:
-            print 'no need to update'
-            callback(None)
-            return
-        if not lock_switch_table_updater_running.acquire(False):
-            print 'another proc is running'
-            callback(None)
-            return
-        last_switch_update = cur_time
-        print "==============updating switch table", lock_switch_table_updater_running, last_switch_update
-        time.sleep(10)
-        lock_switch_table_updater_running.release()
-        callback(None)
-        return
-    """
     def initialize(self, params):
         self.server_ip = params['server_ip']
         self.server_port = params['server_port']
@@ -191,7 +125,7 @@ class Manager(tornado.web.RequestHandler):
                 self.send_error(404)
                 return
             # found node finally
-            http_path = "http://" + self.server_ip + ":" + str(self.server_port) + "/boot/"
+            #http_path = "http://" + self.server_ip + ":" + str(self.server_port) + "/boot/"
             boot_params = node.boot_params
             if not boot_params['boot_if']:
                 boot_params['ifcfg'] = 'dhcp'
@@ -224,5 +158,3 @@ class Manager(tornado.web.RequestHandler):
                 return
                 #self.finish()
             self.render("templ_install.cfg", p = install_params, server_ip = self.server_ip, server_port = self.server_port,)
-
-

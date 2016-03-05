@@ -6,15 +6,11 @@
 # http://foobarnbaz.com
 #
 import logging
-#from optparse import OptionParser
 import sys
 import pymongo
-#import motor
-#from tornado.concurrent import Future
 import binascii
 import datetime
 import random
-import libtorrent
 from socket import inet_aton
 from struct import pack
 from httplib import responses
@@ -52,7 +48,7 @@ class AnnounceHandler(BaseHandler):
         """Store the information about the peer.
         """
         updated = datetime.datetime.utcnow()
-        # json = {'info_hash': info_hash, 'peer_id': peer_id, 
+        # json = {'info_hash': info_hash, 'peer_id': peer_id,
         json = {'peer_id': peer_id, 'status': status, 'updated': updated,
                 'uploaded': uploaded, 'downloaded': downloaded, 'left': left}
         if not bool(status):
@@ -221,16 +217,12 @@ class AnnounceHandler(BaseHandler):
         if numwant > self.luna_tracker_maxpeers:
             # XXX: cannot request more than MAX_ALLOWED_PEERS.
             self.send_error(self.INVALID_NUMWANT)
-            return 
-        try:
-            key = self.get_argument('key')
-        except:
-            key = ''
+            return
         try:
             tracker_id = self.get_argument('trackerid')
         except:
             tracker_id = ''
-            
+ 
         self.update_peers(info_hash, peer_id, ip, port, event, uploaded, downloaded, left)
 
         # generate response
@@ -248,17 +240,12 @@ class AnnounceHandler(BaseHandler):
             self.response['warning message'] = warning_message
 
         self.set_header('Content-Type', 'text/plain')
-        #yield self.get_peers(info_hash, 
-        #                                                    numwant,
-        #                                                    compact,
-        #                                                    no_peer_id,
-        #                                                    self.luna_tracker_interval * 2)
-        #res_complete, res_incomplete, res_peers = 
-        self.get_peers(info_hash, 
-                                                            numwant,
-                                                            compact,
-                                                            no_peer_id,
-                                                            self.luna_tracker_interval * 2)
+
+        self.get_peers(info_hash,
+                            numwant,
+                            compact,
+                            no_peer_id,
+                            self.luna_tracker_interval * 2)
         #self.response['complete'] = res_complete
         #self.response['incomplete'] = res_incomplete
         #self.response['peers'] = res_peers
@@ -277,7 +264,10 @@ class ScrapeHandler(AnnounceHandler):
         for info_hash in info_hashes:
             info_hash = str(info_hash)
             response[info_hash] = {}
-            
+            numwant = 100
+            compact = True
+            no_peer_id = 1
+
             res_complete, res_incomplete, _ = self.get_peers(info_hash, numwant, compact, no_peer_id, self.luna_tracker_interval * 2)
             response[info_hash]['complete'] = res_complete
             response[info_hash]['downloaded'] = res_complete
@@ -285,51 +275,4 @@ class ScrapeHandler(AnnounceHandler):
 
         self.set_header('content-type', 'text/plain')
         self.write(bencode(response))
-        #self.finish()
-
-"""
-def run_app(mongo_client):
-    mongo_db =  mongo_client[db_name]
-    
-    logger = logging.getLogger('tornado.access')
-    luna_opts = luna.Options()
-    port = luna_opts.get('tracker_port') or 7051
-    params = {}
-    params['luna_tracker_interval'] = luna_opts.get('tracker_interval') or 30
-    params['luna_tracker_min_interval'] = luna_opts.get('tracker_min_interval') or 20
-    params['luna_tracker_maxpeers'] = luna_opts.get('tracker_maxpeers') or 200
-    params['mongo'] = mongo_db['tracker']
-
-    tracker = tornado.web.Application([
-        (r"/announce.*", AnnounceHandler, dict(params=params)),
-        (r"/scrape.*", ScrapeHandler, dict(params=params))
-    ])
-    logging.info('Starting Pytt on port %d' % port)
-    http_server = tornado.httpserver.HTTPServer(tracker)
-    http_server.listen(port)
-    tornado.ioloop.IOLoop.instance().start()
-
-
-
-
-
-if __name__ == '__main__':
-    try:
-        mongo_client = pymongo.MongoClient()
-    except:
-        logger.error("Unable to connect to MongoDB.")
-        raise RuntimeError
-    logger.debug("Connection to MongoDB was successful.")
-    try:
-        run_app(mongo_client)
-    except KeyboardInterrupt:
-        logging.info('Tracker Stopped.')
-        mongo_client.close()
-        logger.debug("Connection to MongoDB closed.")
-        sys.exit(0)
-    except Exception as ex:
-        logging.fatal('%s' % str(ex))
-        sys.exit(-1)
-        mongo_client.close()
-        logger.debug("Connection to MongoDB closed.")
-"""
+        self.finish()

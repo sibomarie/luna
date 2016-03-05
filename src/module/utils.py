@@ -1,3 +1,4 @@
+from config import *
 import logging
 import pymongo
 

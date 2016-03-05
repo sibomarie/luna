@@ -1,10 +1,6 @@
 from config import *
-import pymongo
 import logging
-import inspect
-import sys
-import os
-from bson.objectid import ObjectId
+import json
 from bson.dbref import DBRef
 from luna.utils import set_mac_node
 from luna.base import Base
@@ -19,7 +15,7 @@ class Node(Base):
     Class for operating with node records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None,
             group = None):
         """
         name    - can be ommited
@@ -88,7 +84,7 @@ class Node(Base):
         new_group_interfaces = new_group._get_json()['interfaces']
         for interface in new_group_interfaces:
             self.add_ip(interface)
-        return True
+        return res['err']
 
     def change_ip(self, interface = None, reqip = None):
         if not bool(interface):
@@ -116,7 +112,6 @@ class Node(Base):
         if self.del_bmc_ip():
             return self.add_bmc_ip(reqip)
         return None
-        
 
     def add_ip(self, interface = None, reqip = None):
         if not bool(interface):
@@ -153,34 +148,8 @@ class Node(Base):
             self._logger.error("Cannot reserve ip for interface '{}'.".format(interface))
             return None
         node_interfaces[interface] = ip
-
-        """
-        if not bool(mongo_doc) or not interface:
-            for iface in group_interfaces:
-                try:
-                    if bool(json['interfaces'][iface]):
-                        self._logger.error("IP already assigned on '{}'".format(iface))
-                        mongo_doc[iface] = json['interfaces'][iface]
-                        continue
-                except:
-                    pass
-                ip = group._reserve_ip(iface)
-                if not bool(ip):
-                    self._logger.error("Cannot reserve ip for interface '{}'".format(iface))
-                    return None
-                mongo_doc[iface] = ip
-        if bool(reqip):
-            mongo_doc = json['interfaces']
-            ip = group._reserve_ip(interface, reqip)
-            if not bool(ip):
-                self._logger.error("Cannot reserve ip for interface '{}'".format(interface))
-                return None
-            mongo_doc[interface] = ip
-        """
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': node_interfaces}}, multi=False, upsert=False)
         return not res['err']
-
-
 
     def del_ip(self, interface = None):
         if not self._id:
@@ -273,14 +242,13 @@ class Node(Base):
         except:
             mac = None
         return mac
-        
+ 
     def clear_mac(self):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
         res = self._mongo_db['mac'].remove({'node': self.DBRef})
         return res['ok']
-        
 
     def set_switch(self, name):
         if not self._id:
@@ -306,9 +274,10 @@ class Node(Base):
         if res['ok'] == 1:
             self.unlink(switch.DBRef)
         return bool(res['ok'])
-        
+ 
     def set_port(self, num):
         self.set('port', num)
+
     def clear_port(self):
         self.set('port', '')
 
@@ -320,8 +289,6 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        import json
-        obj_json = self._get_json()
         back_links = self.get_back_links(resolve=True)
         if len(back_links) > 0:
             #back_links = self.get_back_links(resolve=True)
@@ -350,7 +317,7 @@ class Node(Base):
         try:
             ipnum = json['interfaces'][interface]
         except:
-            self._logger.error("No IPADDR for interface '{}' configured".format(interface))    
+            self._logger.error("No IPADDR for interface '{}' configured".format(interface)) 
             return None
         return group.get_human_ip(interface, ipnum)
 
@@ -360,7 +327,7 @@ class Node(Base):
         try:
             num_ip = json['interfaces'][interface]
         except:
-            self._logger.error("No such interface for node".format(interface))    
+            self._logger.error("No such interface '{}' for node".format(interface)) 
             return None
         return group.get_num_ip(interface, ip)
 
@@ -382,13 +349,15 @@ class Node(Base):
     @property
     def kernel(self):
         return "compute-vmlinuz-3.10.0-327.3.1.el7.x86_64"
+
     @property
     def initrd(self):
         return "compute-initramfs-3.10.0-327.3.1.el7.x86_64"
+
     @property
     def kernopts(self):
         return 'luna.ip=enp0s3:10.141.0.1:16' # luna.ip=dhcp
-        return "ip=10.141.0.1::10.24.255.254:255.255.0.0:node001:enp0s3:on"
+
     @property
     def boot_params(self):
         """
@@ -407,6 +376,7 @@ class Node(Base):
         if (params['boot_if']):
             params['ip'] = self.get_human_ip(params['boot_if'])
         return params
+
     @property
     def install_params(self):
         params = {}
@@ -429,17 +399,12 @@ class Node(Base):
             params['hostname'] = self.name
         return params
 
-
-
-
-
-
 class Group(Base):
     """
     Class for operating with group records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, 
+    def __init__(self, name = None, mongo_db = None, create = False, id = None,
             prescript = None, bmcsetup = None, bmcnetwork = None,
             partscript = None, osimage = None, interfaces = None, postscript = None, boot_if = None, torrent_if = None):
         """
@@ -464,7 +429,7 @@ class Group(Base):
                 bmcnetobj = Network(bmcnetwork).DBRef
             osimageobj = OsImage(osimage)
             if bool(interfaces) and type(interfaces) is not type([]):
-                self._logger.error("'interfaces' should be list") 
+                self._logger.error("'interfaces' should be list")
                 raise RuntimeError
             if_dict = {}
             if not bool(interfaces):
@@ -478,7 +443,7 @@ class Group(Base):
             if not bool(postscript):
                 postscript = ""
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
-                               'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict, 
+                               'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict,
                                'postscript': postscript, 'boot_if': boot_if, 'torrent_if': torrent_if}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
@@ -495,7 +460,7 @@ class Group(Base):
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger('group.' + self._name)
-        
+ 
     def osimage(self, osimage_name):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -641,10 +606,10 @@ class Group(Base):
             return None
         interfaces = self._get_json()['interfaces']
         net = Network(network)
-        old_params = None
         try:
             old_parms = interfaces[interface]
         except:
+            old_parms = None
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
         old_net = None
@@ -674,10 +639,10 @@ class Group(Base):
             self._logger.error("Was object deleted?")
             return None
         interfaces = self._get_json()['interfaces']
-        old_params = None
         try:
             old_parms = interfaces[interface]
         except:
+            old_parms = None
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
         net_dbref = None
@@ -731,8 +696,6 @@ class Group(Base):
         net = Network(id = net_dbref.id)
         return net.reserve_ip(ip)
 
-            
-
     def _release_ip(self, interface, ip):
         if not bool(interface):
             self._logger.error("Interface needs to be specified")
@@ -782,7 +745,6 @@ class Group(Base):
             return None
         net = Network(id = dbref.id)
         return net.relnum_to_ip(ipnum)
-
 
     def get_num_ip(self, interface, ip):
         interfaces = self._get_json()['interfaces']
@@ -860,7 +822,6 @@ class Group(Base):
         params['net_prefix'] = net.get('PREFIX')
         return params
 
-        
     @property
     def install_params(self):
         params = {}
@@ -909,8 +870,8 @@ class Group(Base):
             params['torrent'] = osimage.get('torrent') + ".torrent"
             params['tarball'] = osimage.get('tarball') + ".tgz"
         except:
-             params['torrent'] = ""
-             params['tarball'] = ""
+            params['torrent'] = ""
+            params['tarball'] = ""
         params['kernver'] = osimage.get('kernver')
         params['kernopts'] = osimage.get('kernopts')
         params['bmcsetup'] = {}

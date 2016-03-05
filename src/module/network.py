@@ -1,12 +1,7 @@
 from config import *
-import pymongo
 import logging
-import inspect
-import sys
-import os
 import struct
 import socket
-from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.options import Options
@@ -21,7 +16,7 @@ class Network(Base):
         """
         create  - should be True if we need create osimage
         NETWORK - network
-        PREFIX  - should be specified network bits or 
+        PREFIX  - should be specified network bits or
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'network'
@@ -76,7 +71,6 @@ class Network(Base):
         return num_ip - num_net
 
     def get_base_net(self, address, prefix):
-        import struct, socket
         if type(prefix) is not int:
             self._logger.error("'prefix' should be integer")
             return None
@@ -124,7 +118,7 @@ class Network(Base):
                 self._logger.error("Cannot compute NETWORK for prefix = '{}'".format(value))
                 raise RuntimeError
             if not self._set_uplimit_ip(value):
-                self._logger.error("Cannot set PREFIX as some ip is reserved out of the new border.".format(value))
+                self._logger.error("Cannot set PREFIX as some IPs are reserved out of the new border.".format(value))
                 raise RuntimeError
             json = {'NETWORK': new_network, 'PREFIX': value}
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': json}, multi=False, upsert=False)
@@ -182,7 +176,7 @@ class Network(Base):
             if num == elem['end']:
                 return ( find, [{'start': elem['start'], 'end': elem['end'] - 1}] )
             return ( find, [{'start': elem['start'], 'end': num-1}, {'start': num+1, 'end': elem['end']}] )
-            
+ 
         obj_json = self._get_json()
         try:
             freelist = obj_json['freelist']
@@ -213,7 +207,7 @@ class Network(Base):
             return num
         self._logger.error("Requested IP '{}' is out of free range".format(num))
         return None
-    
+ 
     def _set_uplimit_ip(self, prefix):
         border = (1<<(32-prefix))-1
         obj_json = self._get_json()
@@ -227,7 +221,7 @@ class Network(Base):
             return False
         freelist[-1] = {'start': last_elem['start'], 'end': border}
         return self._save_free_list(freelist)
-    
+
     def _save_free_list(self, freelist):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         if not self._id:
@@ -237,7 +231,7 @@ class Network(Base):
         if res['err']:
             self._logger.error("Error while saving list of free IPs: '{}'".format(freelist))
         return not res['err']
-    
+ 
     def reserve_ip(self, ip = None):
         if type(ip) is str:
             num = self.ip_to_relnum(ip)
@@ -273,7 +267,7 @@ class Network(Base):
         if num <= upborder and num > freelist[-1]['end']:
             filled_list.extend([num])
         if len(freelist) == len(filled_list):
-            self._logger.error("Cannot release IP. No place for '{}' in list: ''".format(num, freelist))
+            self._logger.error("Cannot release IP. No place for '{}' in list: '{}'".format(num, freelist))
             return False
         defrag_list = []
         defrag_list.extend([filled_list.pop(0)])
@@ -284,12 +278,11 @@ class Network(Base):
                 defrag_list.extend([key])
         self._save_free_list(defrag_list)
         return True
-    
+ 
     def get_used_ips(self):
         obj_json = self._get_json()
         try:
             freelist = obj_json['freelist'][:]
-            prefix = self._get_json()['PREFIX']
         except:
             return None
         lastip = freelist[-1]['start']

@@ -1,13 +1,9 @@
 from config import *
-import pymongo
 import logging
-import inspect
-import sys
 import os
 import socket
 import pwd
 import grp
-from bson.objectid import ObjectId
 from bson.dbref import DBRef
 from luna.base import Base
 
@@ -28,7 +24,7 @@ class Options(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, mongo_db = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, debug = 0, path = None, user = None, group = None):
+    def __init__(self, mongo_db = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, path = None, user = None, group = None):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -64,7 +60,7 @@ class Options(Base):
                 raise RuntimeError
             mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user, 'group': group,
                         'debug': 0, 'path': path, 'frontend_address': '', 'frontend_port': '7050',
-                        'server_port': 7051, 'tracker_interval': 10, 
+                        'server_port': 7051, 'tracker_interval': 10,
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
                         'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -127,7 +123,3 @@ class Options(Base):
                 self._logger.error("No such group exists.")
                 return None
         return super(Options, self).set(key, value)
-
-            
-
-
