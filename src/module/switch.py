@@ -49,10 +49,10 @@ class Switch(Base):
 
 class MacUpdater(object):
 
-    def __init__(self, mongo_db, logger = None, aging = None, interval = 30):
+    def __init__(self, mongo_db, logger = None, interval = 30):
         self.switch_collection = mongo_db['switch']
         self.known_mac_collection = mongo_db['switch_mac']
-        aging = aging or 3600
+        aging = interval * 3 
         self.logger = logger
         self.interval = interval
         self.logger.name = 'MAcUpdater'

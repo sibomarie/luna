@@ -73,7 +73,7 @@ def run_app():
         mongo_db['tracker'].create_index("updated", expireAfterSeconds = 3600 )
     except:
         pass
-    macupdater = MacUpdater(mongo_db, logger = app_logger,  aging = 3600, interval = 30)
+    macupdater = MacUpdater(mongo_db, logger = app_logger, interval = 30)
     http_server = tornado.httpserver.HTTPServer(tracker)
     http_server.bind(lweb_port, address='127.0.0.1')
     http_server.start(0)

@@ -92,10 +92,10 @@ class Manager(tornado.web.RequestHandler):
                         switch_id = elem['switch_id']
                         port = elem['port']
                         try:
-                            found_name_from_learned = self.mongo['node'].find_one({'switch': DBRef('switch', switch_id), 'port': port}, {})['name']
+                            node_id = self.mongo['node'].find_one({'switch': DBRef('switch', switch_id), 'port': port}, {})['_id']
                             mac_from_cache = mac
                         except:
-                            found_name_from_learned = None
+                            node_id = None
                             mac_from_cache = None
                         if mac_from_cache:
                             break
@@ -106,9 +106,9 @@ class Manager(tornado.web.RequestHandler):
                     # did not find in learned macs
                     self.send_error(404)
                     return
-                # here we should have found_name_from_learned and mac_from_cache
+                # here we should have node_id and mac_from_cache
                 try:
-                    node = luna.Node(name = found_name_from_learned, mongo_db = self.mongo)
+                    node = luna.Node(id = node_id, mongo_db = self.mongo)
                     set_mac_node(mac_from_cache, node.DBRef)
                     found_node_dbref = node.DBRef
                 except:

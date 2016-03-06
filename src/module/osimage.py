@@ -158,7 +158,7 @@ class OsImage(Base):
         if not os.path.exists(path_to_store):
             os.makedirs(path_to_store)
             os.chown(path_to_store, user_id, grp_id)
-            os.chmod(path_to_store, 644)
+            os.chmod(path_to_store, 0644)
         uid = str(uuid.uuid4())
         tarfile_path = path_to_store + "/" + uid + ".tgz"
         image_path = self.get('path')
@@ -188,7 +188,7 @@ class OsImage(Base):
             sys.stdout.write('\r')
             return None
         os.chown(tarfile_path, user_id, grp_id)
-        os.chmod(tarfile_path, 644)
+        os.chmod(tarfile_path, 0644)
         self.set('tarball', str(uid))
         return True
 
@@ -367,9 +367,9 @@ class OsImage(Base):
         shutil.copy(image_path + tmp_path + '/' + initrdfile, path_to_store)
         shutil.copy(image_path + '/boot/vmlinuz-' + kernver, path_to_store + '/' + kernfile)
         os.chown(path_to_store + '/' + initrdfile, user_id, grp_id)
-        os.chmod(path_to_store + '/' + initrdfile, 644)
+        os.chmod(path_to_store + '/' + initrdfile, 0644)
         os.chown(path_to_store + '/' + kernfile, user_id, grp_id)
-        os.chmod(path_to_store + '/' + kernfile, 644)
+        os.chmod(path_to_store + '/' + kernfile, 0644)
         self.set('kernfile', kernfile)
         self.set('initrdfile', initrdfile)
 
