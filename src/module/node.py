@@ -123,21 +123,19 @@ class Node(Base):
         json = self._get_json()
         group = Group(id = json['group'].id)
         group_interfaces = group._get_json()['interfaces']
-        node_interfaces = None
         try:
             node_interfaces = json['interfaces']
         except:
-            pass
+            node_interfaces = None
         try:
             group_interfaces[interface]
         except:
             self._logger.error("No such interface '{}' for group configured.".format(interface))
             return None
-        old_ip = None
         try:
             old_ip = node_interfaces[interface]
         except:
-            pass
+            old_ip = None
         if bool(old_ip):
             self._logger.error("IP is already configured for interface '{}'.".format(interface))
             return None
@@ -247,7 +245,9 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        res = self._mongo_db['mac'].remove({'node': self.DBRef})
+        mac = self.get_mac()
+        self._mongo_db['switch_mac'].remove({'mac': mac})
+        res = self._mongo_db['mac'].remove({'mac': mac})
         return res['ok']
 
     def set_switch(self, name):
@@ -398,6 +398,12 @@ class Node(Base):
         else:
             params['hostname'] = self.name
         return params
+
+    def delete(self):
+        mac = self.get_mac()
+        self._mongo_db['switch_mac'].remove({'mac': mac})
+        self._mongo_db['mac'].remove({'mac': mac})
+        return super(Node, self).delete()
 
 class Group(Base):
     """
@@ -612,11 +618,10 @@ class Group(Base):
             old_parms = None
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
-        old_net = None
         try:
             old_net = old_parms['network']
         except:
-            pass
+            old_net = None
         if bool(old_net):
             self._logger.error("Network is already defined for this interface '{}'".format(interface))
             return None
@@ -645,10 +650,10 @@ class Group(Base):
             old_parms = None
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
-        net_dbref = None
         try:
             net_dbref = old_parms['network']
         except:
+            net_dbref = None
             self._logger.error("Network is not configured for interface '{}'".format(interface))
             return None
         if not bool(net_dbref):
@@ -693,6 +698,9 @@ class Group(Base):
         except:
             self._logger.error("No such interface '{}'".format(interface))
             return None
+        if not bool(net_dbref):
+            self._logger.error("No network configured for interface '{}'".format(interface))
+            return None
         net = Network(id = net_dbref.id)
         return net.reserve_ip(ip)
 
@@ -719,6 +727,9 @@ class Group(Base):
             net_dbref = self._get_json()['bmcnetwork']
         except:
             self._logger.error("No bmc network configured")
+            return None
+        if not bool(net_dbref):
+            self._logger.error("No network configured for BMC interface")
             return None
         net = Network(id = net_dbref.id)
         return net.reserve_ip(ip)
