@@ -4,6 +4,7 @@ import sys
 import time
 import threading
 import netsnmp
+import datetime
 
 from bson.dbref import DBRef
 from luna.base import Base
@@ -52,10 +53,10 @@ class MacUpdater(object):
     def __init__(self, mongo_db, logger = None, interval = 30):
         self.switch_collection = mongo_db['switch']
         self.known_mac_collection = mongo_db['switch_mac']
-        aging = interval * 3 
+        aging = interval * 2
         self.logger = logger
         self.interval = interval
-        self.logger.name = 'MAcUpdater'
+        self.logger.name = 'MacUpdater'
         self.active = True
         self.known_mac_collection.create_index("updated", expireAfterSeconds = aging )
         thread = threading.Thread(target=self.run, args=())
@@ -89,6 +90,7 @@ class MacUpdater(object):
                 self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (oid, ip, read, switch_id))
                 varlist = netsnmp.VarList(netsnmp.Varbind(oid))
                 res = netsnmp.snmpwalk(varlist, Version = 1,  DestHost = ip, Community = read)
+                updated = datetime.datetime.utcnow()
                 for i in range(len(varlist)):
                     mac = ''
                     port = str(varlist[i].val)
@@ -97,9 +99,11 @@ class MacUpdater(object):
                     mac = mac[:-1]
                     mongo_doc['mac'] = mac
                     mongo_doc['port'] = port
-                    self.known_mac_collection.insert(mongo_doc)
-                    mongo_doc.pop('_id')
-                    mac_count += 1
+                    mongo_doc_updated = mongo_doc.copy()
+                    mongo_doc_updated['updated'] = updated
+                    res = self.known_mac_collection.find_and_modify(mongo_doc, {'$set': mongo_doc_updated}, upsert = True)
+                    if not bool(res):
+                        mac_count += 1
             except NameError:
                 if self.logger:
                     self.logger.error("Cannot reach '{}'".format(ip))
@@ -107,5 +111,5 @@ class MacUpdater(object):
                 err = sys.exc_info()[0]
                 if self.logger:
                     self.logger.error(err)
-        self.logger.info("Was added {} mac addresses.".format(mac_count))
+        self.logger.info("Was added {} new mac addresses.".format(mac_count))
         return True

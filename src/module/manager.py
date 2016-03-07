@@ -87,7 +87,7 @@ class Manager(tornado.web.RequestHandler):
             if not bool(found_node_dbref):
                 mac_from_cache = None
                 for mac in macs:
-                    mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
+                    mac_cursor = self.mongo['switch_mac'].find({'mac': mac}).sort('updated': -1).limit(1)
                     for elem in mac_cursor:
                         switch_id = elem['switch_id']
                         port = elem['port']
