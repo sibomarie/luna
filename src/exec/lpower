@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+import logging
+import hostlist
+import subprocess
+import threading
+import argparse
+import luna
+
+
+class ChassisAction(threading.Thread):
+    def __init__(self, nodename = None, op = None):
+        threading.Thread.__init__(self)
+        self.op = None
+        if op in ['on', 'off', 'reset', 'status', 'identify']:
+            self.op = op
+        try:
+            node = luna.Node(name = nodename)
+        except RuntimeError:
+            self.op = None
+        if self.op:
+            try:
+                self.bmcip = node.install_params['bmcsetup']['ip']
+            except KeyError:
+                logger.info("No BMC setup configured for '{}'".format(nodename))
+                self.op = None
+        if self.op:
+            self.nodename = nodename
+            self.bmcip = node.install_params['bmcsetup']['ip']
+            self.user = node.install_params['bmcsetup']['user']
+            self.password = node.install_params['bmcsetup']['password']
+
+    def run(self):
+        if not self.op:
+            return None
+        cmd = ['/usr/bin/ipmitool', '-I', 'lanplus',
+                '-H', self.bmcip,
+                '-U', self.user,
+                '-P', self.password,
+                'chassis']
+        if self.op in ['on', 'off', 'reset', 'cycle']:
+            cmd.extend(['power', self.op])
+        elif self.op in ['identify', 'status']:
+            cmd.extend([self.op])
+        ping_proc = subprocess.Popen(['/bin/ping', '-c', '1', '-w', '5', self.bmcip], stdout=subprocess.PIPE)
+        if ping_proc.wait():
+            print self.nodename + ': No ping'
+            return
+        ipmi_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while ipmi_proc.poll() is None:
+            line = ipmi_proc.stdout.readline()
+            if line[:12] == 'System Power':
+                print self.nodename + ': ' + line[-3:-1]
+            if line[:5] == 'Error':
+                print self.nodename + ': ' + line.strip()
+
+parser = argparse.ArgumentParser(prog='lpower',description='BMC power management.')
+parser.add_argument('hostlist', type=str, help='Hostlist')
+parser.add_argument('action', choices=('status', 'on', 'off', 'reset', 'cycle', 'identify'), help='Action')
+
+if __name__ == '__main__':
+    logger = logging.getLogger('lpower')
+    args = parser.parse_args()
+    hosts = hostlist.expand_hostlist(args.hostlist)
+    threads = []
+    for host in hosts:
+        ca = ChassisAction(host, args.action)
+        ca.start()
+        threads.append(ca)
+
+

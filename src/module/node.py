@@ -144,7 +144,6 @@ class Node(Base):
         ip = group._reserve_ip(interface, reqip)
         if not bool(ip):
             self._logger.error("Cannot reserve ip for interface '{}'.".format(interface))
-            return None
         node_interfaces[interface] = ip
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': node_interfaces}}, multi=False, upsert=False)
         return not res['err']
@@ -482,12 +481,17 @@ class Group(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        bmcsetup = BMCSetup(bmcsetup_name)
+        bmcsetup = None
+        if bool(bmcsetup_name):
+            bmcsetup = BMCSetup(bmcsetup_name)
         old_dbref = self._get_json()['bmcsetup']
         if bool(old_dbref):
             self.unlink(old_dbref)
-        res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': bmcsetup.DBRef}}, multi=False, upsert=False)
-        self.link(bmcsetup.DBRef)
+        if bool(bmcsetup):
+            res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': bmcsetup.DBRef}}, multi=False, upsert=False)
+            self.link(bmcsetup.DBRef)
+        else:
+            res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcsetup': None}}, multi=False, upsert=False)
         return not res['err']
 
     def set_bmcnetwork(self, bmcnet):
@@ -754,6 +758,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
+        if not bool(dbref):
+            return None
         net = Network(id = dbref.id)
         return net.relnum_to_ip(ipnum)
 
@@ -765,6 +771,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for '{}'".format(interface))
             return None
+        if not bool(dbref):
+            return None
         net = Network(id = dbref.id)
         return net.ip_to_relnum(ip)
 
@@ -775,6 +783,8 @@ class Group(Base):
         except:
             self._logger.error("Interface is not configured for BMC")
             return None
+        if not bool(dbref):
+            return None
         net = Network(id = dbref.id)
         return net.relnum_to_ip(ipnum)
 
@@ -784,6 +794,8 @@ class Group(Base):
             dbref = self._get_json()['bmcnetwork']
         except:
             self._logger.error("Interface is not configured for BMC")
+            return None
+        if not bool(dbref):
             return None
         net = Network(id = dbref.id)
         return net.ip_to_relnum(ip)

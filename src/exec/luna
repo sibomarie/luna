@@ -402,9 +402,9 @@ def group_change(**args):
         group.set('torrent_if',args['torrent_if'])
     if bool(args['osimage']):
         group.osimage(args['osimage'])
-    if bool(args['bmcsetup']):
+    if bool(args['bmcsetup']) or args['bmcsetup'] == '':
         group.bmcsetup(args['bmcsetup'])
-    if   bool(args['prescript']):
+    if bool(args['prescript']):
         scr_type = 'prescript'
     elif bool(args['partscript']):
         scr_type = 'partscript'
