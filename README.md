@@ -35,6 +35,7 @@ cd /usr/lib64/python2.7
 ln -s ../../../luna/src/module luna
 cd /usr/bin
 ln -s ../../luna/src/exec/luna
+ln -s ../../luna/src/exec/lpower
 ln -s ../../luna/src/exec/lweb
 ln -s ../../luna/src/exec/ltorrent
 cd /opt/luna
