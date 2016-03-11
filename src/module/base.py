@@ -116,7 +116,8 @@ class Base(object):
             if type(value) is not DBRef:
                 return value
             dbref = value
-            mongo_db = self._mongo_client[db_name]
+            #mongo_db = self._mongo_client[db_name]
+            mongo_db = self._mongo_db
             mongo_collection = self._mongo_db[dbref.collection]
             try:
                 name = '[' + mongo_collection.find_one({'_id': dbref.id})['name'] + ']'

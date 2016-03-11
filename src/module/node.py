@@ -23,13 +23,14 @@ class Node(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'node'
+        self._mongo_db = mongo_db
         if not bool(name) and bool(create):
             name = self._generate_name()
         mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'port': type('')}
         if create:
             options = Options()
-            group = Group(group)
+            group = Group(group, mongo_db = self._mongo_db)
             mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None, 'mac': None, 'switch': None, 'port': None}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
@@ -55,7 +56,7 @@ class Node(Base):
         for link in back_links:
             if not link['collection'] == self._collection_name:
                 continue
-            node = Node(id = link['DBRef'].id)
+            node = Node(id = link['DBRef'].id, mongo_db = self._mongo_db)
             name = node.name
             nnode = int(name.lstrip(prefix))
             if nnode > max_num:
@@ -70,9 +71,9 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
-        new_group = Group(new_group_name)
+        new_group = Group(new_group_name, mongo_db = self._mongo_db)
         json = self._get_json()
-        old_group = Group(id = json['group'].id)
+        old_group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         old_group_interfaces = old_group._get_json()['interfaces']
         for interface in old_group_interfaces:
             self.del_ip(interface)
@@ -94,7 +95,7 @@ class Node(Base):
             self._logger.error("IP address should be specified")
             return None
         self_group_name = self._get_json()['group']
-        group = Group(id = self_group_name.id)
+        group = Group(id = self_group_name.id, mongo_db = self._mongo_db)
         if not bool(group.get_num_ip(interface, reqip)):
             return None
         if self.del_ip(interface):
@@ -106,7 +107,7 @@ class Node(Base):
             self._logger.error("IP address should be specified")
             return None
         self_group_name = self._get_json()['group']
-        group = Group(id = self_group_name.id)
+        group = Group(id = self_group_name.id, mongo_db = self._mongo_db)
         if not bool(group.get_num_bmc_ip(reqip)):
             return None
         if self.del_bmc_ip():
@@ -121,7 +122,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         group_interfaces = group._get_json()['interfaces']
         try:
             node_interfaces = json['interfaces']
@@ -153,7 +154,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             mongo_doc = json['interfaces'].copy()
         except:
@@ -184,7 +185,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         ip = 0
         try:
             ip = json['bmcnetwork']
@@ -206,7 +207,7 @@ class Node(Base):
             self._logger.error("Was object deleted?")
             return None
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             ip = json['bmcnetwork']
         except:
@@ -312,7 +313,7 @@ class Node(Base):
 
     def get_human_ip(self, interface):
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             ipnum = json['interfaces'][interface]
         except:
@@ -322,7 +323,7 @@ class Node(Base):
 
     def _get_num_ip(self, interface, ip):
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             num_ip = json['interfaces'][interface]
         except:
@@ -332,7 +333,7 @@ class Node(Base):
 
     def get_human_bmc_ip(self):
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             ipnum = json['bmcnetwork']
         except:
@@ -342,7 +343,7 @@ class Node(Base):
 
     def _get_num_bmc_ip(self, ip):
         json = self._get_json()
-        group = Group(id = json['group'].id)
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         return group.get_num_bmc_ip(ip)
 
     @property
@@ -431,7 +432,7 @@ class Group(Base):
             if bool(bmcsetup):
                 bmcobj = BMCSetup(bmcsetup).DBRef
             if bool(bmcnetwork):
-                bmcnetobj = Network(bmcnetwork).DBRef
+                bmcnetobj = Network(bmcnetwork, mongo_db = self._mongo_db).DBRef
             osimageobj = OsImage(osimage)
             if bool(interfaces) and type(interfaces) is not type([]):
                 self._logger.error("'interfaces' should be list")
@@ -496,7 +497,7 @@ class Group(Base):
 
     def set_bmcnetwork(self, bmcnet):
         old_bmcnet_dbref = self._get_json()['bmcnetwork']
-        net = Network(bmcnet)
+        net = Network(bmcnet, mongo_db = self._mongo_db)
         reverse_links = self.get_back_links()
         if bool(old_bmcnet_dbref):
             self._logger.error("Network is already defined for BMC interface")
@@ -506,7 +507,7 @@ class Group(Base):
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
-            node = Node(id=link['DBRef'].id)
+            node = Node(id=link['DBRef'].id, mongo_db = self._mongo_db)
             node.add_bmc_ip()
         return not res['err']
 
@@ -517,7 +518,7 @@ class Group(Base):
             for link in reverse_links:
                 if link['collection'] != 'node':
                     continue
-                node = Node(id=link['DBRef'].id)
+                node = Node(id=link['DBRef'].id, mongo_db = self._mongo_db)
                 node.del_bmc_ip()
             self.unlink(old_bmcnet_dbref)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': None}}, multi=False, upsert=False)
@@ -530,7 +531,7 @@ class Group(Base):
             return ''
         (NETWORK, PREFIX) = ("", "")
         try:
-            net = Network(id = bmcnetwork.id)
+            net = Network(id = bmcnetwork.id, mongo_db = self._mongo_db)
             NETWORK = net.get('NETWORK')
             PREFIX =  str(net.get('PREFIX'))
         except:
@@ -550,7 +551,7 @@ class Group(Base):
             return ""
         (outstr, NETWORK, PREFIX) = ("", "", "")
         try:
-            net = Network(id = params['network'].id)
+            net = Network(id = params['network'].id, mongo_db = self._mongo_db)
             NETWORK = net.get('NETWORK')
             PREFIX =  str(net.get('PREFIX'))
         except:
@@ -615,7 +616,7 @@ class Group(Base):
             self._logger.error("Was object deleted?")
             return None
         interfaces = self._get_json()['interfaces']
-        net = Network(network)
+        net = Network(network, mongo_db = self._mongo_db)
         try:
             old_parms = interfaces[interface]
         except:
@@ -639,7 +640,7 @@ class Group(Base):
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
-            node = Node(id=link['DBRef'].id)
+            node = Node(id=link['DBRef'].id, mongo_db = self._mongo_db)
             node.add_ip(interface)
         return True
 
@@ -667,7 +668,7 @@ class Group(Base):
         for link in reverse_links:
             if link['collection'] != 'node':
                 continue
-            node = Node(id=link['DBRef'].id)
+            node = Node(id=link['DBRef'].id, mongo_db = self._mongo_db)
             node.del_ip(interface)
         self.unlink(net_dbref)
         interfaces[interface]['network'] = None
@@ -705,7 +706,7 @@ class Group(Base):
         if not bool(net_dbref):
             self._logger.error("No network configured for interface '{}'".format(interface))
             return None
-        net = Network(id = net_dbref.id)
+        net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.reserve_ip(ip)
 
     def _release_ip(self, interface, ip):
@@ -720,7 +721,7 @@ class Group(Base):
         except:
             self._logger.error("No such interface '{}'".format(interface))
             return None
-        net = Network(id = net_dbref.id)
+        net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.release_ip(ip)
 
     def _reserve_bmc_ip(self, ip = None):
@@ -735,7 +736,7 @@ class Group(Base):
         if not bool(net_dbref):
             self._logger.error("No network configured for BMC interface")
             return None
-        net = Network(id = net_dbref.id)
+        net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.reserve_ip(ip)
 
     def _release_bmc_ip(self, ip):
@@ -747,7 +748,7 @@ class Group(Base):
         except:
             self._logger.error("No bmc network configured")
             return None
-        net = Network(id = net_dbref.id)
+        net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.release_ip(ip)
 
     def get_human_ip(self, interface, ipnum):
@@ -760,7 +761,7 @@ class Group(Base):
             return None
         if not bool(dbref):
             return None
-        net = Network(id = dbref.id)
+        net = Network(id = dbref.id, mongo_db = self._mongo_db)
         return net.relnum_to_ip(ipnum)
 
     def get_num_ip(self, interface, ip):
@@ -773,7 +774,7 @@ class Group(Base):
             return None
         if not bool(dbref):
             return None
-        net = Network(id = dbref.id)
+        net = Network(id = dbref.id, mongo_db = self._mongo_db)
         return net.ip_to_relnum(ip)
 
     def get_human_bmc_ip(self, ipnum):
@@ -785,7 +786,7 @@ class Group(Base):
             return None
         if not bool(dbref):
             return None
-        net = Network(id = dbref.id)
+        net = Network(id = dbref.id, mongo_db = self._mongo_db)
         return net.relnum_to_ip(ipnum)
 
     def get_num_bmc_ip(self, ip):
@@ -797,7 +798,7 @@ class Group(Base):
             return None
         if not bool(dbref):
             return None
-        net = Network(id = dbref.id)
+        net = Network(id = dbref.id, mongo_db = self._mongo_db)
         return net.ip_to_relnum(ip)
 
     def boot_params(self):
@@ -834,7 +835,7 @@ class Group(Base):
         net = None
         try:
             if_net = if_params['network']
-            net = Network(id = if_net.id)
+            net = Network(id = if_net.id, mongo_db = self._mongo_db)
         except:
             pass
         if not bool(net):

@@ -12,6 +12,7 @@ class ChassisAction(threading.Thread):
     def __init__(self, nodename = None, op = None, mongo_db = None):
         threading.Thread.__init__(self)
         self.op = None
+        print 'aaa'
         if op in ['on', 'off', 'reset', 'status', 'identify']:
             self.op = op
         try:
