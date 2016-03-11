@@ -814,7 +814,7 @@ switch_command.add_argument('--name', '-n', required=True, type=str, help='Name 
 switch_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the Switch.')
 switch_command.add_argument('--read', '-r', type=str, help='Read community', default = 'public')
 switch_command.add_argument('--rw', '-w', type=str, help='Write community', default = 'private')
-switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.', default = '1.3.6.1.2.1.17.7.1.2.2.1.2')
+switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.', default = '.1.3.6.1.2.1.17.7.1.2.2.1.2')
 # change
 switch_command = switch_parser_actions.add_parser('change', help='Change Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')

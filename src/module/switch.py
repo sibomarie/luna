@@ -5,6 +5,7 @@ import time
 import threading
 import netsnmp
 import datetime
+import inspect
 
 from bson.dbref import DBRef
 from luna.base import Base
