@@ -3,11 +3,11 @@ It is a 'proof of concept'! Not even a alpha-version!
 This piece of code is another try to beat 'boot-storm'.
 It uses torrent to deliver image to node.
 
-|Number of nodes|Time to boot|
-|:-------------:|:----------:|
-|              1|           3|
-|             36|           4|
-|             72|           4|
+|Number of nodes|Time for cold boot, min|
+|:-------------:|:---------------------:|
+|              1|                      3|
+|             36|                      4|
+|             72|                      4|
 
 Image size is 1GB, provision node is equipped with 1Gb interface
 
