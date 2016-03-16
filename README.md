@@ -2,6 +2,13 @@
 It is a 'proof of concept'! Not even a alpha-version!
 This piece of code is another try to beat 'boot-storm'.
 It uses torrent to deliver image to node.
+
+|Number of nodes|Time to boot|
+|:-------------:|:----------:|
+|              1|           3|
+|             36|           4|
+|             72|           4|
+
 # Start
 Let's assume you have server with ip 10.30.255.254 and this repo in /luna
 
