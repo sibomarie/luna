@@ -9,6 +9,8 @@ It uses torrent to deliver image to node.
 |             36|           4|
 |             72|           4|
 
+Image size is 1GB, provision node is equipped with 1Gb interface
+
 # Start
 Let's assume you have server with ip 10.30.255.254 and this repo in /luna
 
