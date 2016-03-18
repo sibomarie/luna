@@ -83,8 +83,10 @@ luna group change -n compute --interface enp7s0 --setnet cluster
 luna group change -n compute --bmcnetwork --setnet ipmi
 ```
 # Edit partitioning
+
+You can use ramdisk, or write your own partition script.
 ```
-luna group change -n compute --prescript -e
+luna group change -n compute --partscript -e
 ```
 It could be, for example
 ```
