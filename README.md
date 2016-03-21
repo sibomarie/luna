@@ -15,6 +15,8 @@ Image size is 1GB, provision node is equipped with 1Gb interface
 Let's assume you have server with ip 10.30.255.254 and this repo in /luna
 
 # Server preparation
+
+TODO. Will be raplaced by rpm scripts later on.
 ```
 useradd -r -d /opt/luna luna
 chown luna: /opt/luna
