@@ -18,7 +18,7 @@ Let's assume you have server with ip 10.30.255.254 and this repo in /luna
 
 TODO. Will be raplaced by rpm scripts later on.
 ```
-useradd -r -d /opt/luna luna
+useradd -d /opt/luna luna
 chown luna: /opt/luna
 mkdir /run/luna
 chown luna: /run/luna/
@@ -26,12 +26,19 @@ mkdir /var/log/luna
 chown luna: /var/log/luna
 mkdir /opt/luna/{boot,torrents}
 chown luna: /opt/luna/{boot,torrents}
+yum -y install https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
 yum -y install mongodb-server python-pymongo mongodb
 yum -y install nginx
 yum -y install python-tornado
-yum -y install ipxe-bootimgs
+yum -y install ipxe-bootimgs tftp-server tftp xinetd
 yum -y install rb_libtorrent-python net-snmp-python
-cp /usr/share/ipxe/undionly.kpxe /tftpboot/
+mkdir /tftpboot
+sed -e 's/^\(\W\+disable\W\+\=\W\)yes/\1no/g' -i /etc/xinetd.d/tftp
+sed -e 's|^\(\W\+server_args\W\+\=\W-s\W\)/var/lib/tftpboot|\1/tftpboot|g' -i /etc/xinetd.d/tftp
+systemctl enable xinetd
+systemctl start xinetd
+cp /usr/share/ipxe/undionly.kpxe /tftpboot/luna_undionly.kpxe
+mv /etc/dhcp/dhcpd.conf{,.bkp_luna}
 cp /luna/config/dhcpd/dhcpd.conf /etc/dhcp/
 vim /etc/dhcp/dhcpd.conf
 cp /luna/config/nginx/luna.conf /etc/nginx/conf.d/
@@ -44,7 +51,7 @@ systemctl enable mongod
 ```
 cd /usr/lib64/python2.7
 ln -s ../../../luna/src/module luna
-cd /usr/bin
+cd /usr/sbin
 ln -s ../../luna/src/exec/luna
 ln -s ../../luna/src/exec/lpower
 ln -s ../../luna/src/exec/lweb
@@ -57,7 +64,7 @@ ln -s /luna/src/templates
 mkdir -p /opt/luna/os/compute/var/lib/rpm
 rpm --root /opt/luna/os/compute --initdb
 yumdownloader  centos-release
-rpm --root /opt/luna/os/compute -ivh centos-releasie\*.rpm
+rpm --root /opt/luna/os/compute -ivh centos-release\*.rpm
 yum --installroot=/opt/luna/os/compute -y groupinstall Base
 yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vi
 mkdir /opt/luna/os/compute/root/.ssh
@@ -65,6 +72,8 @@ chmod 700 /opt/luna/os/compute/root/.ssh
 mount -t devtmpfs devtmpfs /opt/luna/os/compute/dev/
 chroot  /opt/luna/os/compute
 ssh-keygen -f /etc/ssh/ssh_host_ecdsa_key -N '' -t ecdsa
+exit
+cat /root/.ssh/id_rsa.pub >> /opt/luna/os/compute/root/.ssh/authorized_keys
 chmod 600 /opt/luna/os/compute/root/.ssh/authorized_keys
 cp -pr /luna/src/dracut/95luna /opt/luna/os/compute/usr/lib/dracut/modules.d/
 ```
