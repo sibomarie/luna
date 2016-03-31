@@ -8,6 +8,7 @@ import subprocess
 import logging
 import pymongo
 import hostlist
+import signal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('luna')
@@ -122,15 +123,33 @@ def osimage_pack(**args):
        osimage.pack_boot()
        print "Done."
 
+    def update_ltorrent():
+        try:
+            pf = open('/var/run/luna/torrent.pid', 'r')
+            pid = int(pf.read().strip())
+            pf.close()
+        except IOError:
+            pid = None
+        if pid:
+            try:
+                os.kill(pid, signal.SIGHUP)
+            except OSError:
+                print "No such process with pid %i. Is ltorrent running?" % pid
+        else:
+            print "Ltorrent is not running"
+
+
     osimage = luna.OsImage(args['name'])
     if args['boot']:
         pack_boot(osimage)
+        update_ltorrent()
         return True
     if args['image']:
         pack_image(osimage)
         return True
-    pack_image(osimage)
-    pack_boot(osimage)
+#    pack_image(osimage)
+#    pack_boot(osimage)
+    update_ltorrent()
     return True
 
 #################### BMCSetup
@@ -493,8 +512,11 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
         print out_str
 
 def node_add(name, group):
-    for nodename in hostlist.expand_hostlist(name):
-        node = luna.Node(name = nodename, group = group, create = True)
+    if name:
+        for nodename in hostlist.expand_hostlist(name):
+            node = luna.Node(name = nodename, group = group, create = True)
+    else:
+        node = luna.Node(name = name, group = group, create = True)
 
 def node_change(**args):
     for nodename in hostlist.expand_hostlist(args['name']):
@@ -518,7 +540,7 @@ def node_change(**args):
             node.clear_mac()
             return None
         if bool(args['mac']):
-            node.set_mac(args['mac'])
+            node.set_mac(args['mac'].lower())
             return None
         if args['switch'] == '':
             node.clear_switch()

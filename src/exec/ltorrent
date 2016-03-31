@@ -476,7 +476,7 @@ def daemonize():
     http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
     """
     #handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
-    log_handler = logging.handlers.RotatingFileHandler( log_dir + '/ltorrent', maxBytes = 1073741824, backupCount = 5)
+    log_handler = logging.handlers.RotatingFileHandler( log_dir + '/ltorrent.log', maxBytes = 1073741824, backupCount = 5)
     log_handler.doRollover()
     logger.propagate = False
     logger.addHandler(log_handler)

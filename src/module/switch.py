@@ -97,7 +97,7 @@ class MacUpdater(object):
                     port = str(varlist[i].val)
                     for elem in varlist[i].tag.split('.')[-6:]:
                         mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
-                    mac = mac[:-1]
+                    mac = mac[:-1].lower()
                     mongo_doc['mac'] = mac
                     mongo_doc['port'] = port
                     mongo_doc_updated = mongo_doc.copy()

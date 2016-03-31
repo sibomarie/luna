@@ -20,6 +20,7 @@ TODO. Will be raplaced by rpm scripts later on.
 ```
 useradd -d /opt/luna luna
 chown luna: /opt/luna
+chmod ag+rx /opt/luna
 mkdir /run/luna
 chown luna: /run/luna/
 mkdir /var/log/luna
@@ -30,7 +31,7 @@ yum -y install https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5
 yum -y install mongodb-server python-pymongo mongodb
 yum -y install nginx
 yum -y install python-tornado
-yum -y install ipxe-bootimgs tftp-server tftp xinetd
+yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp
 yum -y install rb_libtorrent-python net-snmp-python
 mkdir /tftpboot
 sed -e 's/^\(\W\+disable\W\+\=\W\)yes/\1no/g' -i /etc/xinetd.d/tftp
@@ -46,6 +47,8 @@ systemctl start nginx
 systemctl enable nginx
 systemctl start mongod
 systemctl enable mongod
+systemctl start dhcpd
+systemctl enable dhcpd
 ```
 # Creating links
 ```
@@ -76,6 +79,7 @@ exit
 cat /root/.ssh/id_rsa.pub >> /opt/luna/os/compute/root/.ssh/authorized_keys
 chmod 600 /opt/luna/os/compute/root/.ssh/authorized_keys
 cp -pr /luna/src/dracut/95luna /opt/luna/os/compute/usr/lib/dracut/modules.d/
+yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
 ```
 # Create cluster config
 ```
@@ -101,6 +105,7 @@ luna group change -n compute --partscript -e
 ```
 It could be, for example
 ```
+parted /dev/sda -s 'mklabel msdos'
 parted /dev/sda -s 'rm 1; rm 2'
 parted /dev/sda -s 'mkpart p ext2 1 256m'
 parted /dev/sda -s 'mkpart p ext3 256m 100%'
