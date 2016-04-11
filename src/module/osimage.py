@@ -148,13 +148,13 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        group = Options().get('group')
-        if not group:
-            self._logger.error("Group needs to be configured.")
-            return None
+        #group = Options().get('group')
+        #if not group:
+        #    self._logger.error("Group needs to be configured.")
+        #    return None
         path_to_store = path + "/torrents"
         user_id = pwd.getpwnam(user).pw_uid
-        grp_id = grp.getgrnam(group).gr_gid
+        grp_id = pwd.getpwnam(user).pw_gid
         if not os.path.exists(path_to_store):
             os.makedirs(path_to_store)
             os.chown(path_to_store, user_id, grp_id)
@@ -239,12 +239,12 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        group = Options().get('group')
-        if not group:
-            self._logger.error("Group needs to be configured.")
-            return None
+        #group = Options().get('group')
+        #if not group:
+        #    self._logger.error("Group needs to be configured.")
+        #    return None
         user_id = pwd.getpwnam(user).pw_uid
-        grp_id = grp.getgrnam(group).gr_gid
+        grp_id = pwd.getpwnam(user).pw_gid
         old_cwd = os.getcwd()
         os.chdir(os.path.dirname(tarball))
         uid = str(uuid.uuid4())
@@ -306,13 +306,13 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        group = Options().get('group')
-        if not group:
-            self._logger.error("Group needs to be configured.")
-            return None
+        #group = Options().get('group')
+        #if not group:
+        #    self._logger.error("Group needs to be configured.")
+        #    return None
         path_to_store = path + "/boot"
         user_id = pwd.getpwnam(user).pw_uid
-        grp_id = grp.getgrnam(group).gr_gid
+        grp_id = pwd.getpwnam(user).pw_gid
         if not os.path.exists(path_to_store):
             os.makedirs(path_to_store)
             os.chown(path_to_store, user_id, grp_id)

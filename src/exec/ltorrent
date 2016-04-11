@@ -202,21 +202,21 @@ def check_path(path):
     if not runas_user:
         logger.error("User needs to be configured.")
         raise RuntimeError
-    if not runas_group:
-        logger.error("Group needs to be configured.")
-        raise RuntimeError
+    #if not runas_group:
+    #    logger.error("Group needs to be configured.")
+    #    raise RuntimeError
     try:
         user_id = pwd.getpwnam(runas_user)
     except:
         logger.error("No such user '{}' exists.".format(runas_user))
         raise RuntimeError
-    try:
-        group_id = grp.getgrnam(runas_group)
-    except:
-        logger.error("No such group '{}' exists.".format(runas_group))
-        raise RuntimeError
+    #try:
+    #    group_id = grp.getgrnam(runas_group)
+    #except:
+    #    logger.error("No such group '{}' exists.".format(runas_group))
+    #    raise RuntimeError
     path_stat = os.stat(path)
-    if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != group_id.gr_gid:
+    if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
         logger.error("Path is not owned by '{}:{}'".format(runas_user, runas_user))
         raise RuntimeError
     return path
@@ -477,7 +477,7 @@ def daemonize():
     """
     #handler = logging.handlers.SysLogHandler(address='/dev/log', facility='daemon')
     log_handler = logging.handlers.RotatingFileHandler( log_dir + '/ltorrent.log', maxBytes = 1073741824, backupCount = 5)
-    log_handler.doRollover()
+    #log_handler.doRollover()
     logger.propagate = False
     logger.addHandler(log_handler)
     stdin = '/dev/null'
@@ -531,6 +531,8 @@ def start():
     """
     global pidfile
     global runas_user
+    
+    logger.info("Starting Luna Torrent")
     user_id = pwd.getpwnam(runas_user)
     os.setgid(user_id.pw_gid)
     os.setuid(user_id.pw_uid)
@@ -630,15 +632,15 @@ def exit_handler():
     os.remove(pidfile)
 
 if __name__ == '__main__':
-    logger = logging.getLogger('luna-torrent')
+    logger = logging.getLogger('ltorrent')
     signal.signal(signal.SIGHUP, sighup_handler)
     options = luna.Options()
     runas_user = options.get('user')
     if not bool(runas_user):
         runas_user = 'luna'
-    runas_group = options.get('group')
-    if not bool(runas_group):
-        runas_group = 'luna'
+    #runas_group = options.get('group')
+    #if not bool(runas_group):
+    #    runas_group = 'luna'
     pidfile = options.get('torrent_pidfile')
     if not bool(pidfile):
         pidfile = '/run/luna/torrent.pid'

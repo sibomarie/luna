@@ -26,12 +26,8 @@ def cluster_delete():
 
 def cluster_change(**args):
     options = luna.Options()
-#    if args['tracker_clean']:
-#        # TODO
-#        print 'Not implemented'
-#    args.pop('tracker_clean')
     for key in args:
-        if not args[key]:
+        if args[key] == None:
             continue
         options.set(key, args[key])
  
@@ -147,8 +143,8 @@ def osimage_pack(**args):
     if args['image']:
         pack_image(osimage)
         return True
-#    pack_image(osimage)
-#    pack_boot(osimage)
+    pack_image(osimage)
+    pack_boot(osimage)
     update_ltorrent()
     return True
 
@@ -638,6 +634,9 @@ cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent t
 cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
 cluster_command.add_argument('--torrent_listen_port_min', type=int, help='Torrent client listening port min')
 cluster_command.add_argument('--torrent_listen_port_max', type=int, help='Torrent client listening port max')
+cluster_command.add_argument('--torrent_pidfile', type=int, help='Torrent pidfile')
+cluster_command.add_argument('--lweb_num_proc', type=int, help='Lweb number of processes. (0 for autodetection.)')
+cluster_command.add_argument('--lweb_pidfile', type=int, help='Lweb pidfile')
 #cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')

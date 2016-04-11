@@ -58,11 +58,12 @@ class Options(Base):
             if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != group_id.gr_gid:
                 self._logger.error("Path is not owned by '{}:{}'".format(user, group))
                 raise RuntimeError
-            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user, 'group': group,
+            mongo_doc = {'name': name, 'nodeprefix': nodeprefix, 'nodedigits': nodedigits, 'user': user,
                         'debug': 0, 'path': path, 'frontend_address': '', 'frontend_port': '7050',
                         'server_port': 7051, 'tracker_interval': 10,
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
-                        'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200}
+                        'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200, 'torrent_pidfile': '/run/luna/torrent.pid',
+                        'lweb_pidfile': '/run/luna/lweb.pid', 'lweb_num_proc': 0}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -71,11 +72,12 @@ class Options(Base):
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''), 'group': type(''),
+        self._keylist = {'nodeprefix': type(''), 'nodedigits': type(0), 'debug': type(0), 'user': type(''),
                         'path': type(''), 'frontend_address': type(''), 'frontend_port': type(0),
                         'server_port': type(0), 'tracker_interval': type(0),
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
-                        'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0)}
+                        'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0), 'torrent_pidfile': type(''),
+                        'lweb_pidfile': type(''), 'lweb_num_proc': type(0)}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -116,10 +118,5 @@ class Options(Base):
             except:
                 self._logger.error("No such user exists.")
                 return None
-        if key == 'group':
-            try:
-                grp.getgrnam(value)
-            except:
-                self._logger.error("No such group exists.")
-                return None
+
         return super(Options, self).set(key, value)

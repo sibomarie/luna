@@ -3,11 +3,11 @@ It is a 'proof of concept'! Not even a alpha-version!
 This piece of code is another try to beat 'boot-storm'.
 It uses torrent to deliver image to node.
 
-|Number of nodes|Time for cold boot, min|
-|:-------------:|:---------------------:|
-|              1|                      3|
-|             36|                      4|
-|             72|                      4|
+|Number of nodes|Time for cold boot, min|Xcat cold boot, min|
+|:-------------:|:---------------------:|:-----------------:|
+|              1|                      3|                  9|
+|             36|                      4|                 26|
+|             72|                      4|                 53|
 
 Image size is 1GB, provision node is equipped with 1Gb interface
 
@@ -33,6 +33,7 @@ yum -y install nginx
 yum -y install python-tornado
 yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp
 yum -y install rb_libtorrent-python net-snmp-python
+yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
 mkdir /tftpboot
 sed -e 's/^\(\W\+disable\W\+\=\W\)yes/\1no/g' -i /etc/xinetd.d/tftp
 sed -e 's|^\(\W\+server_args\W\+\=\W-s\W\)/var/lib/tftpboot|\1/tftpboot|g' -i /etc/xinetd.d/tftp
@@ -79,7 +80,6 @@ exit
 cat /root/.ssh/id_rsa.pub >> /opt/luna/os/compute/root/.ssh/authorized_keys
 chmod 600 /opt/luna/os/compute/root/.ssh/authorized_keys
 cp -pr /luna/src/dracut/95luna /opt/luna/os/compute/usr/lib/dracut/modules.d/
-yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
 ```
 # Create cluster config
 ```
@@ -95,6 +95,7 @@ luna group add -n compute -i enp7s0 -o compute
 luna group change -n compute -b base
 luna group change -n compute --boot_if enp7s0
 luna group change -n compute --interface enp7s0 --setnet cluster
+echo -e "DEVICE=enp0s3\nONBOOT=yes" | luna group change  --name compute --interface enp7s0 -e
 luna group change -n compute --bmcnetwork --setnet ipmi
 ```
 # Edit partitioning
@@ -128,9 +129,8 @@ luna node change -n node001 -p 1
 # Start services
 ```
 ltorrent start
-lweb
+lweb start
 ```
-The last one is not the service. Will daemonize it later. Please run it in screen.
 # Check if it is working
 ```
 curl "http://10.30.255.254:7050/luna?step=boot"
