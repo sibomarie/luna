@@ -70,7 +70,7 @@ rpm --root /opt/luna/os/compute --initdb
 yumdownloader  centos-release
 rpm --root /opt/luna/os/compute -ivh centos-release\*.rpm
 yum --installroot=/opt/luna/os/compute -y groupinstall Base
-yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vi
+yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vim-enhanced grub2
 mkdir /opt/luna/os/compute/root/.ssh
 chmod 700 /opt/luna/os/compute/root/.ssh
 mount -t devtmpfs devtmpfs /opt/luna/os/compute/dev/
@@ -117,6 +117,16 @@ mount /dev/sda2 /sysroot
 mkdir /sysroot/boot
 mount /dev/sda1 /sysroot/boot
 ```
+# Edit postscript to install bootloader
+```
+cat << EOF | luna group change -n compute  --post -e
+mount -o bind /proc /sysroot/proc
+mount -o bind /dev /sysroot/dev
+chroot /sysroot /bin/bash -c "/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg; /usr/sbin/grub2-install /dev/sda"
+umount /sysroot/dev
+umount /sysroot/proc
+EOF
+```
 # Add node.
 ```
 luna node add -g compute
@@ -138,3 +148,17 @@ wget "http://10.30.255.254:7050/boot/compute-vmlinuz-3.10.0-327.10.1.el7.x86_64"
 curl "http://10.30.255.254:7050/luna?step=install&node=node001"
 ```
 # Boot node
+
+# Enable boot from localdisk
+```
+luna node change -n node001 --localboot y
+```
+# Optional
+Enable service boot
+```
+luna node change -n node001 --service y
+```
+Disable bmcsetup
+```
+luna node change -n node001 --setupbmc n
+```

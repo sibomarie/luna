@@ -195,6 +195,7 @@ def get_luna_torrents():
         luna_torrents[torr_uid]['tarball_id'] = tgz_id
     return luna_torrents
 
+"""
 def check_path(path):
     if not os.path.exists(path):
         logger.error("Path '{}' does not exist.".format(path))
@@ -202,24 +203,46 @@ def check_path(path):
     if not runas_user:
         logger.error("User needs to be configured.")
         raise RuntimeError
-    #if not runas_group:
-    #    logger.error("Group needs to be configured.")
-    #    raise RuntimeError
     try:
         user_id = pwd.getpwnam(runas_user)
     except:
         logger.error("No such user '{}' exists.".format(runas_user))
         raise RuntimeError
-    #try:
-    #    group_id = grp.getgrnam(runas_group)
-    #except:
-    #    logger.error("No such group '{}' exists.".format(runas_group))
-    #    raise RuntimeError
     path_stat = os.stat(path)
     if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
         logger.error("Path is not owned by '{}:{}'".format(runas_user, runas_user))
         raise RuntimeError
     return path
+"""
+
+def check_path(path, user):
+    if not user:
+        logger.error("User needs to be configured.")
+        raise RuntimeError
+    try:
+        user_id = pwd.getpwnam(user)
+    except:
+        logger.error("No such user '{}' exists.".format(runas_user))
+        raise RuntimeError
+    if os.path.exists(path):
+        path_stat = os.stat(path)
+        if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
+            logger.error("Path is not owned by '{}".format(user))
+            raise RuntimeError
+        return path
+    logger.info("Path '{}' does not exist. Creating.".format(path))
+    try:
+        os.makedirs(path)
+    except:
+        logger.error("Cannot create '{}'.".format(path))
+        raise RuntimeError
+    try:
+        os.chown(path, user_id.pw_uid, user_id.pw_gid)
+    except:
+        logger.error("Cannot chown '{}' to '{}'.".format(path, user))
+        raise RuntimeError
+    return path
+
 
 def update_torrents():
     global torrents

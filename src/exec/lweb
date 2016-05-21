@@ -131,9 +131,6 @@ def sigterm_handler(sig, frame):
         tornado_stop()
 
 def check_path(path, user):
-    if not os.path.exists(path):
-        logger.error("Path '{}' does not exist.".format(path))
-        raise RuntimeError
     if not user:
         logger.error("User needs to be configured.")
         raise RuntimeError
@@ -142,9 +139,22 @@ def check_path(path, user):
     except:
         logger.error("No such user '{}' exists.".format(runas_user))
         raise RuntimeError
-    path_stat = os.stat(path)
-    if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
-        logger.error("Path is not owned by '{}".format(user))
+    if os.path.exists(path):
+        path_stat = os.stat(path)
+        if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
+            logger.error("Path is not owned by '{}".format(user))
+            raise RuntimeError
+        return path
+    logger.info("Path '{}' does not exist. Creating.".format(path))
+    try:
+        os.makedirs(path)
+    except:
+        logger.error("Cannot create '{}'.".format(path))
+        raise RuntimeError
+    try:
+        os.chown(path, user_id.pw_uid, user_id.pw_gid)
+    except:
+        logger.error("Cannot chown '{}' to '{}'.".format(path, user))
         raise RuntimeError
     return path
 
@@ -207,6 +217,9 @@ def daemonize():
     # write pidfile
     #atexit.register(exit_handler)
     pid = str(os.getpid())
+    
+    logger.info("lweb pid: '{}'".format(pid))
+    logger.info("lweb pidfile: '{}'".format(pidfile))
     f = open(pidfile, "w+")
     f.write("%s\n" % pid)
     f.close()
@@ -220,18 +233,17 @@ def start():
     global runas_user
 
     logger.info("Starting lweb")
-    user_id = pwd.getpwnam(runas_user)
-    os.setgid(user_id.pw_gid)
-    os.setuid(user_id.pw_uid)
     # Check for a pidfile to see if the daemon already runs
     try:
-        pidfile = check_path(os.path.dirname(pidfile), runas_user) + "/lweb.pid"
+        pidfile = check_path(os.path.dirname(pidfile), runas_user) + '/' + os.path.basename(pidfile)
         pf = file(pidfile,'r')
         pid = int(pf.read().strip())
         pf.close()
     except IOError:
         pid = None
-
+    user_id = pwd.getpwnam(runas_user)
+    os.setgid(user_id.pw_gid)
+    os.setuid(user_id.pw_uid)
     if pid:
         message = "pidfile %s already exist. Daemon already running?\n"
         sys.stderr.write(message % pidfile)

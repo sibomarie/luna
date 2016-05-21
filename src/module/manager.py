@@ -133,9 +133,9 @@ class Manager(tornado.web.RequestHandler):
             else:
                 boot_params['ifcfg'] = boot_params['boot_if'] + ":" + boot_params['ip'] + "/" + str(boot_params['net_prefix'])
             boot_params['delay'] = 10
-            self.render("templ_nodeboot.cfg",
-                    params = boot_params, server_ip = self.server_ip,
-                    server_port = self.server_port, nodename = node.name)
+            boot_params['server_ip'] = self.server_ip
+            boot_params['server_port'] = self.server_port
+            self.render("templ_nodeboot.cfg", p = boot_params)
         if step == 'install':
             try:
                 node_name = self.get_argument('node')

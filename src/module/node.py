@@ -16,10 +16,14 @@ class Node(Base):
     """
     _logger = logging.getLogger(__name__)
     def __init__(self, name = None, mongo_db = None, create = False, id = None,
-            group = None):
+            group = None, localboot = False, setupbmc = True, service = False):
         """
         name    - can be ommited
         group   - group belongs to; should be specified
+            Flags
+        localboot - boot from localdisk
+        setupbmc - whether we need to setup ipmi on install
+        service   - do not perform install but boot to installer (dracut environment)
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'node'
@@ -27,11 +31,13 @@ class Node(Base):
         if not bool(name) and bool(create):
             name = self._generate_name()
         mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = {'port': type('')}
+        self._keylist = {'port': type(''), 'localboot': type(True), 'setupbmc': type(True), 'service': type(True)}
         if create:
             options = Options()
             group = Group(group, mongo_db = self._mongo_db)
-            mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None, 'mac': None, 'switch': None, 'port': None}
+            mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None,
+                    'mac': None, 'switch': None, 'port': None,
+                    'localboot': localboot, 'setupbmc': setupbmc, 'service': service}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -289,6 +295,7 @@ class Node(Base):
         if not self._id:
             self._logger.error("Was object deleted?")
             return None
+        mac = self.get_mac()
         back_links = self.get_back_links(resolve=True)
         if len(back_links) > 0:
             #back_links = self.get_back_links(resolve=True)
@@ -299,6 +306,8 @@ class Node(Base):
         links = self.get_links(resolve=True)
         for link in links:
             self.unlink(link['DBRef'])
+        self._mongo_db['switch_mac'].remove({'mac': mac})
+        self._mongo_db['mac'].remove({'mac': mac})
         self.del_bmc_ip()
         self.del_ip()
         ret = self._mongo_collection.remove({'_id': self._id}, multi=False)
@@ -346,6 +355,7 @@ class Node(Base):
         group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         return group.get_num_bmc_ip(ip)
 
+    """
     @property
     def kernel(self):
         return "compute-vmlinuz-3.10.0-327.3.1.el7.x86_64"
@@ -357,6 +367,7 @@ class Node(Base):
     @property
     def kernopts(self):
         return 'luna.ip=enp0s3:10.141.0.1:16' # luna.ip=dhcp
+    """
 
     @property
     def boot_params(self):
@@ -375,6 +386,9 @@ class Node(Base):
         params['net_prefix'] = group_params['net_prefix']
         if (params['boot_if']):
             params['ip'] = self.get_human_ip(params['boot_if'])
+        params['name'] = self.name
+        params['service'] = int(self.get('service'))
+        params['localboot'] = self.get('localboot')
         return params
 
     @property
@@ -397,13 +411,8 @@ class Node(Base):
             params['hostname'] = self.name + "." +  params['domain']
         else:
             params['hostname'] = self.name
+        params['setupbmc'] = self.get('setupbmc')
         return params
-
-    def delete(self):
-        mac = self.get_mac()
-        self._mongo_db['switch_mac'].remove({'mac': mac})
-        self._mongo_db['mac'].remove({'mac': mac})
-        return super(Node, self).delete()
 
 class Group(Base):
     """

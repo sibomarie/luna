@@ -550,6 +550,22 @@ def node_change(**args):
         if bool(args['port']):
             node.set_port(args['port'])
             return None
+        if bool(args['localboot']):
+            flag = False
+            if args['localboot'] == 'y':
+                flag = True
+            node.set('localboot', flag)
+        if bool(args['setupbmc']):
+            flag = False
+            if args['setupbmc'] == 'y':
+                flag = True
+            node.set('setupbmc', flag)
+        if bool(args['service']):
+            flag = False
+            if args['service'] == 'y':
+                flag = True
+            node.set('service', flag)
+
 
 def node_delete(name):
     for nodename in hostlist.expand_hostlist(name):
@@ -830,6 +846,9 @@ node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for inte
 node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address.')
 node_command_group.add_argument('--switch', '-s', type=str, help='Switch.')
 node_command_group.add_argument('--port', '-p', type=str, help='Port.')
+node_command_group.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
+node_command_group.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
+node_command_group.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
 
 # delete
 node_command = node_parser_actions.add_parser('delete', help='Delete Node.')
