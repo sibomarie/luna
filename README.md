@@ -1,5 +1,5 @@
 # Disclaimer
-It is a 'proof of concept'! Not even a alpha-version!
+It is an alpha-version.
 This piece of code is another try to beat 'boot-storm'.
 It uses torrent to deliver image to node.
 
