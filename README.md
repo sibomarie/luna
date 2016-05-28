@@ -18,6 +18,8 @@ Let's assume you have server with ip 10.30.255.254 as internal interface for clu
 
 TODO. Will be raplaced by rpm scripts later on.
 ```
+sed -i -e 's/SELINUX=enforcing/SELINUX=disabled/' /etc/sysconfig/selinux
+setenforce 0
 yum -y install git
 cd /
 git clone https://github.com/dchirikov/luna
@@ -30,6 +32,7 @@ mkdir /var/log/luna
 chown luna: /var/log/luna
 mkdir /opt/luna/{boot,torrents}
 chown luna: /opt/luna/{boot,torrents}
+yum -y install yum-utils
 yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 yum -y install mongodb-server python-pymongo mongodb
 yum -y install nginx
@@ -40,6 +43,7 @@ yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
 mkdir /tftpboot
 sed -e 's/^\(\W\+disable\W\+\=\W\)yes/\1no/g' -i /etc/xinetd.d/tftp
 sed -e 's|^\(\W\+server_args\W\+\=\W-s\W\)/var/lib/tftpboot|\1/tftpboot|g' -i /etc/xinetd.d/tftp
+[ -f /root/.ssh/id_rsa ] || ssh-keygen -t rsa -f /root/.ssh/id_rsa -N ''
 systemctl enable xinetd
 systemctl start xinetd
 cp /usr/share/ipxe/undionly.kpxe /tftpboot/luna_undionly.kpxe
@@ -65,6 +69,7 @@ ln -s ../../luna/src/exec/lweb
 ln -s ../../luna/src/exec/ltorrent
 cd /opt/luna
 ln -s /luna/src/templates
+cd ~
 ```
 # Creating osimage
 ```
@@ -73,7 +78,7 @@ rpm --root /opt/luna/os/compute --initdb
 yumdownloader  centos-release
 rpm --root /opt/luna/os/compute -ivh centos-release\*.rpm
 yum --installroot=/opt/luna/os/compute -y groupinstall Base
-yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vim-enhanced grub2
+yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vim-enhanced vim-minimal grub2
 mkdir /opt/luna/os/compute/root/.ssh
 chmod 700 /opt/luna/os/compute/root/.ssh
 mount -t devtmpfs devtmpfs /opt/luna/os/compute/dev/

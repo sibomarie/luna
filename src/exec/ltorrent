@@ -203,11 +203,6 @@ def check_path(path):
     if not runas_user:
         logger.error("User needs to be configured.")
         raise RuntimeError
-    try:
-        user_id = pwd.getpwnam(runas_user)
-    except:
-        logger.error("No such user '{}' exists.".format(runas_user))
-        raise RuntimeError
     path_stat = os.stat(path)
     if path_stat.st_uid != user_id.pw_uid or path_stat.st_gid != user_id.pw_gid:
         logger.error("Path is not owned by '{}:{}'".format(runas_user, runas_user))
@@ -215,12 +210,9 @@ def check_path(path):
     return path
 """
 
-def check_path(path, user):
-    if not user:
-        logger.error("User needs to be configured.")
-        raise RuntimeError
+def check_path(path):
     try:
-        user_id = pwd.getpwnam(user)
+        user_id = pwd.getpwnam(runas_user)
     except:
         logger.error("No such user '{}' exists.".format(runas_user))
         raise RuntimeError
