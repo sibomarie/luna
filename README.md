@@ -45,7 +45,7 @@ systemctl start xinetd
 cp /usr/share/ipxe/undionly.kpxe /tftpboot/luna_undionly.kpxe
 mv /etc/dhcp/dhcpd.conf{,.bkp_luna}
 cp /luna/config/dhcpd/dhcpd.conf /etc/dhcp/
-vim /etc/dhcp/dhcpd.conf
+#vim /etc/dhcp/dhcpd.conf
 cp /luna/config/nginx/luna.conf /etc/nginx/conf.d/
 systemctl start nginx
 systemctl enable nginx
