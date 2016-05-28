@@ -27,7 +27,7 @@ mkdir /var/log/luna
 chown luna: /var/log/luna
 mkdir /opt/luna/{boot,torrents}
 chown luna: /opt/luna/{boot,torrents}
-yum -y install https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 yum -y install mongodb-server python-pymongo mongodb
 yum -y install nginx
 yum -y install python-tornado
