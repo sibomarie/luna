@@ -55,7 +55,7 @@ class Base(object):
             raise RuntimeError
         mongo_doc = self._mongo_collection.find_one({'name': name})
         if not create and not mongo_doc:
-            self._logger.error("It is needed to create object '{}' first".format(self._collection_name))
+            self._logger.error("It is needed to create object '{}' type '{}' first".format(name, self._collection_name))
             raise RuntimeError
         if create and mongo_doc and mongo_doc['name'] == name:
             self._logger.error("'{}' is already created".format(name))

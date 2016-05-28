@@ -79,17 +79,23 @@ yumdownloader  centos-release
 rpm --root /opt/luna/os/compute -ivh centos-release\*.rpm
 yum --installroot=/opt/luna/os/compute -y groupinstall Base
 yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vim-enhanced vim-minimal grub2
+```
+## Set password for root and set up sshd
+```
 mkdir /opt/luna/os/compute/root/.ssh
 chmod 700 /opt/luna/os/compute/root/.ssh
 mount -t devtmpfs devtmpfs /opt/luna/os/compute/dev/
 chroot  /opt/luna/os/compute
 ssh-keygen -f /etc/ssh/ssh_host_ecdsa_key -N '' -t ecdsa
+abrt-auto-reporting enabled
+passwd
 exit
 cat /root/.ssh/id_rsa.pub >> /opt/luna/os/compute/root/.ssh/authorized_keys
 chmod 600 /opt/luna/os/compute/root/.ssh/authorized_keys
 cp -pr /luna/src/dracut/95luna /opt/luna/os/compute/usr/lib/dracut/modules.d/
 ```
 # Create cluster config
+Please note, in this case interface named 'enp7s0' is using. To figure out the proper name of the interface you probably need to boot in service mode first: `luna node change -n node001 --service y`. In service mode you can perform inventory of the interfaces, local disks, BMC features.
 ```
 luna cluster init
 luna cluster change --frontend_address 10.30.255.254
@@ -112,7 +118,7 @@ You can use ramdisk, or write your own partition script.
 ```
 luna group change -n compute --partscript -e
 ```
-It could be, for example
+For /dev/sda it could be, for example
 ```
 parted /dev/sda -s 'mklabel msdos'
 parted /dev/sda -s 'rm 1; rm 2'
@@ -125,7 +131,7 @@ mount /dev/sda2 /sysroot
 mkdir /sysroot/boot
 mount /dev/sda1 /sysroot/boot
 ```
-# Edit postscript to install bootloader
+# Edit postscript to install bootloader (/dev/sda)
 ```
 cat << EOF | luna group change -n compute  --post -e
 mount -o bind /proc /sysroot/proc

@@ -50,22 +50,17 @@ class Manager(tornado.web.RequestHandler):
             # enter node name manualy from ipxe
             if req_nodename:
                 try:
-                    node = luna.Node(name = req_nodename, mongo_db = self.mongo['node'])
+                    node = luna.Node(name = req_nodename, mongo_db = self.mongo)
                 except:
                     self.app_logger.error("No such node configured in DB. '{}'".format(req_nodename))
                     self.send_error(400)
                     return
                 mac = None
-                for i in range(len(macs)):
-                    if bool(macs[i]):
-                        mac = macs[i]
+                for mac in macs:
+                    if bool(mac):
+                        mac = mac.lower()
+                        set_mac_node(mac, node.DBRef)
                         break
-                if mac:
-                    mac = mac.lower()
-                    set_mac_node(mac, node.DBRef)
-                else:
-                    self.send_error(400) #  Bad Request
-                    return
             # need to find node fo given macs.
             # first step - trying to find in know macs
             found_node_dbref = None
