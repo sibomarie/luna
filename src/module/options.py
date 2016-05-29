@@ -2,6 +2,7 @@ from config import *
 import logging
 import os
 import socket
+import subprocess
 import pwd
 import grp
 from bson.dbref import DBRef
@@ -77,7 +78,8 @@ class Options(Base):
                         'server_port': type(0), 'tracker_interval': type(0),
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0), 'torrent_pidfile': type(''),
-                        'lweb_pidfile': type(''), 'lweb_num_proc': type(0)}
+                        'lweb_pidfile': type(''), 'lweb_num_proc': type(0),
+                        'cluster_ips': type('')}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -94,6 +96,7 @@ class Options(Base):
             self.set(key, value)
         except:
             self.__dict__[key] = value
+
     def set(self, key, value):
         if key == 'path':
             try:
@@ -118,5 +121,53 @@ class Options(Base):
             except:
                 self._logger.error("No such user exists.")
                 return None
-
+        if key == 'cluster_ips':
+            val = ''
+            for ip in value.split(","):
+                try:
+                    socket.inet_aton(ip.strip())
+                except:
+                    self._logger.error("Wrong ip address specified.")
+                    return None
+                val += ip + ','
+            val = val[:-1]
+            ips = val.split(',')
+            return super(Options, self).set(key, val)
         return super(Options, self).set(key, value)
+
+    def get_cluster_ips(self):
+        ips = self.get('cluster_ips')
+        ips = ips.split(",")
+        local_ip = ''
+        for ip in ips:
+            stdout = subprocess.Popen(['/usr/sbin/ip', 'addr', 'show', 'to', ip], stdout=subprocess.PIPE).stdout.read()
+            if not stdout == '':
+                local_ip = ip
+                break
+        cluster_ips = []
+        cluster_ips.append(local_ip)
+        for ip in ips:
+            if not ip == local_ip:
+                cluster_ips.append(ip)
+        return cluster_ips
+
+    def rsync_data(self):
+        cluster_ips = self.get_cluster_ips()
+        if not cluster_ips:
+            return None
+        path = self.get('path')
+        pid = os.getppid()
+        # TODO read pid and check if process exists
+
+        for remote_ip in cluster_ips[1:]:
+            cmd = ['/usr/bin/rsync', '-avz', '-e',
+                '"/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"',
+                '--progress', path, 'root@' + remote_ip + ':' + path]
+
+
+
+        
+
+
+
+

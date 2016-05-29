@@ -335,7 +335,7 @@ class OsImage(Base):
         os.chroot(image_path)
 
         try:
-            dracut_modules = subprocess.Popen(['dracut', '--kver', kernver, '--list-modules'], stdout=subprocess.PIPE)
+            dracut_modules = subprocess.Popen(['/usr/sbin/dracut', '--kver', kernver, '--list-modules'], stdout=subprocess.PIPE)
             luna_exists = False
             while dracut_modules.poll() is None:
                 line = dracut_modules.stdout.readline()
