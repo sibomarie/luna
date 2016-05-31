@@ -43,7 +43,7 @@ def run_app():
     global starter_pid, http_server, macupdater
 
     tornado.options.parse_command_line()
-    luna_opts = luna.Options()
+    luna_opts = luna.Cluster()
     port = luna_opts.get('frontend_port') or 7050
     lweb_port = luna_opts.get('server_port') or 7051
     server_ip = luna_opts.get('frontend_address')
@@ -323,11 +323,11 @@ def restart():
 if __name__ == '__main__':
     logger = logging.getLogger('lweb')
     tornado.options.options['log_to_stderr'].set(True)
-    options = luna.Options()
-    runas_user = options.get('user')
+    cluster = luna.Cluster()
+    runas_user = cluster.get('user')
     if not bool(runas_user):
         runas_user = 'luna'
-    pidfile = options.get('lweb_pidfile')
+    pidfile = cluster.get('lweb_pidfile')
     if not bool(pidfile):
         pidfile = '/run/luna/lweb.pid'
     try:

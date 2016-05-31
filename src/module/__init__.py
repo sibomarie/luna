@@ -1,10 +1,10 @@
 __version__ = '0.0.1a'
-__all__ = ['options', 'osimage']
+__all__ = ['cluster', 'osimage', 'bmcsetup', 'node', 'switch', 'network', 'tracker', 'manager']
 __author__ = 'Dmitry Chirikov'
 
 from luna.config import *
 import pymongo
-from options import Options
+from cluster import Cluster
 from osimage import OsImage
 from bmcsetup import BMCSetup
 from node import Node, Group

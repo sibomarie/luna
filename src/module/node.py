@@ -4,7 +4,7 @@ import json
 from bson.dbref import DBRef
 from luna.utils import set_mac_node
 from luna.base import Base
-from luna.options import Options
+from luna.cluster import Cluster
 from luna.network import Network
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
@@ -27,13 +27,12 @@ class Node(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'node'
-        self._mongo_db = mongo_db
         if not bool(name) and bool(create):
-            name = self._generate_name()
+            name = self._generate_name(mongo_db = mongo_db)
         mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'port': type(''), 'localboot': type(True), 'setupbmc': type(True), 'service': type(True)}
         if create:
-            options = Options()
+            cluster = Cluster(mongo_db = self._mongo_db)
             group = Group(group, mongo_db = self._mongo_db)
             mongo_doc = {'name': name, 'group': group.DBRef, 'interfaces': None,
                     'mac': None, 'switch': None, 'port': None,
@@ -46,18 +45,18 @@ class Node(Base):
                 self.add_ip(interface)
             self.add_bmc_ip()
             self.link(group)
-            self.link(options)
+            self.link(cluster)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger(__name__ + '.' + self._name)
 
-    def _generate_name(self):
-        options = Options()
-        prefix = options.get('nodeprefix')
-        digits = options.get('nodedigits')
-        back_links = options.get_back_links()
+    def _generate_name(self, mongo_db):
+        cluster = Cluster(mongo_db)
+        prefix = cluster.get('nodeprefix')
+        digits = cluster.get('nodedigits')
+        back_links = cluster.get_back_links()
         max_num = 0
         for link in back_links:
             if not link['collection'] == self._collection_name:
@@ -436,7 +435,7 @@ class Group(Base):
         mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = {'prescript': type(''), 'partscript': type(''), 'postscript': type(''), 'boot_if': type(''), 'torrent_if': type('')}
         if create:
-            options = Options()
+            cluster = Cluster(mongo_db = self._mongo_db)
             (bmcobj, bmcnetobj) = (None, None)
             if bool(bmcsetup):
                 bmcobj = BMCSetup(bmcsetup).DBRef
@@ -464,7 +463,7 @@ class Group(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.link(options)
+            self.link(cluster)
             if bmcobj:
                 self.link(bmcobj)
             if bmcnetobj:

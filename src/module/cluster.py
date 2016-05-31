@@ -8,10 +8,10 @@ import grp
 from bson.dbref import DBRef
 from luna.base import Base
 
-class Options(Base):
+class Cluster(Base):
     """
-    Class for storing options and tunables for LunaCluster
-    Also it is the parent class for OsImage
+    Class for storing options and procedures for luna
+    TODO rename to 'Cluster'
     """
 
     logging.basicConfig(level=logging.INFO)
@@ -33,8 +33,9 @@ class Options(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._logger.debug("Connecting to MongoDB.")
-        self._collection_name = 'options'
+        self._collection_name = 'cluster'
         name = 'general'
+        self._mongo_db = mongo_db
         mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
             try:
@@ -107,14 +108,14 @@ class Options(Base):
             if not os.path.exists(value):
                 self._logger.error("Wrong path specified.")
                 return None
-            return super(Options, self).set(key, value)
+            return super(Cluster, self).set(key, value)
         if key in ['server_address', 'tracker_address']:
             try:
                 socket.inet_aton(value)
             except:
                 self._logger.error("Wrong ip address specified.")
                 return None
-            return super(Options, self).set(key, value)
+            return super(Cluster, self).set(key, value)
         if key == 'user':
             try:
                 pwd.getpwnam(value)
@@ -132,8 +133,8 @@ class Options(Base):
                 val += ip + ','
             val = val[:-1]
             ips = val.split(',')
-            return super(Options, self).set(key, val)
-        return super(Options, self).set(key, value)
+            return super(Cluster, self).set(key, val)
+        return super(Cluster, self).set(key, value)
 
     def get_cluster_ips(self):
         ips = self.get('cluster_ips')

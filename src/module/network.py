@@ -4,7 +4,7 @@ import struct
 import socket
 from bson.dbref import DBRef
 from luna.base import Base
-from luna.options import Options
+from luna.cluster import Cluster
 
 class Network(Base):
     """
@@ -23,7 +23,7 @@ class Network(Base):
         self._keylist = {'NETWORK': long, 'PREFIX': int}
         mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
-            options = Options()
+            cluster = Cluster(mongo_db = self._mongo_db)
             num_net = self.get_base_net(NETWORK, PREFIX)
             if not num_net:
                 self._logger.error("Cannot compute NETWORK/PREFIX")
@@ -35,7 +35,7 @@ class Network(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.link(options)
+            self.link(cluster)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']

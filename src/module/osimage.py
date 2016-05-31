@@ -9,7 +9,7 @@ import ctypes
 import rpm
 from bson.dbref import DBRef
 from luna.base import Base
-from luna.options import Options
+from luna.cluster import Cluster
 import libtorrent
 import uuid
 #import tarfile
@@ -37,7 +37,7 @@ class OsImage(Base):
                         'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''),
                         'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
         if create:
-            options = Options()
+            cluster = Cluster(mongo_db = self._mongo_db)            
             path = os.path.abspath(path)
             path_suspected_doc = self._mongo_collection.find_one({'path': path})
             if path_suspected_doc and path_suspected_doc['path'] == path:
@@ -58,7 +58,7 @@ class OsImage(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.link(options)
+            self.link(cluster)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
@@ -132,23 +132,25 @@ class OsImage(Base):
     """
     def create_tarball(self):
         # TODO check if root
-        path = Options().get('path')
+        cluster = Cluster(mongo_db = self._mongo_db)
+
+        path = cluster.get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
-        tracker_address = Options().get('fronend_address')
+        tracker_address = cluster.get('fronend_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('frontend_port')
+        tracker_port = cluster.get('frontend_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
-        user = Options().get('user')
+        user = cluster.get('user')
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = Options().get('group')
+        #group = cluster.get('group')
         #if not group:
         #    self._logger.error("Group needs to be configured.")
         #    return None
@@ -201,7 +203,7 @@ class OsImage(Base):
     
     
     def create_initrd(self):
-        path = Options().get('path')
+        path = cluster.get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
@@ -210,7 +212,7 @@ class OsImage(Base):
         kern_modules = self.get('kernmodules')
     
     def place_bootfiles(self):
-        path = Options().get('path')
+        path = cluster.get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
@@ -220,26 +222,27 @@ class OsImage(Base):
     def create_torrent(self):
         # TODO check if root
         tarball_uid = self.get('tarball')
+        cluster = Cluster(mongo_db = self._mongo_db)
         if not bool(tarball_uid):
             self._logger.error("No tarball in DB.")
             return None
-        tarball = Options().get('path') + "/torrents/" + tarball_uid + ".tgz"
+        tarball = cluster.get('path') + "/torrents/" + tarball_uid + ".tgz"
         if not os.path.exists(tarball):
             self._logger.error("Wrong path in DB.")
             return None
-        tracker_address = Options().get('frontend_address')
+        tracker_address = cluster.get('frontend_address')
         if tracker_address == '':
             self._logger.error("Tracker address needs to be configured.")
             return None
-        tracker_port = Options().get('frontend_port')
+        tracker_port = cluster.get('frontend_port')
         if tracker_port == 0:
             self._logger.error("Tracker port needs to be configured.")
             return None
-        user = Options().get('user')
+        user = cluster.get('user')
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = Options().get('group')
+        #group = cluster.get('group')
         #if not group:
         #    self._logger.error("Group needs to be configured.")
         #    return None
@@ -248,7 +251,7 @@ class OsImage(Base):
         old_cwd = os.getcwd()
         os.chdir(os.path.dirname(tarball))
         uid = str(uuid.uuid4())
-        torrentfile = str(Options().get('path')) + "/torrents/" + uid
+        torrentfile = str(cluster.get('path')) + "/torrents/" + uid
         fs = libtorrent.file_storage()
         libtorrent.add_files(fs, os.path.basename(tarball))
         t = libtorrent.create_torrent(fs)
@@ -288,7 +291,7 @@ class OsImage(Base):
             umount(path + '/dev')
             umount(path + '/proc')
             umount(path + '/sys')
-
+        cluster = Cluster(mongo_db = self._mongo_db)
         #boot_prefix = '/boot'
         image_path = str(self.get('path'))
         kernver = str(self.get('kernver'))
@@ -297,16 +300,16 @@ class OsImage(Base):
         kernfile = str(self.name) + '-vmlinuz-' + kernver
         #kernel_image = kernel_name + '-' + kernver
         #kernel_path = image_path + boot_prefix +  '/' +  kernel_image
-        path = Options().get('path')
+        path = cluster.get('path')
         if not path:
             self._logger.error("Path needs to be configured.")
             return None
         path = str(path)
-        user = Options().get('user')
+        user = cluster.get('user')
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = Options().get('group')
+        #group = cluster.get('group')
         #if not group:
         #    self._logger.error("Group needs to be configured.")
         #    return None

@@ -9,7 +9,7 @@ import inspect
 
 from bson.dbref import DBRef
 from luna.base import Base
-from luna.options import Options
+from luna.cluster import Cluster
 
 class Switch(Base):
     """
@@ -32,7 +32,7 @@ class Switch(Base):
         mongo_doc = self._check_name(name, mongo_db, create, id)
         self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type(''), 'oid': type('') }
         if create:
-            options = Options()
+            cluster = Cluster(mongo_db = self._mongo_db)
             passed_vars = inspect.currentframe().f_locals
             for key in self._keylist:
                 if type(passed_vars[key]) is not self._keylist[key]:
@@ -43,7 +43,7 @@ class Switch(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
-            self.link(options)
+            self.link(cluster)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']

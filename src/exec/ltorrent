@@ -354,9 +354,9 @@ def start_torrent_client():
         logger.info("No torrents. Exiting.")
         return None
     os.chdir(path)
-    options = luna.Options()
-    portmin = options.get('torrent_listen_port_min') or 7052
-    portmax = options.get('torrent_listen_port_max') or 7200
+    cluster = luna.Cluster()
+    portmin = cluster.get('torrent_listen_port_min') or 7052
+    portmax = cluster.get('torrent_listen_port_max') or 7200
     try:
         t_session = lt.session()
     except:
@@ -383,7 +383,7 @@ def update_torrent_client():
     #global torrents_path
     if not bool(t_session):
         return None
-    #options = luna.Options()
+    #cluster = luna.Cluster()
     flags = flag_seed_mode | flag_upload_mode | flag_super_seeding
     parm_dict = {"save_path": torrents_path, 'flags': flags }
     for tf in torrents:
@@ -649,19 +649,19 @@ def exit_handler():
 if __name__ == '__main__':
     logger = logging.getLogger('ltorrent')
     signal.signal(signal.SIGHUP, sighup_handler)
-    options = luna.Options()
-    runas_user = options.get('user')
+    cluster = luna.Cluster()
+    runas_user = cluster.get('user')
     if not bool(runas_user):
         runas_user = 'luna'
-    #runas_group = options.get('group')
+    #runas_group = cluster.get('group')
     #if not bool(runas_group):
     #    runas_group = 'luna'
-    pidfile = options.get('torrent_pidfile')
+    pidfile = cluster.get('torrent_pidfile')
     if not bool(pidfile):
         pidfile = '/run/luna/torrent.pid'
-    soft_timeout = options.get('torrent_soft_timeout') or 600
-    hard_timeout = options.get('torrent_hard_timeout') or 3600
-    torrents_path = options.get('path')
+    soft_timeout = cluster.get('torrent_soft_timeout') or 600
+    hard_timeout = cluster.get('torrent_hard_timeout') or 3600
+    torrents_path = cluster.get('path')
     if not bool(torrents_path):
         torrents_path = '/opt/luna'
     torrents_path = torrents_path + "/torrents"

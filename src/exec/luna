@@ -18,25 +18,25 @@ mongo_db = None
 #################### Cluster
 
 def cluster_init(nodeprefix, nodedigits, path, user, group):
-    options = luna.Options(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
+    cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
 
 def cluster_delete():
-    options = luna.Options()
-    options.delete()
+    cluster = luna.Cluster()
+    cluster.delete()
 
 def cluster_change(**args):
-    options = luna.Options()
+    cluster = luna.Cluster()
     for key in args:
         if args[key] == None:
             continue
-        options.set(key, args[key])
+        cluster.set(key, args[key])
  
 def cluster_show(raw, out_format = def_format):
-    options = luna.Options()
+    cluster = luna.Cluster()
     if raw:
-        print options.nice_json
+        print cluster.nice_json
         return None
-    out_json = options.show()
+    out_json = cluster.show()
     out_str = ''
     name = out_json.pop('name')
     for key in sorted(out_json):
@@ -596,7 +596,7 @@ def switch_show(name, raw, out_format = def_format):
         print out_str
 
 def switch_add(**args):
-    name = args.pop['name']
+    name = args.pop('name')
     args['create'] = True
     for switchname in hostlist.expand_hostlist(name):
         args['name'] = switchname
