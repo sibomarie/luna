@@ -548,9 +548,6 @@ def start():
     global runas_user
     
     logger.info("Starting Luna Torrent")
-    user_id = pwd.getpwnam(runas_user)
-    os.setgid(user_id.pw_gid)
-    os.setuid(user_id.pw_uid)
     # Check for a pidfile to see if the daemon already runs
     try:
         pidfile = check_path(os.path.dirname(pidfile)) + "/torrent.pid"
@@ -559,7 +556,9 @@ def start():
         pf.close()
     except IOError:
         pid = None
-
+    user_id = pwd.getpwnam(runas_user)
+    os.setgid(user_id.pw_gid)
+    os.setuid(user_id.pw_uid)
     if pid:
         message = "pidfile %s already exist. Daemon already running?\n"
         sys.stderr.write(message % pidfile)
