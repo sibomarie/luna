@@ -61,7 +61,7 @@ class Node(Base):
         for link in back_links:
             if not link['collection'] == self._collection_name:
                 continue
-            node = Node(id = link['DBRef'].id, mongo_db = self._mongo_db)
+            node = Node(id = link['DBRef'].id, mongo_db = mongo_db)
             name = node.name
             nnode = int(name.lstrip(prefix))
             if nnode > max_num:
