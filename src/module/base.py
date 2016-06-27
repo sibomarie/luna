@@ -5,6 +5,7 @@ import inspect
 import json
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
+from utils import *
 
 class Base(object):
     """
@@ -39,7 +40,7 @@ class Base(object):
             self._mongo_db = mongo_db
         else:
             try:
-                self._mongo_client = pymongo.MongoClient()
+                self._mongo_client = pymongo.MongoClient(get_con_options())
             except:
                 self._logger.error("Unable to connect to MongoDB.")
                 raise RuntimeError

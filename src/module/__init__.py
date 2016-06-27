@@ -12,6 +12,7 @@ from switch import Switch, MacUpdater
 from network import Network
 from tracker import *
 from manager import Manager
+from utils import *
 
 def list(collection):
     import logging
@@ -20,7 +21,7 @@ def list(collection):
     logger = logging.getLogger(__name__)
 
     try:
-        mongo_client = pymongo.MongoClient()
+        mongo_client = pymongo.MongoClient(get_con_options())
     except:
         logger.error("Unable to connect to MongoDB.")
         raise RuntimeError

@@ -69,7 +69,7 @@ def run_app():
     logger.info('Starting lweb on port %d' % lweb_port)
     try:
         #mongo_db =  motor.motor_tornado.MotorClient()[db_name]
-        mongo_db = pymongo.MongoClient()[db_name]
+        mongo_db = pymongo.MongoClient(luna.get_con_options())[db_name]
     except:
         logger.error("Unable to connect to MongoDB.")
         raise RuntimeError

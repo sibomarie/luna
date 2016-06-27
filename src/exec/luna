@@ -882,9 +882,8 @@ switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.')
 switch_command = switch_parser_actions.add_parser('delete', help='Delete Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 
-
 try:
-    mongo_client = pymongo.MongoClient()
+    mongo_client = pymongo.MongoClient(luna.get_con_options())
 except:
     logger.error("Unable to connect to MongoDB.")
     raise RuntimeError

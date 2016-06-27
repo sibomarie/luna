@@ -176,3 +176,54 @@ Disable bmcsetup
 ```
 luna node change -n node001 --setupbmc n
 ```
+# MongoDB config
+Set up replica set:
+edit ```/etc/mongod.conf```
+(example)
+```
+bind_ip = 127.0.0.1,10.30.255.254
+replSet = luna
+```
+after that mongod needs to be restarted:
+```
+systemctl restart mongod
+```
+using mongo cli, setup replica set:
+```
+rs.initiate()
+```
+Then restart mongod and back to cli.
+Add root user:
+```
+use admin
+db.createUser({user: "root", pwd: "<password>", roles: [ { role: "root", db: "admin" } ]})
+```
+edit config mongod to enable auth:
+```
+auth = true
+```
+restart mongod:
+```
+systemctl restart mongod
+```
+Enter to mongo shell:
+```
+mongo -u root -p <password> --authenticationDatabase admin
+```
+Create user for Luna:
+```
+use luna
+db.createUser({user: "luna", pwd: "<password>", roles: [{role: "dbOwner", db: "luna"}]})
+```
+Now we are ready to create config file for connection:
+```
+cat << EOF > /etc/luna.conf
+[MongoDB]
+replicaset=luna
+server=localhost
+authdb=luna
+user=luna
+password=<password>
+EOF
+```
+NOTE: By default MongoDB listens only loopback interface and provides no credentials ckecking
