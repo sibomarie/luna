@@ -18,7 +18,7 @@ Let's assume you have server with ip 10.30.255.254 as internal interface for clu
 
 TODO. Will be raplaced by rpm scripts later on.
 ```
-sed -i -e 's/SELINUX=enforcing/SELINUX=disabled/' /etc/sysconfig/selinux
+sed -i -e 's/SELINUX=enforcing/SELINUX=disabled/' /etc/selinux/config
 setenforce 0
 yum -y install git
 cd /
@@ -95,7 +95,7 @@ chmod 600 /opt/luna/os/compute/root/.ssh/authorized_keys
 cp -pr /luna/src/dracut/95luna /opt/luna/os/compute/usr/lib/dracut/modules.d/
 ```
 # Create cluster config
-Please note, in this case interface named 'enp7s0' is using. To figure out the proper name of the interface you probably need to boot in service mode first: `luna node change -n node001 --service y`. In service mode you can perform inventory of the interfaces, local disks, BMC features.
+Please note, in this case interface named 'enp7s0' is using. To figure out the proper name of the interface you probably need to specify any interface (eth0, for instance) and then boot in service mode first: `luna node change -n node001 --service y`. In service mode you can perform inventory of the interfaces, local disks, BMC features.
 ```
 luna cluster init
 luna cluster change --frontend_address 10.30.255.254
@@ -112,7 +112,7 @@ luna group change -n compute --interface enp7s0 --setnet cluster
 echo -e "DEVICE=enp0s3\nONBOOT=yes" | luna group change  --name compute --interface enp7s0 -e
 luna group change -n compute --bmcnetwork --setnet ipmi
 ```
-# Edit partitioning
+# (Optional) Edit partitioning
 
 You can use ramdisk, or write your own partition script.
 ```
@@ -131,7 +131,7 @@ mount /dev/sda2 /sysroot
 mkdir /sysroot/boot
 mount /dev/sda1 /sysroot/boot
 ```
-# Edit postscript to install bootloader (/dev/sda)
+# (Optional) Edit postscript to install bootloader (/dev/sda)
 ```
 cat << EOF | luna group change -n compute  --post -e
 mount -o bind /proc /sysroot/proc
@@ -227,4 +227,78 @@ authdb=luna
 user=luna
 password=<password>
 EOF
+```
+(Optional. Set up HA)
+Consider you have:
+|           10.30.255.251 |   master1 |
+|           10.30.255.252 |   master2 |
+|(floating) 10.30.255.254 |   master  |
+```
+openssl rand -base64 741 > /etc/mongo.key
+chown mongodb: /etc/mongo.key
+chmod 400 /etc/mongo.key
+```
+Add parameter to  /etc/mongod.conf
+```
+keyFile = /etc/mongo.key
+```
+Copy files to other master
+```
+scp -pr /etc/mongo.key 10.30.255.252:/etc/
+scp /etc/mongod.conf 10.30.255.252:/etc/
+```
+
+Edit mongod.conf to to change the ip address there:
+```
+sed -i -e 's/10.30.255.251/10.30.255.252/' /etc/mongod.conf
+```
+Restart mongo instances on both servers:
+```
+systemctl restart mongod
+```
+In mongo shell add another member:
+```
+rs.add("10.30.255.252")
+```
+Then restart mongod instance on other master.
+
+Check status:
+```
+luna:PRIMARY> rs.status()
+{
+        "set" : "luna",
+        "date" : ISODate("2016-06-28T11:03:04Z"),
+        "myState" : 1,
+        "members" : [
+                {
+                        "_id" : 0,
+                        "name" : "10.30.255.251:27017",
+                        "health" : 1,
+                        "state" : 1,
+                        "stateStr" : "PRIMARY",
+                        "uptime" : 209,
+                        "optime" : Timestamp(1467111677, 1),
+                        "optimeDate" : ISODate("2016-06-28T11:01:17Z"),
+                        "electionTime" : Timestamp(1467111711, 1),
+                        "electionDate" : ISODate("2016-06-28T11:01:51Z"),
+                        "self" : true
+                },
+                {
+                        "_id" : 1,
+                        "name" : "10.30.255.252:27017",
+                        "health" : 1,
+                        "state" : 2,
+                        "stateStr" : "SECONDARY",
+                        "uptime" : 79,
+                        "optime" : Timestamp(1467111677, 1),
+                        "optimeDate" : ISODate("2016-06-28T11:01:17Z"),
+                        "lastHeartbeat" : ISODate("2016-06-28T11:03:04Z"),
+                        "lastHeartbeatRecv" : ISODate("2016-06-28T11:03:03Z"),
+                        "pingMs" : 1,
+                        "lastHeartbeatMessage" : "syncing to: 10.30.255.251:27017",
+                        "syncingTo" : "10.30.255.251:27017"
+                }
+        ],
+        "ok" : 1
+}
 ```
