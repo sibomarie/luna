@@ -16,15 +16,24 @@ def_format = '%20s%40s\n'
 mongo_db = None
 
 #################### Cluster
+def check_active_node():
+    if not luna.Cluster().is_active():
+        logger.error("Inactive HA node.")
+        exit(1)
 
 def cluster_init(nodeprefix, nodedigits, path, user, group):
     cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
 
 def cluster_delete():
+    check_active_node()
     cluster = luna.Cluster()
     cluster.delete()
 
 def cluster_change(**args):
+    check_active_node()
+    if not luna.Cluster().is_active():
+        logger.error("Inactive HA node.")
+        exit(1)
     cluster = luna.Cluster()
     for key in args:
         if args[key] == None:
@@ -82,12 +91,14 @@ def osimage_listkerns(name):
         print elem
 
 def osimage_add(**args):
+    check_active_node()
     args['create'] = True
     if not bool(args['kernver']):
         args['kernver'] = 'ANY'
     osimage = luna.OsImage(**args)
 
 def osimage_delete(name):
+    check_active_node()
     osimage = luna.OsImage(name)
     osimage.delete()
 
@@ -100,6 +111,7 @@ def osimage_change(**args):
         osimage.set(key, args[key])
 
 def osimage_pack(**args):
+    check_active_node()
     def pack_image(osimage):
         try:
             print 'Creating tarball.'
@@ -171,10 +183,12 @@ def bmcsetup_show(name, raw, out_format = def_format):
     print out_str
 
 def bmcsetup_add(**args):
+    check_active_node()
     args['create'] = True
     bmcsetup = luna.BMCSetup(**args)
 
 def bmcsetup_change(**args):
+    check_active_node()
     bmcsetup = luna.BMCSetup(args['name'])
     args.pop('name')
     for key in args:
@@ -183,6 +197,7 @@ def bmcsetup_change(**args):
         bmcsetup.set(key, args[key])
 
 def bmcsetup_delete(name):
+    check_active_node()
     bmcsetup = luna.BMCSetup(name)
     bmcsetup.delete()
 
@@ -291,9 +306,11 @@ def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
     print out_str.rstrip()
 
 def network_add(name, network, prefix):
+    check_active_node()
     net = luna.Network(name = name, create = True, NETWORK = network, PREFIX = prefix)
 
 def network_change(name, network, prefix, reserve, release):
+    check_active_node()
     net = luna.Network(name = name)
     if bool(network):
         net.set('NETWORK', network)
@@ -306,6 +323,7 @@ def network_change(name, network, prefix, reserve, release):
     return None
 
 def network_delete(name):
+    check_active_node()
     net = luna.Network(name)
     net.delete()
 
@@ -372,6 +390,7 @@ def group_show(out_format = '%20s%60s\n', **args):
     print out_str
 
 def group_add(**args):
+    check_active_node()
     args['create'] = True
     args['interfaces'] = args['interface']
     args.pop('interface')
@@ -384,6 +403,7 @@ def group_add(**args):
     group = luna.Group(**args)
      
 def group_change(**args):
+    check_active_node()
     parm_sum = 0
     for elem in ['prescript', 'postscript', 'partscript', 'interface']:
         parm_sum += int(bool(args[elem]))
@@ -458,6 +478,7 @@ def _edit_script(old_script):
     return script
 
 def group_delete(name):
+    check_active_node()
     group = luna.Group(name)
     group.delete()
 
@@ -508,6 +529,7 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
         print out_str
 
 def node_add(name, group):
+    check_active_node()
     if name:
         for nodename in hostlist.expand_hostlist(name):
             node = luna.Node(name = nodename, group = group, create = True)
@@ -515,6 +537,7 @@ def node_add(name, group):
         node = luna.Node(name = name, group = group, create = True)
 
 def node_change(**args):
+    check_active_node()
     for nodename in hostlist.expand_hostlist(args['name']):
         node = luna.Node(nodename, mongo_db = mongo_db)
         if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
@@ -568,6 +591,7 @@ def node_change(**args):
 
 
 def node_delete(name):
+    check_active_node()
     for nodename in hostlist.expand_hostlist(name):
         node = luna.Node(nodename, mongo_db = mongo_db)
         node.delete()
@@ -596,6 +620,7 @@ def switch_show(name, raw, out_format = def_format):
         print out_str
 
 def switch_add(**args):
+    check_active_node()
     name = args.pop('name')
     args['create'] = True
     for switchname in hostlist.expand_hostlist(name):
@@ -603,6 +628,7 @@ def switch_add(**args):
         switch = luna.Switch(**args)
 
 def switch_change(**args):
+    check_active_node()
     for switchname in hostlist.expand_hostlist(name):
         switch = luna.Switch(switchname)
         args.pop('name')
@@ -612,6 +638,7 @@ def switch_change(**args):
             switch.set(key, args[key])
 
 def switch_delete(name):
+    check_active_node()
     for switchname in hostlist.expand_hostlist(name):
         switch = luna.Switch(switchname)
         switch.delete()
@@ -653,6 +680,7 @@ cluster_command.add_argument('--torrent_listen_port_max', type=int, help='Torren
 cluster_command.add_argument('--torrent_pidfile', type=int, help='Torrent pidfile')
 cluster_command.add_argument('--lweb_num_proc', type=int, help='Lweb number of processes. (0 for autodetection.)')
 cluster_command.add_argument('--lweb_pidfile', type=int, help='Lweb pidfile')
+cluster_command.add_argument('--cluster_ips', type=str, metavar='A.A.A.A,B.B.B.B', help='IPs of the cluster interfaces dedicated for provisioninig')
 #cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
@@ -881,6 +909,7 @@ switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.')
 # delete
 switch_command = switch_parser_actions.add_parser('delete', help='Delete Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+
 
 try:
     mongo_client = pymongo.MongoClient(luna.get_con_options())

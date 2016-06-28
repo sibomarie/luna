@@ -152,6 +152,15 @@ class Cluster(Base):
                 cluster_ips.append(ip)
         return cluster_ips
 
+    def is_active(self):
+        
+        ip = self.get('frontend_address')
+
+        stdout = subprocess.Popen(['/usr/sbin/ip', 'addr', 'show', 'to', ip], stdout=subprocess.PIPE).stdout.read()
+        if stdout:
+            return True
+        return False
+
     def rsync_data(self):
         cluster_ips = self.get_cluster_ips()
         if not cluster_ips:

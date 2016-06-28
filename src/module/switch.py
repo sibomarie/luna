@@ -52,8 +52,10 @@ class Switch(Base):
 class MacUpdater(object):
 
     def __init__(self, mongo_db, logger = None, interval = 30):
-        self.switch_collection = mongo_db['switch']
-        self.known_mac_collection = mongo_db['switch_mac']
+        self._mongo_db = mongo_db
+        self.switch_collection = self._mongo_db['switch']
+        self.known_mac_collection = self._mongo_db['switch_mac']
+
         aging = interval * 2
         self.logger = logger
         self.interval = interval
@@ -66,9 +68,14 @@ class MacUpdater(object):
  
     def run(self):
         counter = self.interval
+        cluster = Cluster(mongo_db = self._mongo_db)
         while self.active:
             if counter >= self.interval:
-                self.update()
+                if cluster.is_active():
+                    self.update()
+                else:
+                    self.logger.info("This is passive node. Doing nothing.")
+                    time.sleep(60)
                 counter = 0
             counter += 1
             time.sleep(1)

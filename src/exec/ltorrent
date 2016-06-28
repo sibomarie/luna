@@ -494,6 +494,8 @@ def daemonize():
     log_handler = logging.handlers.RotatingFileHandler( log_dir + '/ltorrent.log', maxBytes = 1073741824, backupCount = 5)
     #log_handler.doRollover()
     logger.propagate = False
+    formatter = logging.Formatter("%(asctime)s\t%(levelname)s\t%(message)s")
+    log_handler.setFormatter(formatter)
     logger.addHandler(log_handler)
     stdin = '/dev/null'
     stdout = '/dev/null'

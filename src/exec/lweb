@@ -169,8 +169,9 @@ def daemonize():
     log_app_handler = logging.handlers.RotatingFileHandler( log_dir + '/lweb.log', maxBytes = 1073741824, backupCount = 5)
     #log_app_handler.doRollover()
     logger.propagate = False
+    formatter = logging.Formatter("%(asctime)s\t%(levelname)s\t%(message)s")
+    log_app_handler.setFormatter(formatter)
     logger.addHandler(log_app_handler)
-
     tornado.options.options['log_to_stderr'].set(False)
     tornado.options.options['log_file_prefix'].set(log_dir + '/lweb_tornado.log')
     tornado.options.options['log_file_max_size'].set(1073741824)
