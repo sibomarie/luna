@@ -160,24 +160,3 @@ class Cluster(Base):
         if stdout:
             return True
         return False
-
-    def rsync_data(self):
-        cluster_ips = self.get_cluster_ips()
-        if not cluster_ips:
-            return None
-        path = self.get('path')
-        pid = os.getppid()
-        # TODO read pid and check if process exists
-
-        for remote_ip in cluster_ips[1:]:
-            cmd = ['/usr/bin/rsync', '-avz', '-e',
-                '"/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"',
-                '--progress', path, 'root@' + remote_ip + ':' + path]
-
-
-
-        
-
-
-
-
