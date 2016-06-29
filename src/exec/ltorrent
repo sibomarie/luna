@@ -622,7 +622,7 @@ def lreload():
     if not pid:
         message = "pidfile %s does not exist. Daemon not running?\n"
         logger.error(message % pidfile)
-        return # not an error in a restart
+        sys.exit(1)
 
     # Try reload the daemon proces
     try:

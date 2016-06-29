@@ -53,6 +53,16 @@ def cluster_show(raw, out_format = def_format):
     out_str = out_str.rstrip()
     print out_str
 
+def cluster_sync():
+    check_active_node()
+    cluster = luna.Cluster()
+    path = cluster.get("path")
+    ips = cluster.get_cluster_ips()
+    for ip in ips[1:]:
+        print "%s:%s => %s:%s" % (ips[0], path, ip, path)
+        luna.rsync_data(ip, path)
+    print "Done. Daemons probably need to be restarted manually."
+
 #################### OsImage
 
 def osimage_list():
@@ -158,7 +168,35 @@ def osimage_pack(**args):
     pack_image(osimage)
     pack_boot(osimage)
     update_ltorrent()
+    osimage_sync(args['name'])
     return True
+    
+def osimage_sync(name):
+    check_active_node()
+    cluster = luna.Cluster()
+    lunapath = cluster.get("path")
+    osimage = luna.OsImage(name)
+    osimagepath = osimage.get("path")
+    initrdfile = lunapath + "/boot/" + osimage.get("initrdfile")
+    kernfile = lunapath + "/boot/" + osimage.get("kernfile")
+    tarball = lunapath + "/torrents/" + osimage.get("tarball") + ".tar.gz"
+    torrent = lunapath + "/torrents/" + osimage.get("torrent") + ".torrent"
+    ips = cluster.get_cluster_ips()
+    for ip in ips[1:]:
+        for path in (osimagepath, initrdfile, kernfile, tarball, torrent):
+            print "%s:%s => %s:%s" % (ips[0], path, ip, path)
+            luna.rsync_data(ip, path)
+        print "Reloading ltorrent on " + ip
+        ssh_proc = subprocess.Popen(['/usr/bin/ssh',
+            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'UserKnownHostsFile=/dev/null', ip,
+            '/usr/sbin/ltorrent', "reload"], stdout=subprocess.PIPE, close_fds=True)
+        streamdata = ssh_proc.communicate()[0]
+        if ssh_proc.returncode:
+            print "Exit code is non-zero"
+            sys.exit(1)
+    print "Done."
+    
 
 #################### BMCSetup
 
@@ -682,6 +720,8 @@ cluster_command.add_argument('--lweb_num_proc', type=int, help='Lweb number of p
 cluster_command.add_argument('--lweb_pidfile', type=int, help='Lweb pidfile')
 cluster_command.add_argument('--cluster_ips', type=str, metavar='A.A.A.A,B.B.B.B', help='IPs of the cluster interfaces dedicated for provisioninig')
 #cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
+# sync
+cluster_command = cluster_parser_actions.add_parser('sync',help='Syncronize cluster arcoss nodes.')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 
@@ -722,6 +762,9 @@ osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name
 osimage_command_group = osimage_command.add_mutually_exclusive_group(required=False)
 osimage_command_group.add_argument('--image', '-i', action='store_true', help='Pack image only.')
 osimage_command_group.add_argument('--boot', '-b', action='store_true', help='Pack kernel and initrd only.')
+# pack
+osimage_command = osimage_parser_actions.add_parser('sync', help='Sync OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 # delete
 osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')

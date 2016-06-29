@@ -55,7 +55,15 @@ def get_con_options():
     return "localhost"
 
 
-def rsync_data(host, lpath, rpath):
+def rsync_data(host = None, lpath = None, rpath = None):
+
+    if not host or not lpath:
+        sys.stderr.write("Hostname or path did not specified")
+        sys.exit(1)
+    lpath = os.path.abspath(lpath)
+    if not rpath:
+        rpath = os.path.dirname(lpath)
+
     # check if someone run rsync already
     pidfile = "/run/luna_rsync.pid"
     try:
@@ -64,6 +72,7 @@ def rsync_data(host, lpath, rpath):
         pf.close()
     except IOError:
         pid = None
+
     if pid:
         message = "pidfile %s already exist.\n"
         sys.stdout.write(message % pidfile)
@@ -97,7 +106,7 @@ def rsync_data(host, lpath, rpath):
         os.remove(pidfile)
         sys.exit(1)
 
-    cmd = r'''/usr/bin/rsync -avz -e "/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress ''' + lpath + r''' root@''' + host + r''':''' + rpath
+    cmd = r'''/usr/bin/rsync -avz -HAX -e "/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress --delete ''' + lpath + r''' root@''' + host + r''':''' + rpath
     try:
         rsync_out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stat_symb = ['\\', '|', '/', '-']
