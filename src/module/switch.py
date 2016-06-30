@@ -10,12 +10,13 @@ import inspect
 from bson.dbref import DBRef
 from luna.base import Base
 from luna.cluster import Cluster
+from luna.network import Network
 
 class Switch(Base):
     """
     Class for operating with switch records
     """
-    def __init__(self, name = None, mongo_db = None, create = False, id = None,
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, network = None,
             ip = None, read = 'public', rw = 'private', oid = None):
         """
         ip      - ip of the switch
@@ -30,7 +31,7 @@ class Switch(Base):
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'switch'
         mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type(''), 'oid': type('') }
+        self._keylist = { 'ip': type(''), 'read': type(''), 'rw': type(''), 'oid': type(''), 'network': type('')}
         if create:
             cluster = Cluster(mongo_db = self._mongo_db)
             passed_vars = inspect.currentframe().f_locals
@@ -38,16 +39,85 @@ class Switch(Base):
                 if type(passed_vars[key]) is not self._keylist[key]:
                     self._logger.error("Argument '{}' should be '{}'".format(key, self._keylist[key]))
                     raise RuntimeError
-            mongo_doc = { 'name': name, 'ip': ip, 'read': read, 'rw': rw, 'oid': oid}
+            net = Network(name = network, mongo_db = self._mongo_db)
+            ip = net.reserve_ip(ip)
+            mongo_doc = { 'name': name, 'network': net.DBRef, 'ip': ip, 'read': read, 'rw': rw, 'oid': oid}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
             self.link(cluster)
+            self.link(net)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
+
+    def get(self, key):
+        if key == 'ip':
+            dbref = None
+            try:
+                dbref = self._get_json()['network']
+            except:
+                self._logger.error("Network is not defined for switch")
+                return None
+            if not bool(dbref):
+                return None
+            net = Network(id = dbref.id, mongo_db = self._mongo_db)
+            return net.relnum_to_ip(self._get_json()['ip'])
+        return super(Switch, self).get(key)
+
+
+
+    def set(self, key, value):
+        if not bool(key) or type(key) is not str :
+            self._logger.error("Field should be specified")
+            return None
+        if not key in self._keylist:
+            self._logger.error("Cannot change '{}' field".format(key))
+            return None
+        obj_json = self._get_json()
+        if key == 'ip':
+            net_dbref = obj_json['network']
+            old_ip = obj_json['ip']
+            net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+            if not net.ip_in_net(value):
+                self._logger.error("This IP: '{}' does not belong to defined network.".format(value))
+                return None
+            if old_ip:
+                net.release_ip(old_ip)
+            ip = net.reserve_ip(value)
+            obj_json['ip'] = ip
+            ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
+            return not ret['err']
+        if key == 'network':
+            old_net_dbref = obj_json['network']
+            old_net = Network(id = old_net_dbref.id, mongo_db = self._mongo_db)
+            old_ip_rel = obj_json['ip']
+            old_ip_human_readable = self.get('ip')
+            new_net = Network(name = value, mongo_db = self._mongo_db)
+            if old_net.DBRef == new_net.DBRef:
+                return None
+            new_ip_rel = old_ip_rel
+            new_ip_human_readable = new_net.relnum_to_ip(new_ip_rel)
+            if not new_net.reserve_ip(new_ip_human_readable):
+                return None
+            old_net.release_ip(old_ip_human_readable)
+            obj_json['network'] = new_net.DBRef
+            ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
+            self.link(new_net)
+            self.unlink(old_net)
+            return not ret['err']
+        return super(Switch, self).set(key, value)
+
+    def delete(self):
+        obj_json = self._get_json()
+        net_dbref = obj_json['network']
+        net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+        ip_human_readable = self.get('ip')
+        net.release_ip(ip_human_readable)
+        self.unlink(net)
+        return super(Switch, self).delete()
 
 class MacUpdater(object):
 
@@ -88,10 +158,11 @@ class MacUpdater(object):
         switches = self.switch_collection.find()
         mac_count = 0
         for switch in switches:
-            oid = switch['oid']
-            ip = switch['ip']
-            read = switch['read']
-            switch_id = switch['_id']
+            obj_switch = Switch(id = switch['_id'])
+            oid = obj_switch.get('oid')
+            ip = obj_switch.get('ip')
+            read = obj_switch.get('read')
+            switch_id = sw.DBRef.id
             mongo_doc = {}
             mongo_doc['switch_id'] = switch_id
             try:

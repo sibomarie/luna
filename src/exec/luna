@@ -655,6 +655,7 @@ def switch_show(name, raw, out_format = def_format):
             print switch.nice_json
             return None
         out_json = switch.show()
+        out_json['ip'] = switch.get('ip')
         out_str = ''
         name = out_json.pop('name')
         for key in sorted(out_json):
@@ -672,7 +673,7 @@ def switch_add(**args):
 
 def switch_change(**args):
     check_active_node()
-    for switchname in hostlist.expand_hostlist(name):
+    for switchname in hostlist.expand_hostlist(args['name']):
         switch = luna.Switch(switchname)
         args.pop('name')
         for key in args:
@@ -947,6 +948,7 @@ switch_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON o
 # add
 switch_command = switch_parser_actions.add_parser('add', help='Show Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--network', '-N', required=True, type=str, help='Network Switch belongs to.')
 switch_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the Switch.')
 switch_command.add_argument('--read', '-r', type=str, help='Read community', default = 'public')
 switch_command.add_argument('--rw', '-w', type=str, help='Write community', default = 'private')
@@ -954,6 +956,7 @@ switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.', 
 # change
 switch_command = switch_parser_actions.add_parser('change', help='Change Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--network', '-N', type=str, help='Network Switch belongs to.')
 switch_command.add_argument('--ip', '-i', type=str, help='IP of the Switch.')
 switch_command.add_argument('--read', '-r', type=str, help='Read community')
 switch_command.add_argument('--rw', '-w', type=str, help='Write community')
