@@ -338,16 +338,17 @@ def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
     out_json.pop('freelist')
     out_json.pop('name')
     out_json['NETWORK'] = net.get('NETWORK')
+    out_json['ns_ip'] = net.get('ns_ip')
     for key in sorted(out_json):
         out_str += out_format % (key, out_json[key])
     out_str = out_format % ('name', name) + out_str.rstrip()
     print out_str.rstrip()
 
-def network_add(name, network, prefix):
+def network_add(name, network, prefix, ns_hostname, ns_ip):
     check_active_node()
-    net = luna.Network(name = name, create = True, NETWORK = network, PREFIX = prefix)
+    net = luna.Network(name = name, create = True, NETWORK = network, PREFIX = prefix, ns_hostname = ns_hostname, ns_ip = ns_ip)
 
-def network_change(name, network, prefix, reserve, release):
+def network_change(name, network, prefix, reserve, release, ns_hostname, ns_ip):
     check_active_node()
     net = luna.Network(name = name)
     if bool(network):
@@ -358,6 +359,10 @@ def network_change(name, network, prefix, reserve, release):
         net.reserve_ip(reserve)
     if bool(release):
         net.release_ip(release)
+    if bool(ns_hostname):
+        net.set('ns_hostname', ns_hostname)
+    if bool(ns_ip):
+        net.set('ns_ip', ns_ip)
     return None
 
 def network_delete(name):
@@ -832,6 +837,8 @@ network_command = network_parser_actions.add_parser('add', help='Add Network.')
 network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
 network_command.add_argument('--network', '-N', metavar='N.N.N.N', required=True, type=str, help='Network.')
 network_command.add_argument('--prefix', '-P', metavar='PP', required=True, type=int, help='Prefix.')
+network_command.add_argument('--ns_hostname', type=str, help='Name server for zone file.')
+network_command.add_argument('--ns_ip', metavar='N.N.N.N', type=str, help='Name server\'s IP for zone file.')
 # change
 network_command = network_parser_actions.add_parser('change', help='Change Network.')
 network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
@@ -839,6 +846,8 @@ network_command.add_argument('--network', '-N', metavar='N.N.N.N', type=str, hel
 network_command.add_argument('--prefix', '-P', metavar='PP', type=int, help='Prefix.')
 network_command.add_argument('--reserve', '-R', metavar='X.X.X.X', type=str, help='Reserve IP.')
 network_command.add_argument('--release', metavar='X.X.X.X', type=str, help='Release IP.')
+network_command.add_argument('--ns_hostname', type=str, help='Name server for zone file.')
+network_command.add_argument('--ns_ip', metavar='N.N.N.N', type=str, help='Name server\'s IP for zone file.')
 # delete
 network_command = network_parser_actions.add_parser('delete', help='Delete Network.')
 network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')

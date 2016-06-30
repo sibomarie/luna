@@ -12,7 +12,7 @@ class Network(Base):
 
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, NETWORK = None, PREFIX = None):
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, NETWORK = None, PREFIX = None, ns_hostname = None, ns_ip = None):
         """
         create  - should be True if we need create osimage
         NETWORK - network
@@ -20,7 +20,7 @@ class Network(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'network'
-        self._keylist = {'NETWORK': long, 'PREFIX': int}
+        self._keylist = {'NETWORK': long, 'PREFIX': type(0), 'ns_hostname': type(''), 'ns_ip': type('')}
         mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
             cluster = Cluster(mongo_db = self._mongo_db)
@@ -28,19 +28,42 @@ class Network(Base):
             if not num_net:
                 self._logger.error("Cannot compute NETWORK/PREFIX")
                 raise RuntimeError
-            else:
-                freelist = [{'start': 1, 'end': (1<<(32-PREFIX))-1}]
-                mongo_doc = {'name': name, 'NETWORK': num_net, 'PREFIX': PREFIX, 'freelist': freelist}
+            if not ns_hostname:
+                ns_hostname = self._guess_ns_hostname()
+            freelist = [{'start': 1, 'end': (1<<(32-PREFIX))-2}]
+            mongo_doc = {'name': name, 'NETWORK': num_net, 'PREFIX': PREFIX, 'freelist': freelist, 'ns_hostname': ns_hostname, 'ns_ip': None}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
             self.link(cluster)
+            if not ns_ip:
+                ns_ip = self.relnum_to_ip(freelist[0]['end'])
+            if not ns_ip:
+                self._logger.error("Cannot configure IP address for NS")
+            else:
+                self.set('ns_ip', ns_ip)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger(__name__ + '.' + self._name)
+
+    def _guess_ns_hostname(self):
+        ns_hostname = socket.gethostname().split('.')[0]
+        if ns_hostname[-1:].isdigit():
+            import re
+            index = re.match('.*?([0-9]+)$', ns_hostname).group(1)
+            guessed_name = ns_hostname.split(index)[0]
+            guessed_ip = None
+            try:
+                guessed_ip = socket.gethostbyname(guessed_name)
+            except:
+                pass
+            if guessed_ip:
+                self._logger.info("Guessed that NS server should be '" + guessed_name + "', but not '" + ns_hostname + "'. Please change if it is not true.")
+                return guessed_name
+        return ns_hostname
 
     def absnum_to_ip(self, numip):
         try:
@@ -104,14 +127,33 @@ class Network(Base):
         if not key in self._keylist:
             self._logger.error("Cannot change '{}' field".format(key))
             return None
+        obj_json = self._get_json()
+        if key == 'ns_ip':
+            ns_ip = self.ip_to_relnum(value)
+            if not ns_ip:
+                self._logger.error("Cannot configure IP address for NS")
+                return None
+            old_ip = None
+            try:
+                old_ip = self.get('ns_ip')
+            except:
+                pass
+            if bool(old_ip):
+                self.release_ip(old_ip)
+            self.reserve_ip(ns_ip)
+            obj_json = self._get_json()
+            obj_json['ns_ip'] = ns_ip
+        if key == 'ns_hostname':
+            obj_json['ns_hostname'] = value
         if key == 'NETWORK':
             prefix = self._get_json()['PREFIX']
             network = self.get_base_net(value, prefix)
             if not bool(network):
                 self._logger.error("Cannot compute NETWORK for entered '{}'".format(value))
                 return None
-            json = {'NETWORK': network, 'PREFIX': prefix}
-        else:
+            obj_json['NETWORK'] = network
+            obj_json['PREFIX'] = prefix
+        if key == 'PREFIX':
             network = self._get_json()['NETWORK']
             new_network = self.get_base_net(network, value)
             if not bool(new_network):
@@ -120,8 +162,9 @@ class Network(Base):
             if not self._set_uplimit_ip(value):
                 self._logger.error("Cannot set PREFIX as some IPs are reserved out of the new border.".format(value))
                 raise RuntimeError
-            json = {'NETWORK': new_network, 'PREFIX': value}
-        ret = self._mongo_collection.update({'_id': self._id}, {'$set': json}, multi=False, upsert=False)
+            obj_json['NETWORK'] = network
+            obj_json['PREFIX'] = value
+        ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
         return not ret['err']
 
     def get(self, key):
@@ -136,6 +179,8 @@ class Network(Base):
             return socket.inet_ntoa(struct.pack('>L', (prefix_num)))
         if key == 'PREFIX':
             return obj_json['PREFIX']
+        if key == 'ns_ip':
+            return self.relnum_to_ip(obj_json['ns_ip'])
         return None
 
     def _get_next_ip(self):
