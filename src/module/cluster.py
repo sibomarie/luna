@@ -171,4 +171,7 @@ class Cluster(Base):
             cluster_ips = self.get('cluster_ips')
         except:
             return False
-        return True
+        if bool(cluster_ips):
+            return True
+        return False
+

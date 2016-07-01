@@ -454,9 +454,9 @@ luna:PRIMARY> rs.status()
 ```
 At this point you are ready to copy data and config to other node.
 
-Shutdown arbiter:
+Shutdown arbiter on first node:
 ```
-
+systemctl stop mongod-arbiter
 ```
 Copy files:
 ```
@@ -472,7 +472,7 @@ Bring floating ip down on first node:
 ```
 ip a del 10.30.255.254/16 dev eth1
 ```
-And bring i up on second
+And bring it up on second
 ```
 ip a add 10.30.255.254/16 dev eth1
 ```

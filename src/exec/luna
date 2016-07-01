@@ -167,8 +167,8 @@ def osimage_pack(**args):
     if args['image']:
         pack_image(osimage)
         return True
-    pack_image(osimage)
-    pack_boot(osimage)
+    #pack_image(osimage)
+    #pack_boot(osimage)
     update_ltorrent()
     osimage_sync(args['name'])
     return True
