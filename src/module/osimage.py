@@ -66,7 +66,7 @@ class OsImage(Base):
         self._logger = logging.getLogger(__name__ + '.' + self._name)
 
     def list_kernels(self):
-        return self.get_package_ver(self.path, 'kernel')
+        return self.get_package_ver(self.get('path'), 'kernel')
 
     def get_package_ver(self, path, package):
         rpm.addMacro("_dbpath", path + '/var/lib/rpm')
