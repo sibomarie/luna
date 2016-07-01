@@ -302,3 +302,185 @@ luna:PRIMARY> rs.status()
         "ok" : 1
 }
 ```
+# (Optional) Adding arbiter
+
+For HA config with two nodes following config is suggested. On each node, ypu will have MongoDB with full data sets ready to handle data requests. As we have only 2 instances, in the case of one-node-fail, alive instance will consider a split-brain situation and demote itself to secondary (will refuse to handle requests).
+
+To avoid such situation, we need to have tie-breaker - arbiter. It a tiny service (in terms of memory footprint and service logic) which add one vote to elections. We will have the copy of arbiter on two nodes. And pacemaker will be in charge to bring one and only one copy of arbiter online. Pacemaker should have STONITH configured.
+
+Another point of this config, that you will have your database up and running even if you have a mess with pacemaker. In this case you will have arbiter down, but regular MongoDB instances will have 2 votes out of 3 (more than half).
+
+Copy mongod config:
+```
+cp /etc/mongod.conf /etc/mongod-arbiter.conf
+```
+Change following:
+```
+bind_ip = 127.0.0.1,10.30.255.254   # 255.254 will be cluster (floating) ip here
+port = 27018                        # non standart port not to conflict with other MongoDB instancess
+pidfilepath = /var/run/mongodb-arbiter/mongod.pid
+logpath = /var/log/mongodb/mongod-arbiter.log
+unixSocketPrefix = /var/run/mongodb-arbiter
+dbpath = /var/lib/mongodb-arbiter
+nojournal = true                    # disable journal in order to reduce amount of data in dbpath
+noprealloc = true                   # disable noprealloc for the same reason
+smallfiles = true                   # same considerations
+```
+Create environmental file:
+```
+cat << EOF > /etc/sysconfig/mongod-arbiter
+> OPTIONS="--quiet -f /etc/mongod-arbiter.conf"
+> EOF
+```
+For initialization you need to bring floating IP up on one node:
+```
+ip a add 10.30.255.254/16 dev eth1
+```
+Create systemd service:
+```
+cat << EOF > /etc/systemd/system/mongod-arbiter.service
+[Unit]
+Description=Arbiter for MongoDB
+After=syslog.target network.target
+
+[Service]
+Type=forking
+User=mongodb
+PermissionsStartOnly=true
+EnvironmentFile=/etc/sysconfig/mongod-arbiter
+ExecStartPre=-/usr/bin/mkdir /var/run/mongodb-arbiter
+ExecStartPre=/usr/bin/chown -R mongodb:root /var/run/mongodb-arbiter
+ExecStart=/usr/bin/mongod $OPTIONS run
+ExecStopPost=-/usr/bin/rm -rf /var/run/mongodb-arbiter
+PrivateTmp=true
+LimitNOFILE=64000
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target
+```
+Create paths for arbiter:
+```
+mkdir /var/lib/mongodb-arbiter
+chown mongodb:root /var/lib/mongodb-arbiter
+chmod 750 /var/lib/mongodb-arbiter
+```
+Start service:
+```
+systemctl start mongodb-arbiter
+```
+As you have mongod-arbiter startted, you need to add it to MongoDB's replicaset.
+
+Connect to mongo shell with root priviledges:
+```
+mongo -u root -p <password> --authenticationDatabase admin
+```
+Add arbiter to replica's config:
+```
+rs.addArb("10.30.255.254:27018")
+```
+Check config:
+```
+luna:PRIMARY> rs.config()
+{
+        "_id" : "luna",
+        "version" : 6,
+        "members" : [
+                {
+                        "_id" : 0,
+                        "host" : "10.30.255.251:27017"
+                },
+                {
+                        "_id" : 1,
+                        "host" : "10.30.255.252:27017"
+                },
+                {
+                        "_id" : 2,
+                        "host" : "10.30.255.254:27018",
+                        "arbiterOnly" : true
+                }
+        ]
+}
+```
+Check status:
+```
+luna:PRIMARY> rs.status()
+{
+        "set" : "luna",
+        "date" : ISODate("2016-07-01T09:51:50Z"),
+        "myState" : 1,
+        "members" : [
+                {
+                        "_id" : 0,
+                        "name" : "10.30.255.251:27017",
+                        "health" : 1,
+                        "state" : 1,
+                        "stateStr" : "PRIMARY",
+                        "uptime" : 255135,
+                        "optime" : Timestamp(1467366651, 1),
+                        "optimeDate" : ISODate("2016-07-01T09:50:51Z"),
+                        "electionTime" : Timestamp(1467149146, 1),
+                        "electionDate" : ISODate("2016-06-28T21:25:46Z"),
+                        "self" : true
+                },
+                {
+                        "_id" : 1,
+                        "name" : "10.30.255.252:27017",
+                        "health" : 1,
+                        "state" : 2,
+                        "stateStr" : "SECONDARY",
+                        "uptime" : 217570,
+                        "optime" : Timestamp(1467366651, 1),
+                        "optimeDate" : ISODate("2016-07-01T09:50:51Z"),
+                        "lastHeartbeat" : ISODate("2016-07-01T09:51:49Z"),
+                        "lastHeartbeatRecv" : ISODate("2016-07-01T09:51:49Z"),
+                        "pingMs" : 1,
+                        "syncingTo" : "10.30.255.251:27017"
+                },
+                {
+                        "_id" : 2,
+                        "name" : "10.30.255.254:27018",
+                        "health" : 1,
+                        "state" : 7,
+                        "stateStr" : "ARBITER",
+                        "uptime" : 9,
+                        "lastHeartbeat" : ISODate("2016-07-01T09:51:49Z"),
+                        "lastHeartbeatRecv" : ISODate("2016-07-01T09:51:49Z"),
+                        "pingMs" : 0
+                }
+        ],
+        "ok" : 1
+}
+```
+At this point you are ready to copy data and config to other node.
+
+Shutdown arbiter:
+```
+
+```
+Copy files:
+```
+for f in /etc/mongod-arbiter.conf /etc/sysconfig/mongod-arbiter /etc/systemd/system/mongod-arbiter.service /var/lib/mongodb-arbiter; do scp -pr $f master2:$f ; done
+
+```
+On the second node fix ownership and permissions:
+```
+chown -R mongodb:root /var/lib/mongodb-arbiter
+chmod 750 /var/lib/mongodb-arbiter
+```
+Bring floating ip down on first node:
+```
+ip a del 10.30.255.254/16 dev eth1
+```
+And bring i up on second
+```
+ip a add 10.30.255.254/16 dev eth1
+```
+Run arbiter on the second node
+```
+systemctl start mongod-arbiter
+```
+Connect to mongo shell and make sure that you have all instances up:
+```
+luna:PRIMARY> rs.status()
+```
