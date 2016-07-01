@@ -154,8 +154,14 @@ class Cluster(Base):
 
     def is_active(self):
         
-        ip = self.get('frontend_address')
+        try:
+            cluster_ips = self.get('cluster_ips')
+        except:
+            return True
 
+        ip = self.get('frontend_address')
+        if not ip:
+            return True
         stdout = subprocess.Popen(['/usr/sbin/ip', 'addr', 'show', 'to', ip], stdout=subprocess.PIPE).stdout.read()
         if stdout:
             return True
