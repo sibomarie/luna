@@ -37,7 +37,7 @@ yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarc
 yum -y install mongodb-server python-pymongo mongodb
 yum -y install nginx
 yum -y install python-tornado
-yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp
+yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp wget
 yum -y install rb_libtorrent-python net-snmp-python
 yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
 mkdir /tftpboot
