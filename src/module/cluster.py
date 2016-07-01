@@ -166,3 +166,9 @@ class Cluster(Base):
         if stdout:
             return True
         return False
+    def is_ha(self):
+        try:
+            cluster_ips = self.get('cluster_ips')
+        except:
+            return False
+        return True

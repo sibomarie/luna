@@ -104,7 +104,7 @@ luna osimage pack -n compute
 luna bmcsetup add -n base
 luna network add -n cluster -N 10.30.0.0 -P 16
 luna network add -n ipmi -N 10.31.0.0 -P 16
-luna switch add -n switch01 --oid .1.3.6.1.2.1.17.7.1.2.2.1.2 --ip 10.31.253.21
+luna switch add -n switch01 --oid .1.3.6.1.2.1.17.7.1.2.2.1.2 --network ipmi --ip 10.31.253.21
 luna group add -n compute -i enp7s0 -o compute
 luna group change -n compute -b base
 luna group change -n compute --boot_if enp7s0

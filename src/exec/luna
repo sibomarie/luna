@@ -56,6 +56,8 @@ def cluster_show(raw, out_format = def_format):
 def cluster_sync():
     check_active_node()
     cluster = luna.Cluster()
+    if not cluster.is_ha():
+        return True
     path = cluster.get("path")
     ips = cluster.get_cluster_ips()
     for ip in ips[1:]:
@@ -174,6 +176,8 @@ def osimage_pack(**args):
 def osimage_sync(name):
     check_active_node()
     cluster = luna.Cluster()
+    if not cluster.is_ha():
+        return True
     lunapath = cluster.get("path")
     osimage = luna.OsImage(name)
     osimagepath = osimage.get("path")
