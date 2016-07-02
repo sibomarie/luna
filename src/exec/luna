@@ -30,10 +30,10 @@ def cluster_delete():
     cluster.delete()
 
 def cluster_change(**args):
-    check_active_node()
-    if not luna.Cluster().is_active():
-        logger.error("Inactive HA node.")
-        exit(1)
+    #check_active_node()
+    #if not luna.Cluster().is_active():
+    #    logger.error("Inactive HA node.")
+    #    exit(1)
     cluster = luna.Cluster()
     for key in args:
         if args[key] == None:
@@ -691,6 +691,59 @@ def switch_delete(name):
         switch = luna.Switch(switchname)
         switch.delete()
 
+
+#################### Otherdev
+
+def otherdev_list():
+    devs = luna.list('otherdev')
+    print 'name', 'ips'
+    for elem in devs:
+        dev = luna.OtherDev(elem)
+        ips = []
+        for net in dev.list_nets():
+            ips.append("[" + net + "]:" + dev.get_ip(net))
+        print elem, ','.join(ips)
+
+def otherdev_show(name, raw, out_format = def_format):
+    for devname in hostlist.expand_hostlist(name):
+        dev = luna.OtherDev(name = devname)
+        if raw:
+            print dev.nice_json
+            return None
+        ips = []
+        for net in dev.list_nets():
+            ips.append("[" + net + "]:" + dev.get_ip(net))
+        out_json = dev.show()
+        out_json['connected'] = ','.join(ips)
+        out_str = ''
+        name = out_json.pop('name')
+        for key in sorted(out_json):
+            out_str += out_format % (key, out_json[key])
+        out_str = out_format % ('name', devname) + out_str.rstrip()
+        print out_str
+
+def otherdev_add(**args):
+    check_active_node()
+    name = args.pop('name')
+    args['create'] = True
+    for otherdev in hostlist.expand_hostlist(name):
+        args['name'] = otherdev
+        dev = luna.OtherDev(**args)
+
+def otherdev_change(**args):
+    check_active_node()
+    for devname in hostlist.expand_hostlist(args['name']):
+        dev = luna.OtherDev(devname)
+        args.pop('name')
+        dev.set_ip(network = args['network'], ip = args['ip'])
+
+def otherdev_delete(name):
+    check_active_node()
+    for devname in hostlist.expand_hostlist(name):
+        dev = luna.OtherDev(devname)
+        dev.delete()
+
+
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
 
@@ -928,7 +981,7 @@ node_command_group.add_argument('--group', '-g', type=str, help='Group.')
 node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
 node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
 node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
-node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address.')
+node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
 node_command_group.add_argument('--switch', '-s', type=str, help='Switch.')
 node_command_group.add_argument('--port', '-p', type=str, help='Port.')
 node_command_group.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
@@ -969,6 +1022,29 @@ switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.')
 switch_command = switch_parser_actions.add_parser('delete', help='Delete Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 
+
+# Otherdev
+otherdev_parser = luna_subparsers.add_parser('otherdev', help='Other devices operations.')
+otherdev_parser_actions = otherdev_parser.add_subparsers(dest='action')
+# list
+otherdev_command = otherdev_parser_actions.add_parser('list', help='List other devices.')
+# show
+otherdev_command = otherdev_parser_actions.add_parser('show', help='Show device.')
+otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
+otherdev_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
+# add
+otherdev_command = otherdev_parser_actions.add_parser('add', help='Show device.')
+otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
+otherdev_command.add_argument('--network', '-N', required=True, type=str, help='Network device belongs to.')
+otherdev_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the device.')
+# change
+otherdev_command = otherdev_parser_actions.add_parser('change', help='Change device.')
+otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
+otherdev_command.add_argument('--network', '-N', type=str, help='Network device belongs to.')
+otherdev_command.add_argument('--ip', '-i', type=str, help='IP of the device. Specify empty string to delete.')
+# delete
+otherdev_command = otherdev_parser_actions.add_parser('delete', help='Delete device.')
+otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 
 try:
     mongo_client = pymongo.MongoClient(luna.get_con_options())
