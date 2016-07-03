@@ -108,6 +108,9 @@ class OtherDev(Base):
             old_rel_ip = None
         if old_rel_ip:
             net.release_ip(net.relnum_to_ip(old_rel_ip))
+        new_ip = net.reserve_ip(ip)
+        if not new_ip:
+            return None
         obj_json['connected'][str(net.DBRef.id)] = net.reserve_ip(ip)
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
         if not old_rel_ip:
