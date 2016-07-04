@@ -53,4 +53,6 @@ if [ ! -e ./fake_uname.so ]; then
 fi
 cp ./fake_uname.so $CHROOT_PATH/tmp/
 cp ./fake_uname.so /tmp/
-FAKE_KERN=$FAKE_KERN LD_PRELOAD=/tmp/fake_uname.so PS1="chroot [\u@$OSIMAGE \W]\$ " chroot $CHROOT_PATH
+
+shift
+FAKE_KERN=$FAKE_KERN LD_PRELOAD=/tmp/fake_uname.so PS1="chroot [\u@$OSIMAGE \W]\$ " chroot $CHROOT_PATH $@
