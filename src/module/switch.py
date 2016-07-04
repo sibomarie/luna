@@ -63,6 +63,9 @@ class Switch(Base):
                     raise RuntimeError
             net = Network(name = network, mongo_db = self._mongo_db)
             ip = net.reserve_ip(ip)
+            if not bool(ip):
+                self._logger.error("Could not acquire ip for switch.")
+                raise RuntimeError
             mongo_doc = { 'name': name, 'network': net.DBRef, 'ip': ip, 'read': read, 'rw': rw, 'oid': oid}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name

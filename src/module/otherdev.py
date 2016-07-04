@@ -95,7 +95,14 @@ class OtherDev(Base):
         if not bool(network):
             self._logger.error("Network should be specified")
             return None
+
         obj_json = self._get_json()
+        if type(network) == ObjectId:
+            try:
+                return obj_json['connected'][str(network)]
+            except:
+                self._logger.error("Cannot find configured IP in the network '{}' for '{}'".format(str(network), self.name))
+                return None
         net = Network(network, mongo_db = self._mongo_db)
         rel_ip = None
         try:

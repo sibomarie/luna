@@ -347,7 +347,7 @@ class Node(Base):
         try:
             ipnum = json['interfaces'][interface]
         except:
-            self._logger.error("No IPADDR for interface '{}' configured".format(interface)) 
+            # self._logger.error("No IPADDR for interface '{}' configured".format(interface)) 
             return None
         return group.get_human_ip(interface, ipnum)
 
