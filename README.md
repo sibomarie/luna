@@ -67,6 +67,7 @@ ln -s ../../luna/src/exec/luna
 ln -s ../../luna/src/exec/lpower
 ln -s ../../luna/src/exec/lweb
 ln -s ../../luna/src/exec/ltorrent
+ln -s ../../luna/src/exec/lchroot
 cd /opt/luna
 ln -s /luna/src/templates
 cd ~
