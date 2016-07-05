@@ -361,3 +361,40 @@ class Network(Base):
                 freelist.pop(0)
             ips.extend([self.relnum_to_ip(i)])
         return ips
+    
+    def resolve_used_ips(self):
+        from luna.node import Group, Node
+        from luna.switch import Switch
+        from luna.otherdev import OtherDev
+        from bson.objectid import ObjectId
+        obj_json = self._get_json()
+        try:
+            rev_links = obj_json[usedby_key]
+        except:
+            self._logger.error("No IP addresses for network '{}' configured.".format(self.name))
+            return None
+        out_dict = {}
+
+        def add_to_out_dict(name, ip):
+            try:
+                out_dict[name]
+                self._logger.error("Duplicate name '{}' in network '{}' detected".format(name, self.name))
+            except:
+                out_dict[name] = self.relnum_to_ip(ip)
+
+        for elem in rev_links:
+            if elem == "group":
+                for grp_id in rev_links[elem]:
+                    group = Group(id = ObjectId(grp_id), mongo_db = self._mongo_db)
+                    tmp_dict = group.get_rel_ips_for_net(self.id)
+                    for nodename in tmp_dict:
+                        add_to_out_dict(nodename, tmp_dict[nodename])
+            if elem == "switch":
+                for switch_id in rev_links[elem]:
+                    switch = Switch(id = ObjectId(switch_id), mongo_db = self._mongo_db)
+                    add_to_out_dict(switch.name, switch.get_rel_ip())
+            if elem == "otherdev":
+                for otherdev_id in rev_links[elem]:
+                    otherdev = OtherDev(id = ObjectId(otherdev_id), mongo_db = self._mongo_db)
+                    add_to_out_dict(otherdev.name, otherdev.get_ip(self.id))
+        return out_dict

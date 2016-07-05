@@ -78,16 +78,20 @@ class OtherDev(Base):
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
 
-    def get_ip(self, network_name = None, relative = False):
+    def get_ip(self, network_name = None):
         if not bool(network_name):
             self._logger.error("Network needs to be specified")
             return None
         nets = self._get_json()['connected']
+        if type(network_name) == ObjectId:
+            try:
+                return nets[str(network_name)]
+            except:
+                self._logger.error("Cannot find configured IP in the network '{}' for '{}'".format(str(network_name), self.name))
+                return None
         for rec in nets:
             net = Network(id = ObjectId(rec), mongo_db = self._mongo_db)
             if net.name == network_name:
-                if relative:
-                    return nets[rec]
                 return net.relnum_to_ip(nets[rec])
         return None
 
@@ -97,12 +101,6 @@ class OtherDev(Base):
             return None
 
         obj_json = self._get_json()
-        if type(network) == ObjectId:
-            try:
-                return obj_json['connected'][str(network)]
-            except:
-                self._logger.error("Cannot find configured IP in the network '{}' for '{}'".format(str(network), self.name))
-                return None
         net = Network(network, mongo_db = self._mongo_db)
         rel_ip = None
         try:
@@ -140,7 +138,7 @@ class OtherDev(Base):
         new_ip = net.reserve_ip(ip)
         if not new_ip:
             return None
-        obj_json['connected'][str(net.DBRef.id)] = net.reserve_ip(ip)
+        obj_json['connected'][str(net.DBRef.id)] = new_ip
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
         if not old_rel_ip:
             self.link(net)

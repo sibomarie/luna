@@ -24,6 +24,7 @@ from config import *
 import logging
 import json
 from bson.dbref import DBRef
+from bson.objectid import ObjectId
 from luna.utils import set_mac_node
 from luna.base import Base
 from luna.cluster import Cluster
@@ -351,15 +352,15 @@ class Node(Base):
             return None
         return group.get_human_ip(interface, ipnum)
 
-    def _get_num_ip(self, interface, ip):
+    def get_rel_ip(self, interface):
         json = self._get_json()
-        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
+        #group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         try:
             num_ip = json['interfaces'][interface]
         except:
-            self._logger.error("No such interface '{}' for node".format(interface)) 
+            self._logger.error("No such interface '{}' for node '{}' configured".format(interface, self.name)) 
             return None
-        return group.get_num_ip(interface, ip)
+        return num_ip
 
     def get_human_bmc_ip(self):
         json = self._get_json()
@@ -371,10 +372,15 @@ class Node(Base):
             return None
         return group.get_human_bmc_ip(ipnum)
 
-    def _get_num_bmc_ip(self, ip):
+    def get_rel_bmc_ip(self):
         json = self._get_json()
-        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
-        return group.get_num_bmc_ip(ip)
+        #group = Group(id = json['group'].id, mongo_db = self._mongo_db)
+        try:
+            num_ip = json['bmcnetwork']
+        except:
+            self._logger.error("No BMC interface for node '{}' configured".format(self.name))
+            return None
+        return num_ip
 
     """
     @property
@@ -623,6 +629,57 @@ class Group(Base):
             self._logger.error("Interface '{}' does not exist".format(interface))
             return None
         return interfaces[interface]['params']
+
+    def list_interfaces(self):
+        json = self._get_json()
+        try:
+            interfaces = json['interfaces']
+        except:
+            self._logger.error("No interfaces for group '{}' configured.".format(self.name))
+            interfaces = {}
+        try:
+            bmcnet = json['bmcnetwork']
+        except:
+            self._logger.error("No network for BMC interface for group '{}' configured.".format(self.name))
+            bmcnet = None
+        return {'interfaces': interfaces, 'bmcnetwork': bmcnet}
+
+    def get_rel_ips_for_net(self, netobjid):
+        rel_ips = {}
+
+        def add_to_dict(key, val):
+            try:
+                rel_ips[key]
+                self._logger.error("Duplicate ip detected in '{}'. Can not put '{}'".format(self.name, key))
+            except:
+                rel_ips[key] = val
+                
+        json = self._get_json()
+        if_dict = self.list_interfaces()
+        bmcif =  if_dict['bmcnetwork']
+        ifs = if_dict['interfaces']
+        if bool(bmcif):
+            if bmcif.id == netobjid:
+                try:
+                    node_links = json[usedby_key]
+                except KeyError:
+                    node_links = None
+                for node_id in node_links['node']:
+                    node = Node(id = ObjectId(node_id))
+                    add_to_dict(node.name, node.get_rel_bmc_ip())
+
+        if bool(if_dict):
+            for interface in ifs:
+                if ifs[interface]['network'].id == netobjid:
+                    try:
+                        node_links = json[usedby_key]
+                    except KeyError:
+                        node_links = None
+                    for node_id in node_links['node']:
+                        node = Node(id = ObjectId(node_id))
+                        add_to_dict(node.name, node.get_rel_ip(interface))
+        return rel_ips
+                        
 
     def set_if_parms(self, interface, parms = ''):
         if not self._id:
