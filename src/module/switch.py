@@ -92,7 +92,16 @@ class Switch(Base):
             return net.relnum_to_ip(self._get_json()['ip'])
         return super(Switch, self).get(key)
 
-
+    def get_rel_ip(self):
+        dbref = None
+        try:
+            dbref = self._get_json()['network']
+        except:
+            self._logger.error("Network is not defined for switch")
+            return None
+        if not bool(dbref):
+            return None
+        return self._get_json()['ip']
 
     def set(self, key, value):
         if not bool(key) or type(key) is not str :
@@ -187,7 +196,7 @@ class MacUpdater(object):
             oid = obj_switch.get('oid')
             ip = obj_switch.get('ip')
             read = obj_switch.get('read')
-            switch_id = sw.DBRef.id
+            switch_id = obj_switch.id
             mongo_doc = {}
             mongo_doc['switch_id'] = switch_id
             try:
