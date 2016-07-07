@@ -86,7 +86,7 @@ class Cluster(Base):
                         'debug': 0, 'path': path, 'frontend_address': '', 'frontend_port': '7050',
                         'server_port': 7051, 'tracker_interval': 10,
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
-                        'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200, 'torrent_pidfile': '/run/luna/torrent.pid',
+                        'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200, 'torrent_pidfile': '/run/luna/ltorrent.pid',
                         'lweb_pidfile': '/run/luna/lweb.pid', 'lweb_num_proc': 0}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name

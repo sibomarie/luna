@@ -574,7 +574,7 @@ def start():
     logger.info("Starting Luna Torrent")
     # Check for a pidfile to see if the daemon already runs
     try:
-        pidfile = check_path(os.path.dirname(pidfile)) + "/torrent.pid"
+        pidfile = check_path(os.path.dirname(pidfile)) + "/" + os.path.basename(pidfile)
         pf = file(pidfile,'r')
         pid = int(pf.read().strip())
         pf.close()
@@ -681,7 +681,7 @@ if __name__ == '__main__':
     #    runas_group = 'luna'
     pidfile = cluster.get('torrent_pidfile')
     if not bool(pidfile):
-        pidfile = '/run/luna/torrent.pid'
+        pidfile = '/run/luna/ltorrent.pid'
     soft_timeout = cluster.get('torrent_soft_timeout') or 600
     hard_timeout = cluster.get('torrent_hard_timeout') or 3600
     torrents_path = cluster.get('path')

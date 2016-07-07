@@ -800,7 +800,7 @@ cluster_command.add_argument('--tracker_min_interval', type=int, help='Torrent t
 cluster_command.add_argument('--tracker_maxpeers', type=int, help='Torrent tracker max allowed peers')
 cluster_command.add_argument('--torrent_listen_port_min', type=int, help='Torrent client listening port min')
 cluster_command.add_argument('--torrent_listen_port_max', type=int, help='Torrent client listening port max')
-cluster_command.add_argument('--torrent_pidfile', type=int, help='Torrent pidfile')
+cluster_command.add_argument('--torrent_pidfile', type=str, help='Torrent pidfile')
 cluster_command.add_argument('--lweb_num_proc', type=int, help='Lweb number of processes. (0 for autodetection.)')
 cluster_command.add_argument('--lweb_pidfile', type=int, help='Lweb pidfile')
 cluster_command.add_argument('--cluster_ips', type=str, metavar='A.A.A.A,B.B.B.B', help='IPs of the cluster interfaces dedicated for provisioninig')
