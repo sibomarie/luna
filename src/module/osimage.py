@@ -74,8 +74,8 @@ class OsImage(Base):
                 raise RuntimeError
             mongo_doc = {'name': name, 'path': path,
                         'kernver': kernver, 'kernopts': kernopts,
-                        'dracutmodules': 'luna -i18n -plymouth',
-                        'kernmodules': 'ipmi_devintf ipmi_si ipmi_msghandler'}
+                        'dracutmodules': 'luna,-i18n,-plymouth',
+                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler'}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -348,13 +348,13 @@ class OsImage(Base):
         dracutmodules = self.get('dracutmodules')
         if dracutmodules:
             dracutmodules = str(dracutmodules)
-            modules_add =    sum([['--add', i]      for i in dracutmodules.split(' ') if i[0] != '-'], [])
-            modules_remove = sum([['--omit', i[1:]] for i in dracutmodules.split(' ') if i[0] == '-'], [])
+            modules_add =    sum([['--add', i]      for i in dracutmodules.split(',') if i[0] != '-'], [])
+            modules_remove = sum([['--omit', i[1:]] for i in dracutmodules.split(',') if i[0] == '-'], [])
         kernmodules = self.get('kernmodules')
         if kernmodules:
             kernmodules = str(kernmodules)
-            drivers_add =    sum([['--add-drivers',  i]     for i in kernmodules.split(' ') if i[0] != '-'], [])
-            drivers_remove = sum([['--omit-drivers', i[1:]] for i in kernmodules.split(' ') if i[0] == '-'], [])
+            drivers_add =    sum([['--add-drivers',  i]     for i in kernmodules.split(',') if i[0] != '-'], [])
+            drivers_remove = sum([['--omit-drivers', i[1:]] for i in kernmodules.split(',') if i[0] == '-'], [])
         prepare_mounts(image_path)
         real_root = os.open("/", os.O_RDONLY)
         os.chroot(image_path)
