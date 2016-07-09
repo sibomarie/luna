@@ -167,7 +167,7 @@ def osimage_pack(**args):
 
     def update_ltorrent():
         try:
-            pf = open('/var/run/luna/torrent.pid', 'r')
+            pf = open(luna.Cluster().get('torrent_pidfile'), 'r')
             pid = int(pf.read().strip())
             pf.close()
         except IOError:
