@@ -203,7 +203,7 @@ class Network(Base):
             return obj_json['PREFIX']
         if key == 'ns_ip':
             return self.relnum_to_ip(obj_json['ns_ip'])
-        return None
+        return super(Network, self).get(key)
 
     def _get_next_ip(self):
         obj_json = self._get_json()
@@ -332,7 +332,7 @@ class Network(Base):
         prefix = self._get_json()['PREFIX']
         upborder = (1<<(32-prefix))-1
         if num <= upborder and num > freelist[-1]['end']:
-            filled_list.extend([num])
+            filled_list.extend([insert_elem])
         if len(freelist) == len(filled_list):
             self._logger.error("Cannot release IP. No place for '{}' in list: '{}'".format(num, freelist))
             return False
