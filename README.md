@@ -40,6 +40,7 @@ yum -y install python-tornado
 yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp wget
 yum -y install rb_libtorrent-python net-snmp-python
 yum -y install /luna/hostlist/python-hostlist-1.14-1.noarch.rpm
+yum -y install bind-utils bind-chroot
 mkdir /tftpboot
 sed -e 's/^\(\W\+disable\W\+\=\W\)yes/\1no/g' -i /etc/xinetd.d/tftp
 sed -e 's|^\(\W\+server_args\W\+\=\W-s\W\)/var/lib/tftpboot|\1/tftpboot|g' -i /etc/xinetd.d/tftp
@@ -51,12 +52,16 @@ mv /etc/dhcp/dhcpd.conf{,.bkp_luna}
 cp /luna/config/dhcpd/dhcpd.conf /etc/dhcp/
 #vim /etc/dhcp/dhcpd.conf
 cp /luna/config/nginx/luna.conf /etc/nginx/conf.d/
+echo "include "/etc/named.luna.zones";" >> /etc/named.conf
+touch /etc/named.luna.zones
 systemctl start nginx
 systemctl enable nginx
 systemctl start mongod
 systemctl enable mongod
 systemctl start dhcpd
 systemctl enable dhcpd
+systemctl start named
+systemctl enable named
 ```
 # Creating links
 ```
@@ -161,6 +166,10 @@ lweb start
 curl "http://10.30.255.254:7050/luna?step=boot"
 wget "http://10.30.255.254:7050/boot/compute-vmlinuz-3.10.0-327.10.1.el7.x86_64"
 curl "http://10.30.255.254:7050/luna?step=install&node=node001"
+```
+# Update DNS
+```
+luna cluster makedns
 ```
 # Boot node
 
