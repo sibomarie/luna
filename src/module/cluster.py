@@ -87,7 +87,8 @@ class Cluster(Base):
                         'server_port': 7051, 'tracker_interval': 10,
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
                         'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200, 'torrent_pidfile': '/run/luna/ltorrent.pid',
-                        'lweb_pidfile': '/run/luna/lweb.pid', 'lweb_num_proc': 0}
+                        'lweb_pidfile': '/run/luna/lweb.pid', 'lweb_num_proc': 0, 'cluster_ips': None,
+                        'named_include_file': '/etc/named.luna.zones', 'named_zone_dir': '/var/named'}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -102,7 +103,7 @@ class Cluster(Base):
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0), 'torrent_pidfile': type(''),
                         'lweb_pidfile': type(''), 'lweb_num_proc': type(0),
-                        'cluster_ips': type('')}
+                        'cluster_ips': type(''), 'named_include_file': type(''), 'named_zone_dir': type('')}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -196,4 +197,121 @@ class Cluster(Base):
         if bool(cluster_ips):
             return True
         return False
+
+    def makedns(self):
+        from luna.network import Network
+        from bson.objectid import ObjectId
+        from tornado import template
+        import pwd
+        import grp
+        import os
+        
+        # get network _id configured for cluster
+        obj_json = self._get_json()
+        try:
+            rev_links = obj_json[usedby_key]
+        except:
+            self._logger.error("No IP addresses for network '{}' configured.".format(self.name))
+            return None
+        netids = []
+        for elem in rev_links:
+            if elem == 'network':
+                for netid in rev_links[elem]:
+                    netids.extend([netid])
+
+        # fill network dictionary {'netname': {'ns_hostname': 'servername', 'ns_ip': 'IP', 'hosts' {'name': 'IP'}}}
+        networks = {}
+        for netid in netids:
+            netobj = Network(id = ObjectId(netid))
+            networks[netobj.name] = {}
+            master_ip = netobj.get('ns_ip')
+            networks[netobj.name]['ns_hostname'] = netobj.get('ns_hostname')
+            networks[netobj.name]['ns_ip'] = master_ip
+            networks[netobj.name]['hosts'] = netobj.resolve_used_ips()
+            # some inout for reverse zones
+            # here is steps to figure out which octets in ipadresses are common for all ips in network.
+            # we can not rely on mask here, as mask can not be devisible by 8 (/12, /15, /21, etc)
+            arr1 = [int(elem) for elem in master_ip.split('.')]
+            logical_arr1 = [True, True, True, True]
+            for host in networks[netobj.name]['hosts']:
+                ip = networks[netobj.name]['hosts'][host]
+                arr2 = [int(elem) for elem in ip.split('.')]
+                logical_arr = [ bool(arr1[n] == arr2[n]) for n in range(len(arr1))]
+                logical_arr2 = [logical_arr[n] & logical_arr1[n] for n in range(len(logical_arr))]
+                arr1 = arr2[:]
+                logical_arr1 = logical_arr2[:]
+            # get fist octet in ip adresses which is changing
+            mutable_octet = [i for i in range(len(logical_arr1)) if not logical_arr1[i]][0]
+            # generate zone file name
+            revzonename = '.'.join(list(reversed(master_ip.split('.')[:mutable_octet]))) + ".in-addr.arpa"
+            networks[netobj.name]['mutable_octet'] = mutable_octet
+            networks[netobj.name]['rev_zone_name'] = revzonename
+
+        # figure out paths
+        includefile = self.get('named_include_file')
+        zonedir = self.get('named_zone_dir')
+        if not includefile:
+            self._logger.error("named_include_file should be configured")
+            return None
+        if not zonedir:
+            self._logger.error("named_zone_dir should be configured")
+            return None
+
+        # load templates
+        tloader = template.Loader(self.get('path') + '/templates')
+
+        # create include file for named.conf
+        namedconffile = open(includefile, 'w')
+        zonenames = []
+        for network in networks:
+            zonenames.extend([network, networks[network]['rev_zone_name']])
+
+        namedconffile.write(tloader.load('templ_named_conf.cfg').generate(networks = zonenames))
+        namedconffile.close()
+        nameduid = pwd.getpwnam("named").pw_uid
+        namedgid = grp.getgrnam("named").gr_gid
+        os.chown(includefile, 0, namedgid)
+        self._logger.info("Created '{}'".format(includefile))
+
+        # remove zone files
+        filelist = [ f for f in os.listdir(zonedir) if f.endswith(".luna.zone") ]
+        for f in filelist:
+            filepath = zonedir + "/" + f
+            try:
+                os.remove(filepath)
+                self._logger.info("Removed old '{}'".format(filepath))
+            except:
+                self._logger.info("Unable to remove '{}'".format(filepath))
+        # create zone files 
+        for network in networks:
+            # create zone
+            z = {}
+            z['master_hostname'] = networks[network]['ns_hostname']
+            z['master_ip'] = networks[network]['ns_ip']
+            z['serial_num'] = 1
+            z['hosts'] = networks[network]['hosts']
+            zonefilepath = zonedir + "/" + network + ".luna.zone"
+            zonefile = open(zonefilepath, 'w')
+            zonefile.write(tloader.load('templ_zone.cfg').generate(z = z))
+            zonefile.close()
+            os.chown(zonefilepath, nameduid, namedgid)
+            self._logger.info("Created '{}'".format(zonefilepath))
+            revzonepath = zonedir + "/" + networks[network]['rev_zone_name'] + ".luna.zone"
+            z['master_hostname'] = networks[network]['ns_hostname'] + "." + network
+            z['hosts'] = {}
+            for host in networks[network]['hosts']:
+                hostname = host + "." + network
+                iparr = [int(elem) for elem in networks[network]['hosts'][host].split('.')]
+                reverseiplist = list(reversed(iparr[networks[network]['mutable_octet']:]))
+                reverseip = '.'.join([str(elem) for elem in reverseiplist])
+                z['hosts'][hostname] = reverseip
+            zonefile = open(revzonepath, 'w') 
+            zonefile.write(tloader.load('templ_zone_arpa.cfg').generate(z = z))
+            zonefile.close()
+            os.chown(revzonepath, nameduid, namedgid)
+            self._logger.info("Created '{}'".format(revzonepath))
+        return True
+
+
+
 

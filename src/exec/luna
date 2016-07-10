@@ -85,7 +85,48 @@ def cluster_sync():
     for ip in ips[1:]:
         print "%s:%s => %s:%s" % (ips[0], path, ip, path)
         luna.rsync_data(ip, path)
-    print "Done. Daemons probably need to be restarted manually."
+    print "Done. Luna daemons probably need to be restarted manually."
+
+def cluster_makedns():
+    check_active_node()
+    cluster = luna.Cluster()
+    res = cluster.makedns()
+    if not res:
+        return False
+    print "Reloading local named."
+    proc = subprocess.Popen(['/usr/bin/systemctl',
+        'reload', "named"], stdout=subprocess.PIPE, close_fds=True)
+    streamdata = proc.communicate()[0]
+    if proc.returncode:
+        print "Unable to reload named. Exit code is non-zero."
+        sys.exit(1)
+    print "Success."
+    if not cluster.is_ha():
+        return True
+    files = []
+    includefile = cluster.get('named_include_file')
+    zonedir = cluster.get('named_zone_dir')
+    files.extend([includefile])
+    files.extend([zonedir])
+    ips = cluster.get_cluster_ips()
+    for ip in ips[1:]:
+        for path in files:
+            print "%s:%s => %s:%s" % (ips[0], path, ip, path)
+            luna.rsync_data(ip, path)
+        print "Reloading remote namded on " + ip + "."
+        ssh_proc = subprocess.Popen(['/usr/bin/ssh',
+            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'UserKnownHostsFile=/dev/null', ip,
+            'systemctl', "reload", "named"], stdout=subprocess.PIPE, close_fds=True)
+        streamdata = ssh_proc.communicate()[0]
+        if ssh_proc.returncode:
+            print "Unable to reload named on " + ip + ". Exit code is non-zero."
+            sys.exit(1)
+        print "Success."
+    return True
+
+
+    
 
 #################### OsImage
 
@@ -265,82 +306,6 @@ def bmcsetup_delete(name):
     bmcsetup = luna.BMCSetup(name)
     bmcsetup.delete()
 
-"""
-#################### IfCfg
-
-def ifcfg_list():
-    lst = luna.list('ifcfg')
-    print 'name', 'network'
-    for elem in lst:
-        ifcfg = luna.IfCfg(elem)
-        net = ifcfg.get('NETWORK')
-        prefix = ifcfg.get('PREFIX')
-        print elem, str(net) + "/" + str(prefix)
-
-def ifcfg_show(name, raw, out_format = "%s=%s\n"):
-    ifcfg = luna.IfCfg(name = name)
-    if raw:
-        print ifcfg.nice_json
-        return None
-    out_json = ifcfg.show()
-    out_json.pop('name')
-    try:
-        out_json.pop('freelist')
-    except:
-        pass
-    out_str = ''
-    for key in sorted(out_json):
-        out_str += out_format % (key, out_json[key])
-    out_str = out_str.rstrip()
-    print out_str
-
-def ifcfg_add(name):
-    init = {'name': name, 'create': True}
-    if not sys.stdin.isatty():
-        for line in sys.stdin:
-            l1 = line.strip().split('=',1)
-            init[l1[0].upper()] = l1[1]
-    else:
-        EDITOR = os.environ.get('EDITOR','vim')
-        initial_message = "NETWORK=
-PREFIX=
-ONBOOT=yes
-BOOTPROTO=none"
-        tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
-        tmpfile.write(initial_message)
-        tmpfile.flush()
-        subprocess.call([EDITOR, tmpfile.name])
-        tmpfile.file.seek(0)
-        for line in tmpfile.file.readlines():
-            l1 = line.strip().split('=',1)
-            init[l1[0].upper()] = l1[1]
-    ifcfg = luna.IfCfg(**init)
-
-def ifcfg_change(name):
-    new_dict = {}
-    ifcfg = luna.IfCfg(name)
-    if not sys.stdin.isatty():
-        for line in sys.stdin:
-            l1 = line.strip().split('=',1)
-            new_dict[l1[0].upper()] = l1[1]
-    else:
-        EDITOR = os.environ.get('EDITOR','vim')
-        initial_message = ifcfg.dump()
-        tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
-        tmpfile.write(initial_message)
-        tmpfile.flush()
-        subprocess.call([EDITOR, tmpfile.name])
-        tmpfile.file.seek(0)
-        for line in tmpfile.file.readlines():
-            l1 = line.strip().split('=',1)
-            new_dict[l1[0].upper()] = l1[1]
-    ifcfg.change(new_dict)
-
-def ifcfg_delete(name):
-    ifcfg = luna.IfCfg(name)
-    ifcfg.delete()
-
-"""
 #################### Network
 
 def network_list():
@@ -804,9 +769,13 @@ cluster_command.add_argument('--torrent_pidfile', type=str, help='Torrent pidfil
 cluster_command.add_argument('--lweb_num_proc', type=int, help='Lweb number of processes. (0 for autodetection.)')
 cluster_command.add_argument('--lweb_pidfile', type=int, help='Lweb pidfile')
 cluster_command.add_argument('--cluster_ips', type=str, metavar='A.A.A.A,B.B.B.B', help='IPs of the cluster interfaces dedicated for provisioninig')
+cluster_command.add_argument('--named_include_file', type=str, help='Include file for named.conf')
+cluster_command.add_argument('--named_zone_dir', type=str, help='Named\'s directory for storing zone files')
 #cluster_command.add_argument('--tracker_clean', action='store_true', help='Clean database from outdated records')
 # sync
-cluster_command = cluster_parser_actions.add_parser('sync',help='Syncronize cluster arcoss nodes.')
+cluster_command = cluster_parser_actions.add_parser('sync',help='Synchronize cluster arcoss nodes.')
+# makedns
+cluster_command = cluster_parser_actions.add_parser('makedns',help='Create config and zone files for named.')
 # delete
 cluster_command = cluster_parser_actions.add_parser('delete',help='Delete Luna Cluster.')
 

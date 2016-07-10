@@ -397,4 +397,5 @@ class Network(Base):
                 for otherdev_id in rev_links[elem]:
                     otherdev = OtherDev(id = ObjectId(otherdev_id), mongo_db = self._mongo_db)
                     add_to_out_dict(otherdev.name, otherdev.get_ip(self.id))
+        add_to_out_dict(obj_json['ns_hostname'], obj_json['ns_ip'])
         return out_dict
