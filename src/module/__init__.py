@@ -57,4 +57,5 @@ def list(collection):
             ret.extend([doc['name']])
         except:
             ret.extend([doc['_id']])
+    ret.sort()
     return ret

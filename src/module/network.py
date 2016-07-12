@@ -229,7 +229,7 @@ class Network(Base):
             return None
         return first_elem['start']
 
-    def _get_ip(self, num):
+    def _get_ip(self, ip1, ip2 = None):
 
         def change_elem(num, elem):
             find = False
@@ -245,6 +245,8 @@ class Network(Base):
             return ( find, [{'start': elem['start'], 'end': num-1}, {'start': num+1, 'end': elem['end']}] )
  
         obj_json = self._get_json()
+        if not bool(ip2):
+            ip2 = ip1
         try:
             freelist = obj_json['freelist']
         except:
@@ -254,24 +256,40 @@ class Network(Base):
             return None
         start = freelist[0]['start']
         finish = freelist[-1]['end']
-        if num not in range(start, finish + 1):
-            self._logger.error("Requested IP '{}' is out of range".format(num))
+        if ip1 not in range(start, finish + 1):
+            self._logger.error("Requested IP '{}' is out of range".format(ip1))
             return None
-        new_list = []
-        find = False
+        if ip2 not in range(start, finish + 1):
+            self._logger.error("Requested IP '{}' is out of range".format(ip2))
+            return None
+        # find if ip1 and ip2 fit in any free range:
         for elem in freelist:
-            new_elem = change_elem(num, elem)
-            if new_elem[0]:
-                find = True
-            if not new_elem[1]:
-                continue
-            new_list.extend(new_elem[1])
-        freelist = new_list[:]
+            if ip1 in range(elem['start'], elem['end']+1) and ip2 not in range(elem['start'], elem['end']+1):
+                self._logger.error("No free range for IPs.")
+                return None
+        ret_array = [0 ,0]
+        for num in range(ip1, ip2+1):
+            new_list = []
+            find = False
+            for elem in freelist:
+                new_elem = change_elem(num, elem)
+                if new_elem[0]:
+                    if num == ip1:
+                        ret_array = [num, num]
+                    ret_array[1] = num
+                    find = True
+                if not new_elem[1]:
+                    continue
+                new_list.extend(new_elem[1])
+            freelist = new_list[:]
         ret = self._save_free_list(freelist)
         if not ret:
             return None
         if find:
-            return num
+            if ret_array[0] == ret_array[1]:
+                return ret_array[0]
+            else:
+                return ret_array
         self._logger.error("Requested IP '{}' is out of free range".format(num))
         return None
  
@@ -299,52 +317,68 @@ class Network(Base):
             self._logger.error("Error while saving list of free IPs: '{}'".format(freelist))
         return not res['err']
  
-    def reserve_ip(self, ip = None):
-        if type(ip) is str:
-            num = self.ip_to_relnum(ip)
-        else:
-            num = ip
-        if bool(ip):
-            return self._get_ip(num)
+    def reserve_ip(self, ip1 = None, ip2 = None):
+        if type(ip1) is str:
+            ip1 = self.ip_to_relnum(ip1)
+        if type(ip2) is str:
+            ip2 = self.ip_to_relnum(ip2)
+        if bool(ip2):
+            if ip2 <= ip1:
+                self._logger.error("Wrong range definition.")
+                return None
+            return self._get_ip(ip1, ip2)
+        if bool(ip1):
+            return self._get_ip(ip1)
         return self._get_next_ip()
 
-    def release_ip(self, ip):
-        if type(ip) is str:
-            num = self.ip_to_relnum(ip)
+    def release_ip(self, ip1, ip2 = None):
+        if type(ip1) is str:
+            ip1 = self.ip_to_relnum(ip1)
+        if not bool(ip2):
+            ip2 = ip1
         else:
-            num = ip
-        insert_elem = {'start': num, 'end': num}
+            if ip2 <= ip1:
+                self._logger.error("Wrong range definition.")
+                return None
+        if type(ip2) is str:
+            ip2 = self.ip_to_relnum(ip2)
         obj_json = self._get_json()
         try:
             freelist = obj_json['freelist']
         except:
             return None
-        filled_list = []
-        for elem in freelist:
-            try:
-                prev_end = filled_list[-1]['end']
-            except:
-                prev_end = 0
-            next_start = elem['start']
-            if num in range(prev_end + 1, next_start):
+        res = True
+        for num in range(ip1, ip2 + 1):
+            insert_elem = {'start': num, 'end': num}
+            filled_list = []
+            for elem in freelist:
+                try:
+                    prev_end = filled_list[-1]['end']
+                except:
+                    prev_end = 0
+                next_start = elem['start']
+                if num in range(prev_end + 1, next_start):
+                    filled_list.extend([insert_elem])
+                filled_list.extend([elem])
+            prefix = self._get_json()['PREFIX']
+            upborder = (1<<(32-prefix))-1
+            if num <= upborder and num > freelist[-1]['end']:
                 filled_list.extend([insert_elem])
-            filled_list.extend([elem])
-        prefix = self._get_json()['PREFIX']
-        upborder = (1<<(32-prefix))-1
-        if num <= upborder and num > freelist[-1]['end']:
-            filled_list.extend([insert_elem])
-        if len(freelist) == len(filled_list):
-            self._logger.error("Cannot release IP. No place for '{}' in list: '{}'".format(num, freelist))
-            return False
-        defrag_list = []
-        defrag_list.extend([filled_list.pop(0)])
-        for key in filled_list:
-            if defrag_list[-1]['end'] == (key['start'] - 1):
-                defrag_list[-1]['end'] = key['end']
-            else:
-                defrag_list.extend([key])
-        self._save_free_list(defrag_list)
-        return True
+            if len(freelist) == len(filled_list):
+                self._logger.error("Cannot release IP. '{}' is already in list: '{}'".format(num, freelist))
+                res = False
+                next
+                #return False
+            defrag_list = []
+            defrag_list.extend([filled_list.pop(0)])
+            for key in filled_list:
+                if defrag_list[-1]['end'] == (key['start'] - 1):
+                    defrag_list[-1]['end'] = key['end']
+                else:
+                    defrag_list.extend([key])
+            freelist = defrag_list[:]
+        self._save_free_list(freelist)
+        return res
  
     def get_used_ips(self):
         obj_json = self._get_json()

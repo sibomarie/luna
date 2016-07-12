@@ -88,7 +88,8 @@ class Cluster(Base):
                         'tracker_min_interval': 5, 'tracker_maxpeers': 200,
                         'torrent_listen_port_min': 7052, 'torrent_listen_port_max': 7200, 'torrent_pidfile': '/run/luna/ltorrent.pid',
                         'lweb_pidfile': '/run/luna/lweb.pid', 'lweb_num_proc': 0, 'cluster_ips': None,
-                        'named_include_file': '/etc/named.luna.zones', 'named_zone_dir': '/var/named'}
+                        'named_include_file': '/etc/named.luna.zones', 'named_zone_dir': '/var/named',
+                        'dhcp_range_start': None, 'dhcp_range_end': None, 'dhcp_net': None}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -103,7 +104,8 @@ class Cluster(Base):
                         'tracker_min_interval': type(0), 'tracker_maxpeers': type(0),
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0), 'torrent_pidfile': type(''),
                         'lweb_pidfile': type(''), 'lweb_num_proc': type(0),
-                        'cluster_ips': type(''), 'named_include_file': type(''), 'named_zone_dir': type('')}
+                        'cluster_ips': type(''), 'named_include_file': type(''), 'named_zone_dir': type(''),
+                        'dhcp_range_start': type(0), 'dhcp_range_end': type(0), 'dhcp_net': type('')}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -121,7 +123,34 @@ class Cluster(Base):
         except:
             self.__dict__[key] = value
 
+    def get(self, key):
+        if key == 'dhcp_net':
+            from luna.network import Network
+            from bson.objectid import ObjectId
+            netid = super(Cluster, self).get(key)
+            if not bool(netid):
+                return None
+            net = Network(id = ObjectId(netid), mongo_db = self._mongo_db)
+            try:
+                net = Network(id = ObjectId(netid), mongo_db = self._mongo_db)
+                return net.name
+            except:
+                self._logger.error('Wrong DHCP network configured')
+                return None
+        if key == 'dhcp_range_start' or key == 'dhcp_range_end':
+            from luna.network import Network
+            from bson.objectid import ObjectId
+            netid = super(Cluster, self).get('dhcp_net')
+            if not bool(netid):
+                return None
+            net = Network(id = ObjectId(netid), mongo_db = self._mongo_db)
+            return net.relnum_to_ip(super(Cluster, self).get(key))
+
+        return super(Cluster, self).get(key)
+
     def set(self, key, value):
+        from luna.network import Network
+        from bson.objectid import ObjectId
         if key == 'path':
             try:
                 value =  os.path.abspath(value)
@@ -157,7 +186,91 @@ class Cluster(Base):
             val = val[:-1]
             ips = val.split(',')
             return super(Cluster, self).set(key, val)
-        return super(Cluster, self).set(key, value)
+
+    def makedhcp(self, netname, startip, endip):
+        from luna.network import Network
+        from bson.objectid import ObjectId
+        try:
+            if bool(netname):
+                objnet = Network(name = netname, mongo_db = self._mongo_db)
+        except:
+            ojbnet = None
+        if not bool(objnet):
+            self._logger.error("Proper DHCP network should be specified.")
+            return None
+        if not bool(startip) or not bool(endip):
+            self._logger.error("First and last IPs of range should be specified.")
+            return None
+        startip = objnet.ip_to_relnum(startip)
+        endip = objnet.ip_to_relnum(endip)
+        if not bool(startip) or not bool(endip):
+            self._logger.error("Error in acquiring IPs.")
+            return None
+        obj_json = self._get_json()
+        (oldnetid, oldstartip, oldendip) = (None, None, None)
+        try:
+            oldnetid = obj_json['dhcp_net']
+            oldstartip = obj_json['dhcp_range_start']
+            oldendip = obj_json['dhcp_range_end']
+        except:
+            (oldnetid, oldstartip, oldendip) = (None, None, None)
+        if str(oldnetid) == str(objnet.id):
+            objnet.release_ip(oldstartip, oldendip)
+            self.unlink(objnet)
+            (oldnetid, oldstartip, oldendip) = (None, None, None)
+        res = objnet.reserve_ip(startip, endip)
+        if not bool(res):
+            self._logger.error("Cannot reserve IP range for DHCP.")
+        super(Cluster, self).set('dhcp_net', str(objnet.id))
+        super(Cluster, self).set('dhcp_range_start', startip)
+        super(Cluster, self).set('dhcp_range_end', endip)
+        self.link(objnet)
+        if bool(oldnetid) and bool(oldstartip) and bool(oldendip):
+            oldnet_obj = Network(id = ObjectId(oldnetid), mongo_db = self._mongo_db)
+            self.unlink(oldnet_obj)
+            oldnet_obj.release_ip(oldstartip, oldendip)
+        self._create_dhcp_config()
+        return True
+
+    def _create_dhcp_config(self):
+        from luna.network import Network
+        from bson.objectid import ObjectId
+        from tornado import template
+        import os, base64
+        c = {}
+        conf_primary = {}
+        conf_secondary = {}
+        cluster_ips = self.get_cluster_ips()
+        if self.is_ha():
+            conf_primary['my_addr'] = cluster_ips[0]
+            conf_secondary['my_addr'] = cluster_ips[1]
+            conf_primary['peer_addr'] = conf_secondary['my_addr']
+            conf_secondary['peer_addr'] = conf_primary['my_addr']
+        c['frontend_ip'] = self.get('frontend_address')
+        c['dhcp_start'] = self.get('dhcp_range_start')
+        c['dhcp_end'] = self.get('dhcp_range_end')
+        c['frontend_port'] = self.get('frontend_port')
+        netname = self.get('dhcp_net')
+        objnet = Network(name = netname, mongo_db = self._mongo_db)
+        c['NETMASK'] = objnet.get('NETMASK')
+        c['NETWORK'] = objnet.get('NETWORK')
+        c['hmac_key'] = str(base64.b64encode(bytearray(os.urandom(32))).decode())
+        tloader = template.Loader(self.get('path') + '/templates')
+        if self.is_ha():
+            dhcpd_conf_primary = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = conf_primary, conf_secondary = None)
+            dhcpd_conf_secondary = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = None, conf_secondary = conf_secondary)
+            f1 = open('/etc/dhcp/dhcpd.conf', 'w')
+            f2 = open('/etc/dhcp/dhcpd-secondary.conf', 'w')
+            f1.write(dhcpd_conf_primary)
+            f2.write(dhcpd_conf_secondary)
+            f1.close()
+            f2.close()
+        else:
+            dhcpd_conf = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = None, conf_secondary = None)
+            f = open('/etc/dhcp/dhcpd.conf', 'w')
+            f.write(dhcpd_conf)
+            f.close()
+        return True
 
     def get_cluster_ips(self):
         ips = self.get('cluster_ips')
@@ -176,7 +289,6 @@ class Cluster(Base):
         return cluster_ips
 
     def is_active(self):
-        
         try:
             cluster_ips = self.get('cluster_ips')
         except:
@@ -189,6 +301,7 @@ class Cluster(Base):
         if stdout:
             return True
         return False
+
     def is_ha(self):
         try:
             cluster_ips = self.get('cluster_ips')
