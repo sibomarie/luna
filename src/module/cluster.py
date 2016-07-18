@@ -186,8 +186,9 @@ class Cluster(Base):
             val = val[:-1]
             ips = val.split(',')
             return super(Cluster, self).set(key, val)
+        return super(Cluster, self).set(key, value)
 
-    def makedhcp(self, netname, startip, endip):
+    def makedhcp(self, netname, startip, endip, no_ha = False):
         from luna.network import Network
         from bson.objectid import ObjectId
         try:
@@ -229,10 +230,10 @@ class Cluster(Base):
             oldnet_obj = Network(id = ObjectId(oldnetid), mongo_db = self._mongo_db)
             self.unlink(oldnet_obj)
             oldnet_obj.release_ip(oldstartip, oldendip)
-        self._create_dhcp_config()
+        self._create_dhcp_config(no_ha)
         return True
 
-    def _create_dhcp_config(self):
+    def _create_dhcp_config(self, no_ha):
         from luna.network import Network
         from bson.objectid import ObjectId
         from tornado import template
@@ -256,7 +257,7 @@ class Cluster(Base):
         c['NETWORK'] = objnet.get('NETWORK')
         c['hmac_key'] = str(base64.b64encode(bytearray(os.urandom(32))).decode())
         tloader = template.Loader(self.get('path') + '/templates')
-        if self.is_ha():
+        if self.is_ha() and not no_ha:
             dhcpd_conf_primary = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = conf_primary, conf_secondary = None)
             dhcpd_conf_secondary = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = None, conf_secondary = conf_secondary)
             f1 = open('/etc/dhcp/dhcpd.conf', 'w')
@@ -267,9 +268,12 @@ class Cluster(Base):
             f2.close()
         else:
             dhcpd_conf = tloader.load('templ_dhcpd.cfg').generate(c = c, conf_primary = None, conf_secondary = None)
-            f = open('/etc/dhcp/dhcpd.conf', 'w')
-            f.write(dhcpd_conf)
-            f.close()
+            f1 = open('/etc/dhcp/dhcpd.conf', 'w')
+            f2 = open('/etc/dhcp/dhcpd-secondary.conf', 'w')
+            f1.write(dhcpd_conf)
+            f2.write(dhcpd_conf)
+            f1.close()
+            f2.close()
         return True
 
     def get_cluster_ips(self):
