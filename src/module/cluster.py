@@ -358,7 +358,10 @@ class Cluster(Base):
                 arr1 = arr2[:]
                 logical_arr1 = logical_arr2[:]
             # get fist octet in ip adresses which is changing
-            mutable_octet = [i for i in range(len(logical_arr1)) if not logical_arr1[i]][0]
+            try:
+                mutable_octet = [i for i in range(len(logical_arr1)) if not logical_arr1[i]][0]
+            except IndexError:
+                mutable_octet = 3
             # generate zone file name
             revzonename = '.'.join(list(reversed(master_ip.split('.')[:mutable_octet]))) + ".in-addr.arpa"
             networks[netobj.name]['mutable_octet'] = mutable_octet
