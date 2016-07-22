@@ -286,7 +286,7 @@ class Cluster(Base):
                 local_ip = ip
                 break
         cluster_ips = []
-        cluster_ips.append(local_ip)
+        cluster_ips.extend(local_ip)
         for ip in ips:
             if not ip == local_ip:
                 cluster_ips.append(ip)
