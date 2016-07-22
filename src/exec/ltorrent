@@ -35,6 +35,7 @@ import time
 import shutil
 import signal
 import atexit
+import traceback
 
 runas_user = None
 runas_group = None
@@ -591,9 +592,12 @@ def start():
     # Start the daemon
     if daemon:
         daemonize()
-    update_torrents()
-    start_torrent_client()
-    run()
+    try:
+        update_torrents()
+        start_torrent_client()
+        run()
+    except:
+        logger.error(traceback.format_exc())
 
 def stop():
     """
