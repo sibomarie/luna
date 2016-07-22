@@ -277,7 +277,10 @@ def start():
     if daemon:
         daemonize()
         signal.signal(signal.SIGTERM, sigterm_handler)
-        run_app()
+        try:
+            run_app()
+        except:
+            logger.error(traceback.format_exc())
     else:
         try:
             run_app()
