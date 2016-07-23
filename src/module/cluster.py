@@ -286,7 +286,10 @@ class Cluster(Base):
                 local_ip = ip
                 break
         cluster_ips = []
-        cluster_ips.extend(local_ip)
+        if not bool(local_ip):
+            self._logger.info('No proper cluster IPs are configured.')
+            return cluster_ips
+        cluster_ips.append(local_ip)
         for ip in ips:
             if not ip == local_ip:
                 cluster_ips.append(ip)
