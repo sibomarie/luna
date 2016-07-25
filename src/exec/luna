@@ -143,38 +143,38 @@ def cluster_makedhcp(**args):
         "Unable to stop named. Exit code is non-zero.")
     if cluster.is_ha():
         ips = cluster.get_cluster_ips()
-        ip = ips[1]
-        _run_command(['/usr/bin/ssh',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null', ip,
-                'systemctl', "stop", "dhcpd"],
-            "Stop dhcpd on " + ip + ".",
-            "Unable to stop dhcpd.")
-        _run_command(['/usr/bin/scp',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null',
-                '/etc/dhcp/dhcpd-secondary.conf',
-                ip + ":/etc/dhcp/dhcpd.conf"],
-            "Copy dhcpd config file to " + ip + ".",
-            "Unable to copy file.")
-        _run_command(['/usr/bin/ssh',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null', ip,
-                'systemctl', "stop", "dhcpd"],
-            "Stop dhcpd on " + ip + ".",
-            "Unable to stop dhcpd.")
-        _run_command(['/usr/bin/ssh',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null', ip,
-                'rm', "-rf", "/var/lib/dhcpd/dhcpd.*"],
-            "Removing lease files on " + ip + ".",
-            "Unable to remove.")
-        _run_command(['/usr/bin/ssh',
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null', ip,
-                'touch', "/var/lib/dhcpd/dhcpd.leases"],
-            "Create lease file on " + ip + ".",
-            "Unable to create.")
+        for ip in ips:
+            _run_command(['/usr/bin/ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'UserKnownHostsFile=/dev/null', ip,
+                    'systemctl', "stop", "dhcpd"],
+                "Stop dhcpd on " + ip + ".",
+                "Unable to stop dhcpd.")
+            _run_command(['/usr/bin/scp',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'UserKnownHostsFile=/dev/null',
+                    '/etc/dhcp/dhcpd-secondary.conf',
+                    ip + ":/etc/dhcp/dhcpd.conf"],
+                "Copy dhcpd config file to " + ip + ".",
+                "Unable to copy file.")
+            _run_command(['/usr/bin/ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'UserKnownHostsFile=/dev/null', ip,
+                    'systemctl', "stop", "dhcpd"],
+                "Stop dhcpd on " + ip + ".",
+                "Unable to stop dhcpd.")
+            _run_command(['/usr/bin/ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'UserKnownHostsFile=/dev/null', ip,
+                    'rm', "-rf", "/var/lib/dhcpd/dhcpd.*"],
+                "Removing lease files on " + ip + ".",
+                "Unable to remove.")
+            _run_command(['/usr/bin/ssh',
+                    '-o', 'StrictHostKeyChecking=no',
+                    '-o', 'UserKnownHostsFile=/dev/null', ip,
+                    'touch', "/var/lib/dhcpd/dhcpd.leases"],
+                "Create lease file on " + ip + ".",
+                "Unable to create.")
     print "Remove lease files"
     try:
         f = open('/var/lib/dhcpd/dhcpd.leases', 'w')
@@ -191,12 +191,13 @@ def cluster_makedhcp(**args):
     time.sleep(3)
     if not cluster.is_ha() or args['no_ha']:
         return True
-    _run_command(['/usr/bin/ssh',
-            '-o', 'StrictHostKeyChecking=no',
-            '-o', 'UserKnownHostsFile=/dev/null', ip,
-            'systemctl', "start", "dhcpd"],
-        "Start dhcpd on " + ip + ".",
-        "Unable to start dhcpd.")
+    for ip in ips:
+        _run_command(['/usr/bin/ssh',
+                '-o', 'StrictHostKeyChecking=no',
+                '-o', 'UserKnownHostsFile=/dev/null', ip,
+                'systemctl', "start", "dhcpd"],
+            "Start dhcpd on " + ip + ".",
+            "Unable to start dhcpd.")
     return True
     
 

@@ -105,7 +105,7 @@ class Cluster(Base):
                         'torrent_listen_port_min': type(0), 'torrent_listen_port_max': type(0), 'torrent_pidfile': type(''),
                         'lweb_pidfile': type(''), 'lweb_num_proc': type(0),
                         'cluster_ips': type(''), 'named_include_file': type(''), 'named_zone_dir': type(''),
-                        'dhcp_range_start': type(0), 'dhcp_range_end': type(0), 'dhcp_net': type('')}
+                        'dhcp_range_start': long, 'dhcp_range_end': long, 'dhcp_net': type('')}
 
         self._logger.debug("Current instance:'{}".format(self._debug_instance()))
 
@@ -202,6 +202,8 @@ class Cluster(Base):
         if not bool(startip) or not bool(endip):
             self._logger.error("First and last IPs of range should be specified.")
             return None
+        if not bool(self.get_cluster_ips()):
+            no_ha = True
         startip = objnet.ip_to_relnum(startip)
         endip = objnet.ip_to_relnum(endip)
         if not bool(startip) or not bool(endip):
@@ -242,7 +244,7 @@ class Cluster(Base):
         conf_primary = {}
         conf_secondary = {}
         cluster_ips = self.get_cluster_ips()
-        if self.is_ha():
+        if self.is_ha() and not no_ha:
             conf_primary['my_addr'] = cluster_ips[0]
             conf_secondary['my_addr'] = cluster_ips[1]
             conf_primary['peer_addr'] = conf_secondary['my_addr']

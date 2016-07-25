@@ -101,7 +101,7 @@ class Network(Base):
         except:
             self._logger.error("Cannot compute ip = '{}'".format(ip))
             return None
-        return absnum
+        return long(absnum)
 
     def relnum_to_ip(self, numip):
         num_net = self._get_json()['NETWORK']
@@ -113,7 +113,7 @@ class Network(Base):
         if not self.ip_in_net(ip):
             self._logger.error("Ip = '{}' is not in network.".format(ip))
             return None
-        return num_ip - num_net
+        return long(num_ip - num_net)
 
     def get_base_net(self, address, prefix):
         if type(prefix) is not int:
@@ -131,7 +131,7 @@ class Network(Base):
                 self._logger.debug("'{}' does not looks like valid ip-address".format(address))
                 return None
         mask_num = ((1<<32) -1) ^ ((1<<(33-prefix)-1) -1)
-        return net_num & mask_num
+        return long(net_num & mask_num)
 
     def ip_in_net(self, ip):
         if type(ip) is int:
