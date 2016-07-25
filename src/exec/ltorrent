@@ -676,7 +676,14 @@ def exit_handler():
 if __name__ == '__main__':
     logger = logging.getLogger('ltorrent')
     signal.signal(signal.SIGHUP, sighup_handler)
-    cluster = luna.Cluster()
+    while True:
+        try:
+            cluster = luna.Cluster()
+        except:
+            logger.error('Cannot find cluster definition in MongoDB.')
+            time.sleep(5)
+            continue
+        break
     runas_user = cluster.get('user')
     if not bool(runas_user):
         runas_user = 'luna'

@@ -348,7 +348,14 @@ def restart():
 if __name__ == '__main__':
     logger = logging.getLogger('lweb')
     tornado.options.options['log_to_stderr'].set(True)
-    cluster = luna.Cluster()
+    while True:
+        try:
+            cluster = luna.Cluster()
+        except:
+            logger.error('Cannot find cluster definition in MongoDB.')
+            time.sleep(5)
+            continue
+        break
     runas_user = cluster.get('user')
     if not bool(runas_user):
         runas_user = 'luna'
