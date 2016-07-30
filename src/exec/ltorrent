@@ -403,7 +403,7 @@ def start_torrent_client():
     update_torrent_client()
 
 def update_torrent_client():
-    #global torrents_path
+    global t_session
     if not bool(t_session):
         return None
     #cluster = luna.Cluster()
@@ -442,6 +442,9 @@ def run():
         time.sleep(5)
 
 def update_inactive_torrents():
+    global t_session
+    if not bool(t_session):
+        return None
     for uid in torrents:
         tf = torrents[uid]
         if tf.need_to_delete:
