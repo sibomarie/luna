@@ -86,7 +86,10 @@ class Node(Base):
                 continue
             node = Node(id = link['DBRef'].id, mongo_db = mongo_db)
             name = node.name
-            nnode = int(name.lstrip(prefix))
+            try:
+                nnode = int(name.lstrip(prefix))
+            except ValueError:
+                continue
             if nnode > max_num:
                 max_num = nnode
         ret_name = prefix + str(max_num + 1).zfill(digits)
@@ -664,9 +667,10 @@ class Group(Base):
                     node_links = json[usedby_key]
                 except KeyError:
                     node_links = None
-                for node_id in node_links['node']:
-                    node = Node(id = ObjectId(node_id))
-                    add_to_dict(node.name, node.get_rel_bmc_ip())
+                if bool(node_links):
+                    for node_id in node_links['node']:
+                        node = Node(id = ObjectId(node_id))
+                        add_to_dict(node.name, node.get_rel_bmc_ip())
 
         if bool(if_dict):
             for interface in ifs:
@@ -675,6 +679,8 @@ class Group(Base):
                         node_links = json[usedby_key]
                     except KeyError:
                         node_links = None
+                    if not bool(node_links):
+                        continue
                     for node_id in node_links['node']:
                         node = Node(id = ObjectId(node_id))
                         add_to_dict(node.name, node.get_rel_ip(interface))
