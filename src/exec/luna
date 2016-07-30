@@ -71,10 +71,10 @@ def cluster_show(raw, out_format = def_format):
     out_json = cluster.show()
     out_str = ''
     name = out_json.pop('name')
-    dhcp_net = out_json.pop('dhcp_net')
-    dhcp_range_start = out_json.pop('dhcp_range_start')
-    dhcp_range_end = out_json.pop('dhcp_range_end')
     if bool(cluster.get('dhcp_net')):
+        dhcp_net = out_json.pop('dhcp_net')
+        dhcp_range_start = out_json.pop('dhcp_range_start')
+        dhcp_range_end = out_json.pop('dhcp_range_end')
         out_json['dhcp_net'] = '[' + cluster.get('dhcp_net') + ']'
         out_json['dhcp_range_start'] = cluster.get('dhcp_range_start')
         out_json['dhcp_range_end'] = cluster.get('dhcp_range_end')
