@@ -429,7 +429,8 @@ class Node(Base):
         if bool(params['torrent_if']):
             params['torrent_if_ip'] = self.get_human_ip(params['torrent_if'])
         for interface in params['interfaces']:
-            params['interfaces'][interface] = params['interfaces'][interface].strip() + "\n" + "IPADDR=" + self.get_human_ip(interface)
+            if bool(self.get_human_ip(interface)):
+                params['interfaces'][interface] = params['interfaces'][interface].strip() + "\n" + "IPADDR=" + self.get_human_ip(interface)
         if params['bmcsetup']:
             try:
                 ip = self.get_human_bmc_ip()
