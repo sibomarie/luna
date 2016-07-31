@@ -76,31 +76,32 @@ function _get_luna_ctty () {
     [ "x${luna_ctty}" = "x" ] && luna_ctty="/dev/tty1"
     echo -n $luna_ctty
 }
-luna_start
-#luna_ctty=/dev/tty1
-luna_ctty=$(_get_luna_ctty)
-echo luna_ctty=$luna_ctty
-luna_url=$(getargs luna.url=)
-luna_node=$(getargs luna.node=)
-luna_delay=$(getargs luna.delay=)
-[ -z $luna_delay ] || luna_delay=20
-luna_service=$(getargs luna.service=)
-if [ "x$luna_service" = "x1" ]; then
-    echo "Luna: Entering Service mode."
-    setsid -c /bin/sh -i -l 0<>$luna_ctty 1<>$luna_ctty 2<>$luna_ctty
-else
-    RES="failure"
-    while [ "x$RES" = "xfailure" ]; do
-        echo "Luna: Trying to get install script."
-        while ! curl -f -s -m 60 --connect-timeout 10 "$luna_url?step=install&node=$luna_node" > /luna/install.sh; do 
-            echo "Luna: Could not get install script. Sleeping $luna_delay sec."
-            sleep $luna_delay
+if [ "x$root" = "xluna" ]; then 
+    luna_start
+    #luna_ctty=/dev/tty1
+    luna_ctty=$(_get_luna_ctty)
+    echo luna_ctty=$luna_ctty
+    luna_url=$(getargs luna.url=)
+    luna_node=$(getargs luna.node=)
+    luna_delay=$(getargs luna.delay=)
+    [ -z $luna_delay ] || luna_delay=20
+    luna_service=$(getargs luna.service=)
+    if [ "x$luna_service" = "x1" ]; then
+        echo "Luna: Entering Service mode."
+        setsid -c /bin/sh -i -l 0<>$luna_ctty 1<>$luna_ctty 2<>$luna_ctty
+    else
+        RES="failure"
+        while [ "x$RES" = "xfailure" ]; do
+            echo "Luna: Trying to get install script."
+            while ! curl -f -s -m 60 --connect-timeout 10 "$luna_url?step=install&node=$luna_node" > /luna/install.sh; do 
+                echo "Luna: Could not get install script. Sleeping $luna_delay sec."
+                sleep $luna_delay
+            done
+            /bin/sh /luna/install.sh && RES="success"
+            echo "Luna: install.sh exit status: $RES" 
+            sleep 10
         done
-        /bin/sh /luna/install.sh && RES="success"
-        echo "Luna: install.sh exit status: $RES" 
-        sleep 10
-    done
+    fi
+    luna_finish
+    echo 'Exit from Luna Installer'
 fi
-luna_finish
-echo 'Exit from Luna Installer'
-
