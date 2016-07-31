@@ -329,7 +329,7 @@ def osimage_sync(name):
     osimagepath = osimage.get("path")
     initrdfile = lunapath + "/boot/" + osimage.get("initrdfile")
     kernfile = lunapath + "/boot/" + osimage.get("kernfile")
-    tarball = lunapath + "/torrents/" + osimage.get("tarball") + ".tar.gz"
+    tarball = lunapath + "/torrents/" + osimage.get("tarball") + ".tgz"
     torrent = lunapath + "/torrents/" + osimage.get("torrent") + ".torrent"
     ips = cluster.get_cluster_ips()
     for ip in ips[1:]:
