@@ -106,6 +106,22 @@ class Manager(tornado.web.RequestHandler):
                 for mac in macs:
                     #mac_cursor = self.mongo['switch_mac'].find({'mac': mac}).sort([('updated', -1)]).limit(1)
                     mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
+                    # first search mac in switch_mac using portnames like 'Gi2/0/26'
+                    for elem in mac_cursor:
+                        switch_id = elem['switch_id']
+                        portname = elem['portname']
+                        try:
+                            node_id = self.mongo['node'].find_one({'switch': DBRef('switch', switch_id), 'port': portname}, {})['_id']
+                            mac_from_cache = mac
+                        except:
+                            node_id = None
+                            mac_from_cache = None
+                        if mac_from_cache:
+                            break
+                    if mac_from_cache:
+                        break
+                    mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
+                    # now search mac in switch_mac using portnumbers 
                     for elem in mac_cursor:
                         switch_id = elem['switch_id']
                         port = elem['port']

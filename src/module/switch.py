@@ -203,15 +203,35 @@ class MacUpdater(object):
                 self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (oid, ip, read, switch_id))
                 varlist = netsnmp.VarList(netsnmp.Varbind(oid))
                 res = netsnmp.snmpwalk(varlist, Version = 1,  DestHost = ip, Community = read)
+                ifname_oid = '.1.3.6.1.2.1.31.1.1.1.1' # ifName
+                self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (ifname_oid, ip, read, switch_id))
+                varlist_ifnames = netsnmp.VarList(netsnmp.Varbind(ifname_oid))
+                res_ifnames = netsnmp.snmpwalk(varlist_ifnames, Version = 1,  DestHost = ip, Community = read)
                 updated = datetime.datetime.utcnow()
+                portnums = {}
+                for i in range(len(varlist_ifnames)):
+                    if bool(varlist_ifnames[i].iid):
+                        pornnum = varlist_ifnames[i].iid
+                    else:
+                        pornnum = varlist_ifnames[i].tag.split('.')[-1:][0]
+                    tmpvar = varlist_ifnames[i]
+                    try:
+                        portnums[int(pornnum)] = str(varlist_ifnames[i].val)
+                    except:
+                        pass
                 for i in range(len(varlist)):
                     mac = ''
                     port = str(varlist[i].val)
+                    try:
+                        portname = portnums[int(varlist[i].val)]
+                    except IndexError:
+                        portname = port
                     for elem in varlist[i].tag.split('.')[-6:]:
                         mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
                     mac = mac[:-1].lower()
                     mongo_doc['mac'] = mac
                     mongo_doc['port'] = port
+                    mongo_doc['portname'] = portname
                     mongo_doc_updated = mongo_doc.copy()
                     mongo_doc_updated['updated'] = updated
                     res = self.known_mac_collection.find_and_modify(mongo_doc, {'$set': mongo_doc_updated}, upsert = True)
