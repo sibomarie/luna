@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
+NEED_UMOUNT_DEV=1
+NEED_UMOUNT_SYS=1
+NEED_UMOUNT_PROC=1
 trap clean EXIT
 function compile {
     [ -e ./fake_uname.so ]  && return 0
@@ -29,16 +32,18 @@ EOF
 }
 function clean {
     [ -z $CHROOT_PATH ] && return 0
-    umount -f $CHROOT_PATH/dev
-    umount -f $CHROOT_PATH/proc
-    umount -f $CHROOT_PATH/sys
-    rm -f $CHROOT_PATH/tmp/fake_uname.so
-    rm -f /tmp/fake_uname.so
+    [ $NEED_UMOUNT_DEV -eq 1 ] && umount -f $CHROOT_PATH/dev
+    [ $NEED_UMOUNT_PROC -eq 1 ] && umount -f $CHROOT_PATH/proc
+    [ $NEED_UMOUNT_SYS -eq 1 ] && umount -f $CHROOT_PATH/sys
+    if [ $NEED_UMOUNT_DEV -eq 0 -o $NEED_UMOUNT_PROC -eq 0 -o $NEED_UMOUNT_SYS -eq 0 ]; then
+        rm -f $CHROOT_PATH/tmp/fake_uname.so
+        rm -f /tmp/fake_uname.so
+    fi
 }
 function mount_d {
-    mount -t devtmpfs devtmpfs  $CHROOT_PATH/dev
-    mount -t sysfs    sysfs     $CHROOT_PATH/sys
-    mount -t proc     proc      $CHROOT_PATH/proc
+    mount -t devtmpfs devtmpfs  $CHROOT_PATH/dev  2>/dev/null || NEED_UMOUNT_DEV=0
+    mount -t sysfs    sysfs     $CHROOT_PATH/sys  2>/dev/null || NEED_UMOUNT_SYS=0
+    mount -t proc     proc      $CHROOT_PATH/proc 2>/dev/null || NEED_UMOUNT_PROC=0
 }
 
 OSIMAGE=$1
