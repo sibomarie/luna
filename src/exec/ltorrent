@@ -479,7 +479,8 @@ def remove_files():
         if not bool(path):
             return None
         try:
-            shutil.move(path, path + ".del")
+            #shutil.move(path, path + ".del")
+            os.remove(path)
         except:
             logger.error("Cannot remove '{}'".format(path))
     uids = torrents.keys()
