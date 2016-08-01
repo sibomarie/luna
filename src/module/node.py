@@ -143,7 +143,7 @@ class Node(Base):
             return None
         if self.del_bmc_ip():
             return self.add_bmc_ip(reqip)
-        return None
+        return self.add_bmc_ip(reqip)
 
     def add_ip(self, interface = None, reqip = None):
         if not bool(interface):
@@ -816,7 +816,9 @@ class Group(Base):
             self._logger.error("No such interface '{}'".format(interface))
             return None
         net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
-        return net.release_ip(ip)
+	    if bool(ip):
+            return net.release_ip(ip)
+        return True
 
     def _reserve_bmc_ip(self, ip = None):
         if not self._id:
@@ -856,7 +858,9 @@ class Group(Base):
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return net.relnum_to_ip(ipnum)
+        if bool(ipnum):
+            return net.relnum_to_ip(ipnum)
+        return None
 
     def get_num_ip(self, interface, ip):
         interfaces = self._get_json()['interfaces']
