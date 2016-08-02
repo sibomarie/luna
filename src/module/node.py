@@ -816,7 +816,7 @@ class Group(Base):
             self._logger.error("No such interface '{}'".format(interface))
             return None
         net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
-	    if bool(ip):
+        if bool(ip):
             return net.release_ip(ip)
         return True
 
