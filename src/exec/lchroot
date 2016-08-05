@@ -26,7 +26,7 @@ int uname(struct utsname *buf) {
     return ret;
 }
 EOF
-    gcc -Wall -fPIC -g -c -DLINUX -Wall ./fake_uname.c && gcc -shared -rdynamic  -o ./fake_uname.so ./fake_uname.o -ldl
+    gcc -Wall -fPIC -g -c -DLINUX -Wall ./fake_uname.c && gcc -shared -rdynamic  -o /tmp/fake_uname.so ./fake_uname.o -ldl
     rm -f ./fake_uname.c
     rm -f ./fake_uname.o
 }
