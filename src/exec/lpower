@@ -74,7 +74,7 @@ class ChassisAction(threading.Thread):
         while ipmi_proc.poll() is None:
             line = ipmi_proc.stdout.readline()
             if line[:12] == 'System Power':
-                print self.nodename + ': ' + line[-3:-1]
+                print self.nodename + ': ' + line.strip().split(" ")[-1]
             if line[:5] == 'Error':
                 print self.nodename + ': ' + line.strip()
         if self.op in ['on', 'off', 'reset', 'cycle']:
