@@ -505,6 +505,8 @@ def remove_files():
 def sighup_handler(sig, frame):
     logger.info("Re-reading torrent files")
     update_torrents()
+    if not bool(t_session):
+        start_torrent_client()
     update_torrent_client()
     #update_inactive_torrents()
     #update_torrent_client()
