@@ -52,12 +52,11 @@ CHROOT_PATH=$(luna osimage show -n $OSIMAGE --path)
 
 mount_d
 compile
-if [ ! -e ./fake_uname.so ]; then
+if [ ! -e /tmp/fake_uname.so ]; then
     >&2 echo "Cannot find fake_uname.so library"
     exit 3
 fi
-cp ./fake_uname.so $CHROOT_PATH/tmp/
-cp ./fake_uname.so /tmp/
+cp /tmp/fake_uname.so $CHROOT_PATH/tmp/
 
 shift
 FAKE_KERN=$FAKE_KERN LD_PRELOAD=/tmp/fake_uname.so PS1="chroot [\u@$OSIMAGE \W]\$ " chroot $CHROOT_PATH $@
