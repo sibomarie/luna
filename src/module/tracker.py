@@ -195,12 +195,16 @@ class AnnounceHandler(BaseHandler):
         if len(peer_id) != self.PEER_ID_LEN:
             self.send_error(self.INVALID_PEER_ID)
             return
+
         try:
-            ip = self.request.headers.get("X-Real-IP")
+            ip = (self.get_argument('ip') or
+                  self.request.headers.get('X-Real-IP'))
         except:
             ip = '0.0.0.0'
+
         if ip == '0.0.0.0':
             ip = self.request.remote_ip
+
         try:
             port = int(self.get_argument('port'))
         except:

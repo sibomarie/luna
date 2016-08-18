@@ -376,20 +376,42 @@ def start_torrent_client():
     if not bool(torrents):
         logger.info("No torrents. Exiting.")
         return None
+
     os.chdir(path)
     cluster = luna.Cluster()
+
+    ip = ''
+    try:
+        if cluster.is_ha():
+            ip = cluster.get_cluster_ips()[0]
+        else:
+            ip = cluster.get('frontend_address')
+    except:
+        logger.error(("Could not decide on ip to listen on."
+                      "Either cluster IPs or frontend address must be defined"))
+        raise RuntimeError
+
     portmin = cluster.get('torrent_listen_port_min') or 7052
     portmax = cluster.get('torrent_listen_port_max') or 7200
+
     try:
         t_session = lt.session()
     except:
         logger.error("Failed to open libtorrent session.")
         raise RuntimeError
+
     try:
-        t_session.listen_on(portmin, portmax)
+        # Set the ip parameter in announce requests; default: ip ignored
+        settings = lt.session_settings()
+        settings.announce_ip = ip
+
+        t_session.set_settings(settings)
+        t_session.listen_on(portmin, portmax, ip)
+
     except:
-        logger.error("Failed to open listening ports.")
+        logger.error("Failed to listen on %s using port range [%s, %s]", ip, portmin, portmax)
         raise RuntimeError
+
     peer_id = lt.sha1_hash('lunalunalunalunaluna')
     t_session.set_peer_id(peer_id)
     #t_session.flag_share_mode = True
