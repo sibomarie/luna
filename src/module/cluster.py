@@ -243,12 +243,14 @@ class Cluster(Base):
         c = {}
         conf_primary = {}
         conf_secondary = {}
-        cluster_ips = self.get_cluster_ips()
+
         if self.is_ha() and not no_ha:
+            cluster_ips = self.get_cluster_ips()
             conf_primary['my_addr'] = cluster_ips[0]
             conf_secondary['my_addr'] = cluster_ips[1]
             conf_primary['peer_addr'] = conf_secondary['my_addr']
             conf_secondary['peer_addr'] = conf_primary['my_addr']
+
         c['frontend_ip'] = self.get('frontend_address')
         c['dhcp_start'] = self.get('dhcp_range_start')
         c['dhcp_end'] = self.get('dhcp_range_end')
@@ -279,22 +281,31 @@ class Cluster(Base):
         return True
 
     def get_cluster_ips(self):
+        cluster_ips = []
         ips = self.get('cluster_ips')
+
+        if ips == '':
+            self._logger.info('No cluster IPs are configured.')
+            return cluster_ips
+
         ips = ips.split(",")
+
         local_ip = ''
         for ip in ips:
             stdout = subprocess.Popen(['/usr/sbin/ip', 'addr', 'show', 'to', ip], stdout=subprocess.PIPE).stdout.read()
             if not stdout == '':
                 local_ip = ip
                 break
-        cluster_ips = []
+
         if not bool(local_ip):
             self._logger.info('No proper cluster IPs are configured.')
             return cluster_ips
+
         cluster_ips.append(local_ip)
         for ip in ips:
             if not ip == local_ip:
                 cluster_ips.append(ip)
+
         return cluster_ips
 
     def is_active(self):
