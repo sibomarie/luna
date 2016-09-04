@@ -34,7 +34,7 @@ class ChassisAction(threading.Thread):
     def __init__(self, nodename = None, op = None, mongo_db = None):
         threading.Thread.__init__(self)
         self.op = None
-        if op in ['on', 'off', 'reset', 'status', 'identify']:
+        if op in ['on', 'off', 'reset', 'cycle', 'status', 'identify', 'noidentify']:
             self.op = op
         try:
             node = luna.Node(name = nodename, mongo_db = mongo_db)
@@ -62,8 +62,12 @@ class ChassisAction(threading.Thread):
                 'chassis']
         if self.op in ['on', 'off', 'reset', 'cycle']:
             cmd.extend(['power', self.op])
-        elif self.op in ['identify', 'status']:
+        elif self.op == 'status':
             cmd.extend([self.op])
+        elif self.op == 'identify':
+            cmd.extend([self.op, '255']) # longest interval it allows
+        elif self.op == 'noidentify':
+            cmd.extend(['identify', '0'])
         """
         ping_proc = subprocess.Popen(['/bin/ping', '-c', '1', '-w', '5', self.bmcip], stdout=subprocess.PIPE)
         if ping_proc.wait():
@@ -83,7 +87,8 @@ class ChassisAction(threading.Thread):
 
 parser = argparse.ArgumentParser(prog='lpower',description='BMC power management.')
 parser.add_argument('hostlist', type=str, help='Hostlist')
-parser.add_argument('action', choices=('status', 'on', 'off', 'reset', 'cycle', 'identify'), help='Action')
+parser.add_argument('action', choices=('status', 'on', 'off', 'reset', 'cycle', 'identify', 'noidentify'), help='Action')
+
 
 if __name__ == '__main__':
     logger = logging.getLogger('lpower')
