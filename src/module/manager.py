@@ -53,9 +53,11 @@ class Manager(tornado.web.RequestHandler):
     @tornado.gen.engine
     def get(self):
         step = self.get_argument('step')
+
         if step == 'boot':
             nodes = luna.list('node')
             self.render("templ_ipxe.cfg", server_ip = self.server_ip, server_port = self.server_port, nodes = nodes)
+
         if step == 'discovery':
             try:
                 hwdata = self.get_argument('hwdata')

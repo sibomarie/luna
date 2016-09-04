@@ -197,13 +197,22 @@ class AnnounceHandler(BaseHandler):
             return
 
         try:
-            ip = (self.get_argument('ip') or
-                  self.request.headers.get('X-Real-IP'))
+            xreal_ip = self.request.headers.get('X-Real-IP')
         except:
-            ip = '0.0.0.0'
+            xreal_ip = None
 
-        if ip == '0.0.0.0':
-            ip = self.request.remote_ip
+        try:
+            announce_ip = self.get_argument('ip')
+        except:
+            announce_ip = None
+
+        if announce_ip == '0.0.0.0':
+            announce_ip = None
+
+        # can return IP address of the wrong interface. Be careful!
+        request_remote_ip = self.request.remote_ip
+
+        ip = announce_ip or xreal_ip or request_remote_ip
 
         try:
             port = int(self.get_argument('port'))
