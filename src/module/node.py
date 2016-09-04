@@ -483,11 +483,13 @@ class Group(Base):
             for interface in interfaces:
                 if_dict[interface] = {'network': None, 'params': ''}
             if not bool(partscript):
-                partscript = "mount -t ramfs ramfs /sysroot"
+                partscript = "mount -t tmpfs tmpfs /sysroot"
             if not bool(prescript):
                 prescript = ""
             if not bool(postscript):
-                postscript = ""
+                postscript = """cat <<EOF>/sysroot/etc/fstab
+tmpfs   /       tmpfs    defaults        0 0
+EOF"""
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
                                'partscript': partscript, 'osimage': osimageobj.DBRef, 'interfaces': if_dict,
                                'postscript': postscript, 'boot_if': boot_if, 'torrent_if': torrent_if}
