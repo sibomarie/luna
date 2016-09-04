@@ -148,4 +148,64 @@ def rsync_data(host = None, lpath = None, rpath = None):
     os.remove(pidfile)
     return True
 
+def format_output(out):
+    # get number of columns
+    num_col = len(out['header'])
+    len_content = 0
+    for elem in out['content']:
+        len_content += 1
+        if len(elem) > num_col:
+            num_col = len(elem)
+    # get max length of line and
+    # create new array out of input
+    lengths=[0] * num_col
+    header_tmp = [[]] * (num_col + 1)
+    content_tmp = [[[] for x in range(num_col + 1)] for y in range(len_content)]
+    
+    # last element of the array will contain the maximum number of the new lines
+    header_tmp[-1] = 1
+    for i in range(len(out['header'])):
+        elem=out['header'][i]
+        lines = str(elem).split('\n')
+        header_tmp[i] = lines
+        newlines = 1
+        for line in lines:
+            newlines += 1
+            if len(line) > lengths[i]:
+                lengths[i] = len(line)
+            if newlines > header_tmp[-1]:
+                header_tmp[-1] = newlines
+    content_line = 0
+    total_num_of_new_lines = 1
+    for out_line in out['content']:
+        content_tmp[content_line][-1] = 1
+        for i in range(len(out_line)):
+            elem=out_line[i]
+            lines = str(elem).split('\n')
+            content_tmp[content_line][i] = lines
+            newlines = 1
+            for line in lines:
+                newlines += 1
+                if len(line) > lengths[i]:
+                    lengths[i] = len(line)
+                if newlines > content_tmp[content_line][-1]:
+                    content_tmp[content_line][-1] = newlines
+        total_num_of_new_lines += content_tmp[content_line][-1] - 1
+        content_line += 1
+    
+    # need to have transponded matrix to ease output
+    header_array = [['' for x in range(num_col)] for y in range(header_tmp[-1] - 1)]
+    content_array = [['' for x in range(num_col)] for y in range(total_num_of_new_lines - 1)]
+
+    for i in range(num_col):
+        for j in range(len(header_tmp[i])):
+            header_array[j][i] = header_tmp[i][j]
+    relative_pointer = 0
+    for content_line in content_tmp:
+        for i in range(num_col):
+            for j in range(len(content_line[i])):
+                content_array[relative_pointer + j][i] = content_line[i][j]
+        relative_pointer += content_line[-1] - 1
+
+    return (lengths, header_array, content_array)
 
