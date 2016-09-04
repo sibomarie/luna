@@ -622,7 +622,7 @@ def _edit_script(old_script):
         for line in sys.stdin:
             script += line
     else:
-        EDITOR = os.environ.get('EDITOR','vim')
+        EDITOR = os.environ.get('EDITOR','vi')
         tmpfile = tempfile.NamedTemporaryFile(suffix=".tmp")
         tmpfile.write(old_script)
         tmpfile.flush()
