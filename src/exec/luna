@@ -406,6 +406,12 @@ def osimage_clone(**args):
         newosimage.set(param, osimage.get(param))
     return True
 
+def osimage_rename(**args):
+    check_active_node()
+    osimage = luna.OsImage(args['name'])
+    osimage.rename(args['newname'])
+    
+
 #################### BMCSetup
 
 def bmcsetup_list():
@@ -449,6 +455,11 @@ def bmcsetup_delete(name):
     check_active_node()
     bmcsetup = luna.BMCSetup(name)
     bmcsetup.delete()
+
+def bmcsetup_rename(**args):
+    check_active_node()
+    bmcsetup = luna.BMCSetup(args['name'])
+    bmcsetup.rename(args['newname'])
 
 #################### Network
 
@@ -508,6 +519,10 @@ def network_delete(name):
     net = luna.Network(name)
     net.delete()
 
+def network_rename(**args):
+    check_active_node()
+    net = luna.Network(args['name'])
+    net.rename(args['newname'])
 
 #################### Group
 
@@ -662,6 +677,11 @@ def group_delete(name):
     group = luna.Group(name)
     group.delete()
 
+def group_rename(**args):
+    check_active_node()
+    grp = luna.Group(args['name'])
+    grp.rename(args['newname'])
+
 #################### Node
 
 def node_list():
@@ -772,12 +792,16 @@ def node_change(**args):
                 flag = True
             node.set('service', flag)
 
-
 def node_delete(name):
     check_active_node()
     for nodename in hostlist.expand_hostlist(name):
         node = luna.Node(nodename, mongo_db = mongo_db)
         node.delete()
+
+def node_rename(**args):
+    check_active_node()
+    node = luna.Node(args['name'])
+    node.rename(args['newname'])
 
 #################### Switch
 
@@ -829,6 +853,10 @@ def switch_delete(name):
         switch = luna.Switch(switchname)
         switch.delete()
 
+def switch_rename(**args):
+    check_active_node()
+    sw = luna.Switch(args['name'])
+    sw.rename(args['newname'])
 
 #################### Otherdev
 
@@ -883,6 +911,10 @@ def otherdev_delete(name):
         dev = luna.OtherDev(devname)
         dev.delete()
 
+def otherdev_rename(**args):
+    check_active_node()
+    otherdev = luna.OtherDev(args['name'])
+    otherdev.rename(args['newname'])
 
 parser = argparse.ArgumentParser(prog='luna',description='Manage Luna Cluster.')
 luna_subparsers = parser.add_subparsers(help='Items to operate.', dest='item')
@@ -983,6 +1015,10 @@ osimage_command = osimage_parser_actions.add_parser('clone', help='Clone OsImage
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 osimage_command.add_argument('--to', '-t', required=True, type=str, help='Name of the OsImage to create.')
 osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path of the Osimage to create.')
+# rename
+osimage_command = osimage_parser_actions.add_parser('rename', help='Rename OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the OsImage.')
 # delete
 osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
@@ -1012,6 +1048,10 @@ bmcsetup_command.add_argument('--password', '-p', type=str, help='Password')
 bmcsetup_command.add_argument('--userid', '-I', type=int, help='UserID')
 bmcsetup_command.add_argument('--netchannel', '-N', type=int, help='Netchannel')
 bmcsetup_command.add_argument('--mgmtchannel', '-M', type=int, help='Mgmtchannel')
+# rename
+bmcsetup_command = bmcsetup_parser_actions.add_parser('rename', help='Rename BMCSetup instance.')
+bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
+bmcsetup_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the BMCSetup instance.')
 # delete
 bmcsetup_command = bmcsetup_parser_actions.add_parser('delete', help='Delete osimage.')
 bmcsetup_command.add_argument('--name', '-n', required=True, type=str, help='Name of the BMCSetup instance.')
@@ -1061,6 +1101,10 @@ network_command.add_argument('--reserve', '-R', metavar='X.X.X.X', type=str, hel
 network_command.add_argument('--release', metavar='X.X.X.X', type=str, help='Release IP.')
 network_command.add_argument('--ns_hostname', type=str, help='Name server for zone file.')
 network_command.add_argument('--ns_ip', metavar='N.N.N.N', type=str, help='Name server\'s IP for zone file.')
+# rename
+network_command = network_parser_actions.add_parser('rename', help='Rename Network.')
+network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
+network_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the Network.')
 # delete
 network_command = network_parser_actions.add_parser('delete', help='Delete Network.')
 network_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Network.')
@@ -1110,6 +1154,10 @@ group_command.add_argument('--delete', '-D', action='store_true', help='Delete i
 group_command.add_argument('--setnet', '--sn', type=str, metavar='NETWORK', help='Set Network for interface or for BMC')
 group_command.add_argument('--delnet', '--dn', action='store_true', help='Delete Network for interface or for BMC')
 group_command.add_argument('--edit', '-e', action='store_true', help='Edit interface parameters or edit scripts')
+# rename
+group_command = group_parser_actions.add_parser('rename', help='Rename Group.')
+group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
+group_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the Group.')
 # delete
 group_command = group_parser_actions.add_parser('delete', help='Delete Group.')
 group_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Group.')
@@ -1142,7 +1190,10 @@ node_command_group.add_argument('--port', '-p', type=str, help='Port.')
 node_command_group.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
 node_command_group.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
 node_command_group.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
-
+# rename
+node_command = node_parser_actions.add_parser('rename', help='Rename Node.')
+node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
+node_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the Node.')
 # delete
 node_command = node_parser_actions.add_parser('delete', help='Delete Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
@@ -1173,6 +1224,10 @@ switch_command.add_argument('--ip', '-i', type=str, help='IP of the Switch.')
 switch_command.add_argument('--read', '-r', type=str, help='Read community')
 switch_command.add_argument('--rw', '-w', type=str, help='Write community')
 switch_command.add_argument('--oid', '-o', type=str, help='OID of the Switch.')
+# rename
+switch_command = switch_parser_actions.add_parser('rename', help='Rename Switch.')
+switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
+switch_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the Switch.')
 # delete
 switch_command = switch_parser_actions.add_parser('delete', help='Delete Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
@@ -1197,6 +1252,10 @@ otherdev_command = otherdev_parser_actions.add_parser('change', help='Change dev
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 otherdev_command.add_argument('--network', '-N', type=str, help='Network device belongs to.')
 otherdev_command.add_argument('--ip', '-i', type=str, help='IP of the device. Specify empty string to delete.')
+# rename
+otherdev_command = otherdev_parser_actions.add_parser('rename', help='Rename device.')
+otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
+otherdev_command.add_argument('--newname', '--nn', required=True, type=str, help='New name of the device.')
 # delete
 otherdev_command = otherdev_parser_actions.add_parser('delete', help='Delete device.')
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
