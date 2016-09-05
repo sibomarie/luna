@@ -379,7 +379,32 @@ def osimage_sync(name):
             _safe_print("Exit code is non-zero")
             sys.exit(1)
     _safe_print("Done.")
-    
+    return True
+
+def osimage_clone(**args):
+    check_active_node()
+    osimage = luna.OsImage(args['name'])
+    # check if osimage we need to create exists already
+    lst = luna.list('osimage')
+    if args['to'] in lst:
+        sys.stderr.write("OsImage {} already exists.\n".format(args['to']) )
+        sys.exit(1)
+    osimagepath = osimage.get("path")
+    targetpath = os.path.abspath(args['path'])
+    if os.path.exists(targetpath):
+        sys.stderr.write("Path {} already exists.\n".format(targetpath) )
+        sys.exit(1)
+    _safe_print("%s => %s" % (osimagepath, targetpath))
+    luna.clone_dirs(osimagepath, targetpath)
+    # create osimage
+    newosimage = luna.OsImage(name = args['to'],
+        create = True,
+        path = targetpath,
+        kernver = osimage.get('kernver'))
+    # copy params
+    for param in ['dracutmodules', 'kernmodules', 'kernopts']:
+        newosimage.set(param, osimage.get(param))
+    return True
 
 #################### BMCSetup
 
@@ -953,6 +978,11 @@ osimage_command_group.add_argument('--boot', '-b', action='store_true', help='Pa
 # pack
 osimage_command = osimage_parser_actions.add_parser('sync', help='Sync OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+# clone
+osimage_command = osimage_parser_actions.add_parser('clone', help='Clone OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command.add_argument('--to', '-t', required=True, type=str, help='Name of the OsImage to create.')
+osimage_command.add_argument('--path', '-p', required=True, type=str, help='Path of the Osimage to create.')
 # delete
 osimage_command = osimage_parser_actions.add_parser('delete', help='Delete OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
