@@ -406,7 +406,7 @@ class Network(Base):
             rev_links = obj_json[usedby_key]
         except:
             self._logger.error("No IP addresses for network '{}' configured.".format(self.name))
-            return None
+            return {}
         out_dict = {}
 
         def add_to_out_dict(name, ip):
