@@ -27,6 +27,7 @@ import socket
 import subprocess
 import pwd
 import grp
+import errno
 from bson.dbref import DBRef
 from luna.base import Base
 
@@ -94,6 +95,15 @@ class Cluster(Base):
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
             self._DBRef = DBRef(self._collection_name, self._id)
+            logdir = '/var/log/luna'
+            try:
+                os.makedirs(logdir)
+            except OSError as exc:
+                if exc.errno == errno.EEXIST and os.path.isdir(logdir):
+                    pass
+                else:
+                    raise
+            os.chown(logdir, user_id.pw_uid, group_id.gr_gid)
         else:
             self._name = mongo_doc['name']
             self._id = mongo_doc['_id']

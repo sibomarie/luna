@@ -27,6 +27,7 @@ import ConfigParser
 import urllib
 import sys
 import os
+import errno 
 import subprocess
 
 def set_mac_node(mac, node, mongo_db = None):
@@ -76,6 +77,74 @@ def get_con_options():
         return auth_str
     return "localhost"
 
+def clone_dirs(path1 = None, path2 = None):
+
+    if not path1 or not path2:
+        sys.stderr.write("Source and target paths need to be specified.\n")
+        sys.exit(1)
+    path1 = os.path.abspath(path1)
+    path2 = os.path.abspath(path2)
+    if not os.path.exists(path1):
+        sys.stderr.write("Source dir {} does not exist.\n".format(path1))
+        sys.exit(1)
+    if not os.path.isdir(path1):
+        sys.stderr.write("Source dir {} should be directory.\n".format(path1))
+    path1 = path1 + "/"
+
+    # check if someone run rsync already
+    pidfile = "/run/luna_rsync.pid"
+    try:
+        pf = file(pidfile,'r')
+        pid = int(pf.read().strip())
+        pf.close()
+    except IOError:
+        pid = None
+
+    if pid:
+        message = "pidfile %s already exist.\n"
+        sys.stdout.write(message % pidfile)
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            pass
+        else:
+            message = "Process %s is running.\n"
+            sys.stderr.write(message % pid)
+            sys.exit(1)
+
+    pf = file(pidfile,'w+')
+    pid = os.getppid()
+    pf.write("%s\n" % pid)
+    pf.close()
+    
+    # create target dir if needed
+    try:
+        os.makedirs(path2)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path2):
+            pass
+        else:
+            raise
+
+    cmd = r'''/usr/bin/rsync -av -HAX --progress ''' + path1 + r''' ''' + path2
+    try:
+        rsync_out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        stat_symb = ['\\', '|', '/', '-']
+        i = 0
+        while True:
+            line = rsync_out.stdout.readline()
+            if line == '':
+                break
+            i = i + 1
+            sys.stdout.write(stat_symb[i % len(stat_symb)])
+            sys.stdout.write('\r')
+    except:
+        os.remove(pidfile)
+        sys.stdout.write('\r')
+        sys.stderr.write("Interrupt.")
+        sys.exit(1)
+    os.remove(pidfile)
+    return True
 
 def rsync_data(host = None, lpath = None, rpath = None):
 

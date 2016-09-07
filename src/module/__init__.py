@@ -58,4 +58,4 @@ def list(collection):
         except:
             ret.extend([doc['_id']])
     ret.sort()
-    return ret
+    return [str(elem) for elem in ret]
