@@ -60,13 +60,14 @@ def print_table(header, content):
     out_len = sum(lengths) + (num_spaces + 2) * len(lengths) + 1
     format_string = "".join(fmt_str)+"|"
 
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    sep = "+" + "+".join(["-" * (i + num_spaces + 1) for i in lengths]) + "+"
+    _safe_print(sep)
     for i in range(len(header_array)):
         _safe_print(format_string % tuple(header_array[i]))
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    _safe_print(sep)
     for i in range(len(content_array)):
         _safe_print(format_string % tuple(content_array[i]))
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    _safe_print(sep)
 
 #################### Cluster
 def check_active_node():
