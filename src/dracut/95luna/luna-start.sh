@@ -72,7 +72,7 @@ function luna_finish () {
 function _get_luna_ctty () {
     local luna_ctty
     luna_ctty=$(getargs luna.ctty=)
-    [ "x${luna_ctty}" = "x" ] && luna_ctty=$(getargs console=)
+    # TODO [ "x${luna_ctty}" = "x" ] && luna_ctty=$(getargs console=)
     [ "x${luna_ctty}" = "x" ] && luna_ctty="/dev/tty1"
     echo -n $luna_ctty
 }
