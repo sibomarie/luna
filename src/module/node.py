@@ -487,7 +487,7 @@ class Group(Base):
             if not bool(prescript):
                 prescript = ""
             if not bool(postscript):
-                postscript = """cat <<EOF>/sysroot/etc/fstab
+                postscript = """cat <<EOF>>/sysroot/etc/fstab
 tmpfs   /       tmpfs    defaults        0 0
 EOF"""
             mongo_doc = {'name': name, 'prescript':  prescript, 'bmcsetup': bmcobj, 'bmcnetwork': bmcnetobj,
