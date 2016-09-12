@@ -224,7 +224,7 @@ class MacUpdater(object):
                     port = str(varlist[i].val)
                     try:
                         portname = portnums[int(varlist[i].val)]
-                    except IndexError:
+                    except KeyError:
                         portname = port
                     for elem in varlist[i].tag.split('.')[-6:]:
                         mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
