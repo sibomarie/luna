@@ -242,7 +242,8 @@ class Node(Base):
         try:
             ip = json['bmcnetwork']
         except:
-            self._logger.error("No IP configured on bmc network")
+            ip = None
+        if not bool(ip):
             return None
         res = group._release_bmc_ip(ip)
         if bool(res):
