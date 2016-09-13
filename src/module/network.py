@@ -184,6 +184,8 @@ class Network(Base):
             if not self._set_uplimit_ip(value):
                 self._logger.error("Cannot set PREFIX as some IPs are reserved out of the new border.".format(value))
                 raise RuntimeError
+            # self._set_uplimit_ip updated mongo doc already, so need to update
+            obj_json = self._get_json()
             obj_json['NETWORK'] = network
             obj_json['PREFIX'] = value
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
