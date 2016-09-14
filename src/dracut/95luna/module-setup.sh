@@ -19,7 +19,8 @@ install() {
     inst_simple /etc/ssh/ssh_host_ecdsa_key
     inst_simple /etc/ssh/ssh_host_ed25519_key
     mkdir -m 0700 -p "$initdir/root/.ssh"
-    inst_simple /root/.ssh/authorized_keys
+    inst /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys
+    chmod 600 "$initdir/root/.ssh/authorized_keys"
     
     mkdir -m 0755 -p "$initdir/luna"
     inst "$moddir/ctorrent" "/luna/ctorrent"
