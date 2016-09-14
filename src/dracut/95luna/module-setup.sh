@@ -15,7 +15,9 @@ install() {
     inst "$moddir/sshd_config" "/etc/ssh/sshd_config"
     inst "$moddir/bashrc" "/root/.bashrc"
     inst "$moddir/profile" "/root/.profile"
+    inst_simple /etc/ssh/ssh_host_rsa_key
     inst_simple /etc/ssh/ssh_host_ecdsa_key
+    inst_simple /etc/ssh/ssh_host_ed25519_key
     mkdir -m 0700 -p "$initdir/root/.ssh"
     inst_simple /root/.ssh/authorized_keys
     
