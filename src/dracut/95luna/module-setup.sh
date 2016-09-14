@@ -10,7 +10,9 @@ depends() {
 }
 
 install() {
-    dracut_install ssh sshd scp tar nc wget curl rsync awk sed gzip find parted mkfs.ext2 mkfs.ext3 mkfs.ext4 mkfs.xfs ipmitool basename sgdisk
+    dracut_install ssh sshd scp tar nc wget curl rsync awk sed gzip find \
+                   parted mkfs.ext2 mkfs.ext3 mkfs.ext4 mkfs.xfs ipmitool \
+                   basename sgdisk blkdiscard fstrim nslookup dig host dd
 
     inst "$moddir/sshd_config" "/etc/ssh/sshd_config"
     inst "$moddir/bashrc" "/root/.bashrc"
