@@ -22,7 +22,9 @@ install() {
     inst_simple /etc/ssh/ssh_host_ed25519_key
     mkdir -m 0700 -p "$initdir/root/.ssh"
     inst_simple /root/.ssh/authorized_keys
-    
+
+    inst_simple /etc/resolv.conf
+
     mkdir -m 0755 -p "$initdir/luna"
     inst "$moddir/ctorrent" "/luna/ctorrent"
 
