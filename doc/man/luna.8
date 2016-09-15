@@ -1,0 +1,62 @@
+.TH luna 8 "Luna Commands" "September 2016" "Luna Commands"
+
+.SH "NAME"
+luna - command to edit Luna cluster configuration.
+
+.SH "SYNOPSIS"
+\fBluna\fR [\fI-h\fR|\fI--help\fR]
+
+\fBluna\fR \fIobject\fR [\fI-h\fR|\fI--help\fR]
+
+\fBluna\fR \fIobject\fR \fIaction\fR [\fIOPTIONS\fR...]
+
+.SH DESCRIPTION
+\fBluna\fR
+is used to view and edit objects in Luna database.
+.SH OBJECTS, ACTIONS AND OPTIONS
+.TP
+\fB-h\fR
+Getting list of supported objects.
+.TP
+\fIobject\fR \fB-h\fR
+Getting list of supported actions for object.
+.TP
+\fBcluster\fR
+Is being used to global configuration. Includes configuration of external services.
+.RS 4
+.TP
+\fBinit\fR
+Initializes the cluster configuration.
+.RS 4
+.TP
+\fB-h\fR
+Getting list of supported options.
+.TP
+\fB--nodeprefix\fR, \fB--prefix\fR, \fB-p\fR
+Prefix for newly created nodes: nodeXXX, hostXXX, nXXX, etc. Default is "\fInode\fR".
+.TP 
+\fB--nodedigits\fR, \fB--digits\fR, \fB-d\fR
+Allows to add leading zeros to node number: node01, node001, etc. Default is \fI3\fR.
+.TP
+\fB--path\fR
+Path to store kernels, initrd, tarballs (with packed OSes), bittorrent files, scripts' templates. It is assumed that it is a HOMEDIR for user, used to run services (see bellow). Default is "\fI/opt/luna\fR"
+.TP
+\fB--user\fR
+User is used to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is \fIluna\fR
+.RE
+.TP
+\fBshow\fR
+Prints global cluster config.
+.RS 4
+.TP
+\fB-h\fR
+Getting list of supported options.
+.TP
+\fB-R\fR
+Print raw JSON of the object.
+.RE
+.TP
+\fBchange\fR
+Allows to change global cluster configuration options.
+.RS 4
+.RE
