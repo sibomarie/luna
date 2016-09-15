@@ -1,7 +1,11 @@
 # Disclaimer
-It is an alpha-version.
-This piece of code is another try to beat 'boot-storm'.
-It uses torrent to deliver image to node.
+Luna is a baremetal provisioning tool uses image-based-approach. It delivers image of operating systems, but not the 'recipe' how to configure OS, as competotors do. It dramatically speeds up imstallation time, and reduce administrative efforts.
+
+Killer feature of Luna - it is using BitTorrent protocol, so every booting node is becoming provisioner to help others to boot.
+
+It does not iteract with already booted node: torrent client acts only in initrd environment.
+
+Luna does not require any additional service to run on node. By default it changes very limited number of files on booted nodes. Absolute minimun is: `/etc/hostname` and `etc/sysconfig/network-scripts/ifcfg-*` files.
 
 |Number of nodes|Time for cold boot, min|Xcat cold boot, min|
 |:-------------:|:---------------------:|:-----------------:|
@@ -9,7 +13,9 @@ It uses torrent to deliver image to node.
 |             36|                      4|                 26|
 |             72|                      4|                 53|
 
-Image size is 1GB, provision node is equipped with 1Gb interface
+Image size is 1GB, provision node is equipped with 1Gb interface.
+
+Luna is proving to work with 300-node cluster. Boot time is aproximately 5 minutes. This includes BIOS POST procedures and all systemd services to start.
 
 # Start
 Let's assume you have server with ip 10.30.255.254 as internal interface for cluster
@@ -85,6 +91,8 @@ yumdownloader  centos-release
 rpm --root /opt/luna/os/compute -ivh centos-release\*.rpm
 yum --installroot=/opt/luna/os/compute -y groupinstall Base
 yum --installroot=/opt/luna/os/compute -y install kernel rootfiles openssh-server openssh openssh-clients tar nc wget curl rsync gawk sed gzip parted e2fsprogs ipmitool vim-enhanced vim-minimal grub2
+yum --installroot=/opt/luna/os/compute -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+yum --installroot=/opt/luna/os/compute -y install rb_libtorrent
 ```
 ## Set password for root and set up sshd
 ```
@@ -240,6 +248,8 @@ EOF
 ```
 (Optional. Set up HA)
 Consider you have:
+|IP                       | Name      |
+|------------------------:|:----------|
 |           10.30.255.251 |   master1 |
 |           10.30.255.252 |   master2 |
 |(floating) 10.30.255.254 |   master  |
