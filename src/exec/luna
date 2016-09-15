@@ -931,7 +931,6 @@ cluster_command = cluster_parser_actions.add_parser('init', help='Create Luna Cl
 cluster_command.add_argument('--nodeprefix', '--prefix', type=str, help='Auto-prefix for new nodes.', default='node')
 cluster_command.add_argument('--nodedigits', '--digits', type=int, help='Zero-autopadding', default=3)
 cluster_command.add_argument('--user', type=str, help='Username for running services.', default='luna')
-cluster_command.add_argument('--group', type=str, help='Groupname for running services.', default='luna')
 cluster_command.add_argument('--path', type=str, help='Path to store files.', default='/opt/luna')
 
 # change
@@ -940,7 +939,6 @@ cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='A
 cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
 cluster_command.add_argument('--path', type=str, help='Path to store files.')
 cluster_command.add_argument('--user', type=str, help='Username for running services.')
-cluster_command.add_argument('--group', type=str, help='Groupname for running services.')
 cluster_command.add_argument('--frontend_address', type=str, help='Server address')
 cluster_command.add_argument('--frontend_port', type=int, help='Server address')
 cluster_command.add_argument('--server_port', type=int, help='Server port')
