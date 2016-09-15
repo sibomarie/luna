@@ -194,7 +194,7 @@ Disable bmcsetup
 ```
 luna node change -n node001 --setupbmc n
 ```
-# MongoDB config (optional)
+# (Optional) MongoDB config
 NOTE: By default MongoDB listens only loopback interface and provides no credentials ckecking.
 
 To set up replica set edit ```/etc/mongod.conf```
@@ -246,7 +246,7 @@ user=luna
 password=<password>
 EOF
 ```
-(Optional. Set up HA)
+# (Optional) Set up HA
 Consider you have:
 
 |IP                       | Name      |
