@@ -248,11 +248,13 @@ EOF
 ```
 (Optional. Set up HA)
 Consider you have:
+
 |IP                       | Name      |
 |------------------------:|:----------|
 |           10.30.255.251 |   master1 |
 |           10.30.255.252 |   master2 |
 |(floating) 10.30.255.254 |   master  |
+
 ```
 openssl rand -base64 741 > /etc/mongo.key
 chown mongodb: /etc/mongo.key
