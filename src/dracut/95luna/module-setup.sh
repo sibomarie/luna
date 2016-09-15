@@ -26,7 +26,7 @@ install() {
     inst_simple /etc/resolv.conf
 
     mkdir -m 0755 -p "$initdir/luna"
-    inst "$moddir/ctorrent" "/luna/ctorrent"
+    inst "$moddir/ltorrent-client" "/luna/ltorrent-client"
 
     inst_hook cmdline 99 "$moddir/luna-parse-cmdline.sh"
     inst_hook initqueue/finished 99 "$moddir/luna-start.sh"

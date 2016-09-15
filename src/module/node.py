@@ -678,6 +678,8 @@ EOF"""
 
         if bool(if_dict):
             for interface in ifs:
+                if not bool(ifs[interface]['network']):
+                    continue
                 if ifs[interface]['network'].id == netobjid:
                     try:
                         node_links = json[usedby_key]
