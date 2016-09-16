@@ -75,8 +75,8 @@ def check_active_node():
         logger.error("Inactive HA node.")
         exit(1)
 
-def cluster_init(nodeprefix, nodedigits, path, user, group):
-    cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
+def cluster_init(nodeprefix, nodedigits, path, user):
+    cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user)
 
 def cluster_delete():
     check_active_node()
