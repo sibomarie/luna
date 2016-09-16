@@ -4,59 +4,264 @@
 luna - command to edit Luna cluster configuration.
 
 .SH "SYNOPSIS"
-\fBluna\fR [\fI-h\fR|\fI--help\fR]
+\fBluna\fP [\fI--help\fP|\fI-h\fP]
 
-\fBluna\fR \fIobject\fR [\fI-h\fR|\fI--help\fR]
+\fBluna\fP \fIobject\fP [\fI--help\fP|\fI-h\fP]
 
-\fBluna\fR \fIobject\fR \fIaction\fR [\fIOPTIONS\fR...]
+\fBluna\fP \fIobject\fP \fIaction\fP [\fI--help\fP|\fI-h\fP] [\fIOPTIONS\fP...]
 
 .SH DESCRIPTION
-\fBluna\fR
+\fBluna\fP
 is used to view and edit objects in Luna database.
-.SH OBJECTS, ACTIONS AND OPTIONS
+.SH GETTING QUICK HELP
 .TP
-\fB-h\fR
+\fB--help\fP, \fB-h\fP
 Getting list of supported objects.
 .TP
-\fIobject\fR \fB-h\fR
+\fIobject\fP \fB--help\fP, \fIobject\fP \fB-h\fP
 Getting list of supported actions for object.
 .TP
-\fBcluster\fR
+\fIobject\fP \fIaction\fP \fB--help\fP, \fIobject\fP \fIaction\fP \fB-h\fP
+Getting list of supported options for particular object and action.
+.SH OBJECTS, ACTIONS AND OPTIONS
+.TP
+\fBcluster\fP
 Is being used to global configuration. Includes configuration of external services.
-.RS 4
+.RS
 .TP
-\fBinit\fR
-Initializes the cluster configuration.
-.RS 4
+\fBinit\fP
+Initializes cluster configuration.
+.RS
 .TP
-\fB-h\fR
-Getting list of supported options.
-.TP
-\fB--nodeprefix\fR, \fB--prefix\fR, \fB-p\fR
-Prefix for newly created nodes: nodeXXX, hostXXX, nXXX, etc. Default is "\fInode\fR".
+\fB--nodeprefix\fP, \fB--prefix\fP, \fB-p\fP
+Prefix for newly created nodes: nodeXXX, hostXXX, nXXX, etc. Default is "\fInode\fP".
 .TP 
-\fB--nodedigits\fR, \fB--digits\fR, \fB-d\fR
-Allows to add leading zeros to node number: node01, node001, etc. Default is \fI3\fR.
+\fB--nodedigits\fP, \fB--digits\fP, \fB-d\fP
+Allows to add leading zeros to node number: node01, node001, node0001, etc. Default is \fI3\fP.
 .TP
-\fB--path\fR
-Path to store kernels, initrd, tarballs (with packed OSes), bittorrent files, scripts' templates. It is assumed that it is a HOMEDIR for user, used to run services (see bellow). Default is "\fI/opt/luna\fR"
+\fB--path\fP
+Path to store kernels, initrd, tarballs (with packed OSes), bittorrent files, scripts' templates. It is assumed that it is a HOMEDIR for user, used to run services (see bellow). Default is "\fI/opt/luna\fP"
 .TP
-\fB--user\fR
-User is used to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is \fIluna\fR
+\fB--user\fP
+User is used to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is \fIluna\fP
 .RE
 .TP
-\fBshow\fR
+\fBshow\fP
 Prints global cluster config.
-.RS 4
+.RS
 .TP
-\fB-h\fR
-Getting list of supported options.
-.TP
-\fB-R\fR
+\fB--raw\fP, \fB-R\fP
 Print raw JSON of the object.
 .RE
 .TP
-\fBchange\fR
+\fBchange\fP
 Allows to change global cluster configuration options.
-.RS 4
+.RS
+.TP
+\fB--nodeprefix\fP, \fB--prefix\fP, \fB-p\fP
+Prefix for newly created nodes: nodeXXX, hostXXX, nXXX, etc.
+.TP
+\fB--nodedigits\fP, \fB--digits\fP, \fB-d\fP
+Allows to add leading zeros to node number: node01, node001, node0001, etc.
+.TP
+\fB--path\fP
+Path to store kernels, initrd, tarballs (with packed OSes), bittorrent files, scripts' templates. User defined in \fB--user\fP should have \fBrw\fP access to this folder.
+.TP
+\fB--user\fP
+User is used to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user.
+.TP
+\fB--frontend_address\fP
+IP address of the interface of the master node. It is being used to access services provided by \fIlweb\fP using HTTP protocol: boot scripts, installation scripts, torrent tracker. Port to reach the services is specified as \fB--frontend_port\fP. Combination http://frontend_address:frontend_port can be used for quick check. Example:
+
+curl "http://10.30.255.254:7050/luna?step=boot"
+
+No default value for it! Should be set up right after \fIluna cluster init\fP command.
+.TP
+\fB--frontend_port\fP
+TCP port of the HTTP reverse proxy server. Default is 7050. Please don't mix it with \fB--server_port\fP.
+.TP
+\fB--server_port\fP
+Port \fIlweb\fP to listen on localhost. Default is 7051. Service \fIlweb\fP opens socket only on 127.0.0.1 and port specified at \fB--server_port\fP. To reach \fIlweb\fP from remote HTTP reverse proxy server is using. Nginx is default. URL http://localhost:server_port allows to connect derectly to lweb avoiding HTTP-proxy. Example:
+
+curl "http://localhost:7051/luna?step=boot"
+.TP
+\fB--tracker_interval\fP
+"Interval in seconds that the client should wait between sending regular requests to the tracker." \fIhttps://wiki.theory.org/BitTorrentSpecification\fP. Default is \fI10\fP sec.
+.TP
+\fB--tracker_min_interval\fP
+"Minimum announce interval. If present clients must not reannounce more frequently than this." \fIhttps://wiki.theory.org/BitTorrentSpecification\fP. Default is \fI5\fP sec.
+.TP
+\fB--tracker_maxpeers\fP
+Torrent tracker max allowed peers. It is uppper bound for \fInumwant\fP: "Number of peers that the client would like to receive from the tracker." \fIhttps://wiki.theory.org/BitTorrentSpecification\fP. Default is \fI200\fP.
+.TP
+\fB--torrent_listen_port_min\fP
+\fIltorrent\fP tunable. Start of the range of portrs opened to accept connections from other clients. Default is \fI7052\fP.
+.TP
+\fB--torrent_listen_port_max\fP
+\fIltorrent\fP tunable. End of the range of ports opened to accept connections from other clients. Default is \fI7200\fP.
+.TP
+\fB--torrent_pidfile\fP
+Pid file for \fIltorrent\fP. Default is \fI/run/luna/ltorrent.pid\fP.
+.TP
+\fB--lweb_num_proc\fP
+Number of worker processes for \fIlweb\fP. If 0 (default), is will be autedected and more likely will be equal to the number of cores.
+.TP
+\fB--cluster_ips\fP
+Valid for clusterred configuration in Luna. Should be empty for standalone config.
+.TP
+\fB--named_include_file\fP
+Path to the file managed by luna to serve network zones. Administrator needs to include this file to his \fI/etc/named.conf\fP. Default is \fI/etc/named.luna.zones\fP.
+.TP
+\fB--named_zone_dir\fP
+Path to folder where BIND NAMED is expecting to find zone files to load. Should be equal to \fIoptions { directory "" }\fP direcive from \fInamed.conf\fP. Default is \fI/var/named\fP.
 .RE
+.TP
+\fBsync\fP
+Commad to rsync directories (\fB--path\fP) across master nodes in HA environment. Not vaid if option \fB--cluster_ips\fP is not configured.
+.TP
+\fBmakedns\fP
+Command to create zone files in \fB--named_zone_dir\fP and create/overwrite \fB--named_include_file\fP. It uses templates \fItempl_named_conf.cfg\fP, \fItempl_zone.cfg\fP and \fItempl_zone_arpa.cfg\fP.
+.TP
+\fBmakedhcp\fP
+Command to create dhcp config for BIND DHCPD server. To use this command \fBnetwork\fP should be added to Luna configuration, and interface of the master node shoud have IP address in the range of this \fBnetwork\fP. Please note, that cluster requires 2 times more IPs that the number of nodes. One half goes to IPs will be statically assigned to nodes, but second part is being required by nodes to boot. It will be used only in PXE environment. Even if node is know to Luna, Luna will not add dhcp reservation for it. This can be ajusted manually, though - create static \fIdhcpd.conf\fP based on the list of known nodes.
+.RS
+.TP
+\fB--no_ha\fP
+In HA environment do not use native DHCPD HA feature. Luna will just put the same copy of \fIdhcpd.conf\fP on both master nodes to support Active/Passive HA config. Has no effect for standalone setups and can be ommited.
+.TP
+\fB--network\fP, \fB-N\fP
+Name of the \fBnetwork\fP object.
+.TP
+\fB--start_ip\fP, \fB-s\fP
+Start of the DHCP range.
+.TP
+\fB--end_ip\fP, \fB-e\fP
+End of the DHCP range.
+.RE
+.TP
+\fBdelete\fP
+Delete cluster object from mongodb. Command requires all the other cluster objects to be deleted already. If you need to wipe cluster and know what you are doing, use MongoDB commands to nuke Luna config:
+
+# mongo
+
+> use luna
+
+> db.dropDatabase()
+
+Please note, it will not affect any files on disks. So all osimages, torrent files, configs, templates will be untouched.
+.RE
+.TP
+\fBosimage\fP
+Object reflects OS files needs to be delivered on nodes.
+.RS
+.TP
+\fBlist\fP
+Getting list of the configures objects to brief overview.
+.TP
+\fBshow\fP
+Detailed information about object.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--raw\fP, \fB-R\fP
+Print raw JSON of the object.
+.RE
+.TP
+\fBadd\fP
+Is used to add \fBosimage\fP object to Luna configuration. Please make sure that kernel rpm is installed.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--path\fP, \fB-p\fP
+Path to reach the files of the image.
+.TP
+\fB--kernver\fP, \fB-k\fP
+Kernel version of the image.
+.TP
+\fB--kernopts\fP, \fB-o\fP
+Kernel options are used to pass additional parameters to kernel on boot.
+.RE
+.TP
+\fBchange\fP
+Is used to change parameters of the \fBosimage\fP object.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--path\fP, \fB-p\fP
+Path where files (directory tree structure) of the image is being stored.
+.TP
+\fB--kernver\fP, \fB-k\fP
+Kernel version of the image.
+.TP
+\fB--kernopts\fP, \fB-o\fP
+Kernel options are used to pass additional parameters to kernel on boot.
+.TP
+\fB--dracutmodules\fP, \fB-d\fP
+Dracut modules for initrd. Comma separated list of the dracut modules. \fBdracut\fP(8) supports \fB-a\fP and \fB-o\fP options, so modules prepended with '-' sign (minus) will bo ommited on initr build (\fB-o\fP).
+.TP
+\fB--kernmodules\fP, \fB-m\fP
+Kernel modules for initrd. Comma separated list of the kernel modules. \fBdracut\fP(8) supports \fB--add-drivers\fP and \fB--omit-drivers\fP options, so modules prepended with '-' sign (minus) will bo ommited on initr build (\fB--omit-drivers\fP).
+.RE
+.TP
+\fBpack\fP
+Is used to 'pack' osimage, i.e. make it available for nodes to boot. Under the hood it creates tarball from directory tree, create torrent file, put everything to \fI~luna/torrents/\fP, then build initrd and copy it with kernel to \fI~luna/boot/\fP. It also fills values for \fIinitrdfile\fP, \fIkernfile\fP, \fItarball\fP and \fItorrent\fP variables in \fBluna osimage show\fP output. In addition, if Luna in configured to working in HA environment (\fB--cluster_ips\fP) \fBpack\fP syncronizes data for the osimage across all the master nodes.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--image\fP, \fB-i\fP
+Create tarball and bittorrent file only.
+.TP
+\fB--boot\fP, \fB-b\fP
+Prepare kernel and initrd only.
+.RE
+.TP
+\fBsync\fP
+Is used to syncronize images acros the master nodes (\fB--cluster_ips\fP).
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.RE
+.TP
+\fBclone\fP
+Allows to clone osimage object including underlying files. As a result second identical object will be created with copy of all the files in another path. Convenient way not to recreate osimage from scratch or take a snapshot of what was already done.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--to\fP, \fB-t\fP
+Name of the new (cloned) object.
+.TP
+\fB--path\fP, \fB-p\fP
+Path to reach the files of the image.
+.RE
+.TP
+\fBrename\fP
+Allows to rename object in Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--newname\fP, \fB--nn\fP
+New name of the object.
+.RE
+.TP
+\fBdelete\fP
+Delete object from Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.RE
+.RE
+
