@@ -1172,7 +1172,7 @@ node_command = node_parser_actions.add_parser('show', help='Show Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
 node_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-node_command = node_parser_actions.add_parser('add', help='Show Node.')
+node_command = node_parser_actions.add_parser('add', help='Add Node.')
 node_command.add_argument('--name', '-n', type=str, help='Name of the Node.')
 node_command.add_argument('--group', '-g', required=True, type=str, help='Group.')
 # change
@@ -1208,7 +1208,7 @@ switch_command = switch_parser_actions.add_parser('show', help='Show Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 switch_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-switch_command = switch_parser_actions.add_parser('add', help='Show Switch.')
+switch_command = switch_parser_actions.add_parser('add', help='Add Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 switch_command.add_argument('--network', '-N', required=True, type=str, help='Network Switch belongs to.')
 switch_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the Switch.')
@@ -1242,7 +1242,7 @@ otherdev_command = otherdev_parser_actions.add_parser('show', help='Show device.
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 otherdev_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-otherdev_command = otherdev_parser_actions.add_parser('add', help='Show device.')
+otherdev_command = otherdev_parser_actions.add_parser('add', help='Add device.')
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 otherdev_command.add_argument('--network', '-N', type=str, help='Network device belongs to.')
 otherdev_command.add_argument('--ip', '-i', type=str, help='IP of the device.')
