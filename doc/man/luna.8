@@ -264,4 +264,87 @@ Delete object from Luna database.
 Name of the object.
 .RE
 .RE
+.TP
+\fBbmcsetup\fP
+Object describes BMC configuration of the node. Paramaters from this object will be used to render script from \fItempl_install.cfg\fP
+.RS
+.TP
+\fBlist\fP
+Getting list of the configures objects to brief overview.
+.IP
+\fBshow\fP
+Detailed information about object.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--raw\fP, \fB-R\fP
+Print raw JSON of the object.
+.RE
+.TP
+\fBadd\fP
+Adds \fBbmcsetup\fP object to Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--user\fP, \fB-u\fP
+Username to reach BMC from remote. default is \fIladmin\fP.
+.TP
+\fB--password\fP, \fB-p\fP
+Password to reach BMC from remote. Default is \fIladmin\fP.
+.TP
+\fB--userid\fP, \fB-I\fP
+User ID for user. Default is \fI3\fP.
+.TP
+\fB--netchannel\fP, \fB-N\fP
+Channel number for LAN settings of the BMC. Default is \fI1\fP.
+.TP
+\fB--mgmtchannel\fP, \fB-M\fP
+Management channel of the BMC. Default is \fI1\fP.
+.RE
+\fBchange\fP
+Changes \fBbmcsetup\fP object to Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--user\fP, \fB-u\fP
+Username to reach BMC from remote. default is \fIladmin\fP.
+.TP
+\fB--password\fP, \fB-p\fP
+Password to reach BMC from remote. Default is \fIladmin\fP.
+.TP
+\fB--userid\fP, \fB-I\fP
+User ID for user. Default is \fI3\fP.
+.TP
+\fB--netchannel\fP, \fB-N\fP
+Channel number for LAN settings of the BMC. Default is \fI1\fP.
+.TP
+\fB--mgmtchannel\fP, \fB-M\fP
+Management channel of the BMC. Default is \fI1\fP.
+.RE
+.TP
+\fBrename\fP
+Allows to rename object in Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--newname\fP, \fB--nn\fP
+New name of the object.
+.RE
+.TP
+\fBdelete\fP
+Delete object from Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.RE
+.RE
 
