@@ -347,4 +347,87 @@ Delete object from Luna database.
 Name of the object.
 .RE
 .RE
-
+.TP
+\fBnetwork\fP
+Object allows to manage network configuration and IP addresses of the cluster objects.
+.RS
+.TP
+\fBlist\fP
+Getting list of the configures objects to brief overview.
+.IP
+\fBshow\fP
+Detailed information about object.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--raw\fP, \fB-R\fP
+Print raw JSON of the object.
+.RE
+.TP
+\fBadd\fP
+Adds \fBnetwork\fP object to Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--network\fP, \fB-N\fP
+Network, can be any IP address. Network will be calculated based on \fB--prefix\fP. For example 10.30.4.1/16 will be converted to 10.30.0.0.
+.TP
+\fB--prefix\fP, \fB-P\fP
+Network prefix.
+.TP
+\fB--ns_hostname\fP
+Nameserver for zone file (IN NS). See \fItempl_zone.cfg\fP and \fItempl_zone_arpa.cfg\fP for details.
+.TP
+\fB--ns_ip\fP
+IP address of the nameserver. Most likely will be one of the IP addresses (in corresponding IP range) assigned to master node. See \fItempl_zone.cfg\fP and \fItempl_zone_arpa.cfg\fP for details.
+.RE
+.TP
+\fBchange\fP
+Adds \fBnetwork\fP object to Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--network\fP, \fB-N\fP
+Network, can be any IP address. Network will be calculated based on \fB--prefix\fP. For example 10.30.4.1/16 will be converted to 10.30.0.0.
+.TP
+\fB--prefix\fP, \fB-P\fP
+Network prefix.
+.TP
+\fB--ns_hostname\fP
+Nameserver for zone file (IN NS). See \fItempl_zone.cfg\fP and \fItempl_zone_arpa.cfg\fP for details.
+.TP
+\fB--ns_ip\fP
+IP address of the nameserver. Most likely will be one of the IP addresses (in corresponding IP range) assigned to master node. See \fItempl_zone.cfg\fP and \fItempl_zone_arpa.cfg\fP for details.
+.TP
+\fB--reserve\fP
+\fIFor advanced usage.\fP Locks IP from assigning to any cluster's device or host. This option will mark particualar IP as 'occupied'. Please, consider to use \fBotherdev\fP first. This option will not assign any name for IP, so IP address will be ignored during zone creation.
+.TP
+\fB--release\fP
+\fIFor advanced usage.\fP Releases occupied IP. This option does not check if IP is assigned to any \fBnode\fP/\fBswitch\fP/\fBotherdev\fP object, so can cause IP conflicts or other instabilities in the cluster.
+.RE
+.TP
+\fBrename\fP
+Allows to rename object in Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.TP
+\fB--newname\fP, \fB--nn\fP
+New name of the object.
+.RE
+.TP
+\fBdelete\fP
+Delete object from Luna database.
+.RS
+.TP
+\fB--name\fP, \fB-n\fP
+Name of the object.
+.RE
+.RE
