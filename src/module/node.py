@@ -986,12 +986,17 @@ EOF"""
             pass
         try:
             interfaces = json['interfaces'].keys()
-            for interface in interfaces:
-                net_dbref = json['interfaces'][interface]['network']
-                net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
-                params['interfaces'][str(interface)] = params['interfaces'][str(interface)].strip() + "\n" + "PREFIX=" + str(net.get('PREFIX'))
         except:
-            pass
+            interfaces = []
+
+        for interface in interfaces:
+            net_dbref = json['interfaces'][interface]['network']
+            try:
+                net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
+                net_prefix = "\n" + "PREFIX=" + str(net.get('PREFIX'))
+            except:
+                net_prefix = ""
+            params['interfaces'][str(interface)] = params['interfaces'][str(interface)].strip() + net_prefix
         osimage = OsImage(id = self.get('osimage').id, mongo_db = self._mongo_db)
         try:
             params['torrent'] = osimage.get('torrent') + ".torrent"
