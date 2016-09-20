@@ -197,7 +197,8 @@ class Node(Base):
         if not bool(interface):
             for iface in json['interfaces']:
                 ip = json['interfaces'][iface]
-                group._release_ip(iface, ip)
+                if bool(ip):
+                    group._release_ip(iface, ip)
                 mongo_doc.pop(iface)
             res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
             return not res['err']
