@@ -373,7 +373,7 @@ class Node(Base):
         try:
             ipnum = json['bmcnetwork']
         except:
-            self._logger.error("No IPADDR for interface bmc configured")
+            self._logger.warning("No IPADDR for interface bmc configured")
             return None
         return group.get_human_bmc_ip(ipnum)
 
