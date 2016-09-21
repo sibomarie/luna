@@ -106,16 +106,44 @@ class Node(Base):
         json = self._get_json()
         old_group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         old_group_interfaces = old_group._get_json()['interfaces']
+        try:
+            old_bmc_net_id = old_group._get_json()['bmcnetwork'].id
+        except:
+            old_bmc_net_id = None
+        old_bmc_ip = None
+        if bool(old_bmc_net_id):
+            old_bmc_ip = self.get_human_bmc_ip()
+        old_ips = {}
         for interface in old_group_interfaces:
+            try:
+                net_id = old_group_interfaces[interface]['network'].id
+            except:
+                net_id = None
+            if bool(net_id):
+                old_ip = self.get_human_ip(interface)
+                old_ips[net_id] = {'interface' : interface, 'ip': old_ip}
             self.del_ip(interface)
         self.del_bmc_ip()
         self.unlink(old_group)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'group': new_group.DBRef}}, multi=False, upsert=False)
         self.link(new_group)
-        self.add_bmc_ip()
+        if bool(old_bmc_net_id) and new_group._get_json()['bmcnetwork'].id == old_bmc_net_id:
+            self.add_bmc_ip(old_bmc_ip)
+        else:
+            self.add_bmc_ip()
+
         new_group_interfaces = new_group._get_json()['interfaces']
         for interface in new_group_interfaces:
-            self.add_ip(interface)
+            try:
+                net_id = new_group_interfaces[interface]['network'].id
+            except:
+                net_id = None
+            if bool(net_id):
+                try:
+                    old_ip = old_ips[net_id]['ip']
+                except:
+                    old_ip = None
+            self.add_ip(interface, old_ip)
         return res['err']
 
     def change_ip(self, interface = None, reqip = None):
