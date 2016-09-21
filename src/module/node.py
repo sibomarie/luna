@@ -127,7 +127,11 @@ class Node(Base):
         self.unlink(old_group)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'group': new_group.DBRef}}, multi=False, upsert=False)
         self.link(new_group)
-        if bool(old_bmc_net_id) and new_group._get_json()['bmcnetwork'].id == old_bmc_net_id:
+        try:
+            newbmc_net_id = new_group._get_json()['bmcnetwork'].id
+        except:
+            newbmc_net_id = None
+        if bool(old_bmc_net_id) and bool(newbmc_net_id) and newbmc_net_id == old_bmc_net_id:
             self.add_bmc_ip(old_bmc_ip)
         else:
             self.add_bmc_ip()
