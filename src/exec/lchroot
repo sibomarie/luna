@@ -45,8 +45,12 @@ function mount_d {
     mount -t sysfs    sysfs     $CHROOT_PATH/sys  2>/dev/null || NEED_UMOUNT_SYS=0
     mount -t proc     proc      $CHROOT_PATH/proc 2>/dev/null || NEED_UMOUNT_PROC=0
 }
-
 OSIMAGE=$1
+if [ "x${OSIMAGE}" = "x" ]; then
+    echo "osimage need to be specified."
+    echo "Type 'luna osimage list' to get the list."
+    exit 7
+fi
 FAKE_KERN=$(luna osimage show -n $OSIMAGE --kernver | awk '$2~/<=/{print $1}')
 CHROOT_PATH=$(luna osimage show -n $OSIMAGE --path)
 

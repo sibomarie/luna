@@ -106,16 +106,48 @@ class Node(Base):
         json = self._get_json()
         old_group = Group(id = json['group'].id, mongo_db = self._mongo_db)
         old_group_interfaces = old_group._get_json()['interfaces']
+        try:
+            old_bmc_net_id = old_group._get_json()['bmcnetwork'].id
+        except:
+            old_bmc_net_id = None
+        old_bmc_ip = None
+        if bool(old_bmc_net_id):
+            old_bmc_ip = self.get_human_bmc_ip()
+        old_ips = {}
         for interface in old_group_interfaces:
+            try:
+                net_id = old_group_interfaces[interface]['network'].id
+            except:
+                net_id = None
+            if bool(net_id):
+                old_ip = self.get_human_ip(interface)
+                old_ips[net_id] = {'interface' : interface, 'ip': old_ip}
             self.del_ip(interface)
         self.del_bmc_ip()
         self.unlink(old_group)
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'group': new_group.DBRef}}, multi=False, upsert=False)
         self.link(new_group)
-        self.add_bmc_ip()
+        try:
+            newbmc_net_id = new_group._get_json()['bmcnetwork'].id
+        except:
+            newbmc_net_id = None
+        if bool(old_bmc_net_id) and bool(newbmc_net_id) and newbmc_net_id == old_bmc_net_id:
+            self.add_bmc_ip(old_bmc_ip)
+        else:
+            self.add_bmc_ip()
+
         new_group_interfaces = new_group._get_json()['interfaces']
         for interface in new_group_interfaces:
-            self.add_ip(interface)
+            try:
+                net_id = new_group_interfaces[interface]['network'].id
+            except:
+                net_id = None
+            if bool(net_id):
+                try:
+                    old_ip = old_ips[net_id]['ip']
+                except:
+                    old_ip = None
+            self.add_ip(interface, old_ip)
         return res['err']
 
     def change_ip(self, interface = None, reqip = None):
@@ -175,7 +207,7 @@ class Node(Base):
             node_interfaces = {}
         ip = group._reserve_ip(interface, reqip)
         if not bool(ip):
-            self._logger.error("Cannot reserve ip for interface '{}'.".format(interface))
+            self._logger.warning("Cannot reserve ip for interface '{}'.".format(interface))
         node_interfaces[interface] = ip
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': node_interfaces}}, multi=False, upsert=False)
         return not res['err']
@@ -197,7 +229,8 @@ class Node(Base):
         if not bool(interface):
             for iface in json['interfaces']:
                 ip = json['interfaces'][iface]
-                group._release_ip(iface, ip)
+                if bool(ip):
+                    group._release_ip(iface, ip)
                 mongo_doc.pop(iface)
             res = self._mongo_collection.update({'_id': self._id}, {'$set': {'interfaces': mongo_doc}}, multi=False, upsert=False)
             return not res['err']
@@ -227,7 +260,7 @@ class Node(Base):
             return None
         ip = group._reserve_bmc_ip(reqip)
         if not bool(ip):
-            self._logger.error("Cannot reserve ip for bmc interface")
+            self._logger.warning("Cannot reserve ip for bmc interface")
             return None
         mongo_doc = ip
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': mongo_doc}}, multi=False, upsert=False)
@@ -372,7 +405,7 @@ class Node(Base):
         try:
             ipnum = json['bmcnetwork']
         except:
-            self._logger.error("No IPADDR for interface bmc configured")
+            self._logger.warning("No IPADDR for interface bmc configured")
             return None
         return group.get_human_bmc_ip(ipnum)
 
@@ -803,7 +836,7 @@ EOF"""
             self._logger.error("No such interface '{}'".format(interface))
             return None
         if not bool(net_dbref):
-            self._logger.error("No network configured for interface '{}'".format(interface))
+            self._logger.warning("No network configured for interface '{}'".format(interface))
             return None
         net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.reserve_ip(ip)
@@ -835,7 +868,7 @@ EOF"""
             self._logger.error("No bmc network configured")
             return None
         if not bool(net_dbref):
-            self._logger.error("No network configured for BMC interface")
+            self._logger.warning("No network configured for BMC interface")
             return None
         net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
         return net.reserve_ip(ip)

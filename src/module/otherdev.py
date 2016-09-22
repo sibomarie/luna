@@ -147,7 +147,8 @@ class OtherDev(Base):
         obj_json = self._get_json()
         for network in obj_json['connected']:
             net = Network(id = ObjectId(network), mongo_db = self._mongo_db)
-            net.release_ip(obj_json['connected'][network])
+            if obj_json['connected'][network]:
+                net.release_ip(obj_json['connected'][network])
             self.unlink(net)
         return super(OtherDev, self).delete()
 

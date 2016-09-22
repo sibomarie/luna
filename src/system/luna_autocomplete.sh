@@ -104,6 +104,14 @@ function _luna_autocomplete() {
     COMPREPLY=($(compgen -W "${LUNA_OPTS}" -- ${CUR}))
     return 0
 }
+function _lchroot_autocomplete() {
+    compopt +o bashdefault +o default +o dirnames +o filenames +o nospace +o plusdirs
+    local CUR=${COMP_WORDS[COMP_CWORD]}
+    LUNA_OSIMAGES=$(python -c "import luna; print \" \".join(luna.list(\"osimage\"))" 2>/dev/null)
+    COMPREPLY=($(compgen -W "${LUNA_OSIMAGES}" -- ${CUR}))
+    return 0
+}
 if [ $(id -u) -eq 0 ]; then    
     complete -F _luna_autocomplete luna
+    complete -F _lchroot_autocomplete lchroot
 fi
