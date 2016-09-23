@@ -13,47 +13,47 @@ command to edit Luna cluster configuration.
 SYNOPSIS
 ========
 
-``luna`` [ *--help* | *-h* ]
+**luna** [ *--help* | *-h* ]
 
-``luna`` *object* [ *--help* | *-h* ]
+**luna** *object* [ *--help* | *-h* ]
 
-``luna`` *object* *action* [ *--help* | *-h* ] [ *OPTIONS* ...]
+**luna** *object* *action* [ *--help* | *-h*  [ *OPTIONS* ...]
 
 DESCRIPTION
 ===========
 
-``luna`` is used to view and edit objects in Luna database.
+**luna** is used to view and edit objects in Luna database.
 
 GETTING QUICK HELP
 ==================
 
-``--help``, ``-h``
+**--help**, **-h**
     Getting list of supported objects.
-*object* [ ``--help``, ``-h`` ]
+*object* [ **--help**, **-h** ]
     Getting list of supported actions for object.
-*object* *action* [ ``--help``, ``-h`` ]
+*object* *action* [ **--help**, **-h** ]
     Getting list of supported options for particular object and action.
 
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
-``cluster``
+**cluster**
     Global configuration of the Luna cluster. Configuration of external services.
 
-    ``init``
+    **init**
         Initialize cluster configuration.
 
-        ``--nodeprefix``, ``--prefix``, ``-p``
+        **--nodeprefix**, **--prefix**, **-p**
             Prefix for newly created nodes: nodeXXX, hostXXX, nXXX, etc. Default is "*node*".
 
-        ``--nodedigits``, ``--digits``, ``-d``
+        **--nodedigits**, **--digits**, **-d**
             Leading zeros to node number: node01, node001, node0001, etc. Default is *3*.
 
-        ``--path``
+        **--path**
             Path to store kernels, initrd, tarballs (with packed OSes), bittorrent files, scripts' templates. It is assumed that it is a HOMEDIR for user, used to run services (see bellow). Default is "*/opt/luna*"
 
-        ``--user``
+        **--user**
             Name of the system user to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is *luna*
 
-    ``show``
+    **show**
         Print global cluster config.
