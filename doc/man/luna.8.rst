@@ -77,13 +77,13 @@ OBJECTS, ACTIONS AND OPTIONS
             Name of the system user is used to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user.
 
         **--frontend_address**
-            IP address of the interface of the master node. It is being used to access services provided by *lweb* using HTTP protocol: boot scripts, installation scripts, torrent tracker. Port to reach the services is specified as **--frontend_port**. Combination http://frontend_address:frontend_port can be used for quick check.
+            IP address of the interface of the master node. It is being used to access services provided by *lweb* using HTTP protocol: boot scripts, installation scripts, torrent tracker. Port to reach the services is specified as **--frontend_port**. Combination ``http://frontend_address:frontend_port``` can be used for quick check.
             
-            Example:
+            Example::
                 
-                ```
+                
                 curl "http://10.30.255.254:7050/luna?step=boot"
-                ```
+                
 
             No default value for it! Should be set up right after **luna cluster init** command.
 
