@@ -37,8 +37,12 @@ GETTING QUICK HELP
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
+.. cluster:
+
 **cluster**
     Global configuration of the Luna cluster. Configuration of external services.
+    
+.. cluster-init:
 
     **init**
         Initialize cluster configuration.
@@ -166,7 +170,7 @@ OBJECTS, ACTIONS AND OPTIONS
     **show**
         Detailed information about object.
 
-        **--name**
+        **--name**, **-n**
             Name of the object.
 
         **--raw**, **-R**
@@ -175,7 +179,7 @@ OBJECTS, ACTIONS AND OPTIONS
     **add**
         Add **osimage** object to Luna configuration. Please make sure that kernel rpm is installed.
 
-        **--name**
+        **--name**, **-n**
             Name of the object.
 
         **--path**, **-p**
@@ -190,7 +194,7 @@ OBJECTS, ACTIONS AND OPTIONS
     **change**
         Change parameters of the **osimage** object.
 
-        **--name**
+        **--name**, **-n**
             Name of the object.
 
         **--kernver**, **-k**
@@ -200,7 +204,26 @@ OBJECTS, ACTIONS AND OPTIONS
             Kernel options are used to pass additional parameters to kernel on boot.
 
         **--dracutmodules**, **-d**
-            Dracut modules for initrd. Comma separated list of the dracut modules. ``dracut(8)`` supports ``-a`` and ``-o`` options, so modules prepended with '-' sign (minus) will bo ommited on initr build (\fB-o).
+            Dracut modules for initrd. Comma separated list of the dracut modules. ``dracut(8)`` supports ``-a`` and ``-o`` options, so modules prepended with '-' sign (minus) will be ommited on initr build (``-o``).
+
+        **--kernmodules**, **-m**
+            Kernel modules for initrd. Comma separated list of the kernel modules. ``dracut(8)`` supports ``--add-drivers`` and ``--omit-drivers`` options, so modules prepended with '-' sign (minus) will be ommited on initr build (``--omit-drivers``).
+
+    **pack**
+        Command to 'pack' osimage, i.e. make it available for nodes to boot. Under the hood it creates tarball from directory tree, creates torrent file, put everything to *~luna/torrents/*, then build initrd and copy it with kernel to *~luna/boot/*. It also fills values for *initrdfile*, *kernfile*, *tarball* and *torrent* variables in ``luna osimage show`` output. In addition, if Luna is configured to working in HA environment (**--cluster_ips**) this subcommand syncronizes data for the osimage across all the master nodes.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--image**, **-i**
+            Create tarball and bittorrent file only.
+
+        **--boot**, **-b**
+            Prepare kernel and initrd only.
+
+    **sync**
+        Command to syncronize images between the master nodes (**--cluster_ips**).
+
 
 
 
