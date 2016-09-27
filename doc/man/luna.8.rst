@@ -37,9 +37,12 @@ GETTING QUICK HELP
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
-cluster
--------
+.. _cluster:
+
+**cluster**
     Global configuration of the Luna cluster. Configuration of external services.
+
+.. _cluster-init:
 
     **init**
         Initialize cluster configuration.
@@ -158,8 +161,8 @@ cluster
 
         Please note, it will not affect any files on disks. So all osimages, torrent files, configs, templates will be untouched.
 
-osimage
--------
+**osimage**
+
     Object reflects OS files needs to be delivered on nodes.
 
     **list**
