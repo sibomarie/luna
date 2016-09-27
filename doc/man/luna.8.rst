@@ -37,13 +37,9 @@ GETTING QUICK HELP
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
-.. cluster:
-
 **cluster**
     Global configuration of the Luna cluster. Configuration of external services.
     
-.. cluster-init:
-
     **init**
         Initialize cluster configuration.
 
