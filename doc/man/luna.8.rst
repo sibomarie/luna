@@ -37,12 +37,8 @@ GETTING QUICK HELP
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
-.. _cluster:
-
 **cluster**
     Global configuration of the Luna cluster. Configuration of external services.
-
-.. _cluster-init:
 
     **init**
         Initialize cluster configuration.
@@ -59,17 +55,12 @@ OBJECTS, ACTIONS AND OPTIONS
         **--user**
             Name of the system user to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is *luna*
 
-.. _cluster-show:
 
     **show**
         Print global cluster config.
 
-.. _cluster-init-raw:
-
         **--raw**, **-R**
             Print raw JSON of the object.
-
-.. _cluster-change:
 
     **change**
         Change global cluster configuration options.
@@ -231,6 +222,105 @@ OBJECTS, ACTIONS AND OPTIONS
     **sync**
         Command to syncronize images between the master nodes (**--cluster_ips**).
 
+        **--name**, **-n**
+            Name of the object.
 
+    **clone**
+        Command to clone osimage object including underlying files. As a result second identical object will be created with copy of all the files in another path. Convenient way not to recreate osimage from scratch or take a snapshot of what was already done.
 
+        **--name**, **-n**
+            Name of the object.
+
+        **--to**, **-t**
+            Name of the new (cloned) object.
+
+        **--path**, **-p**
+            Path to reach the files of the image.
+
+    **rename**
+        Rename object in Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--newname**, **--nn**
+            New name of the object.
+
+    **delete**
+        Delete object from Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+**bmcsetup**
+    Object describes BMC configuration of the node. Paramaters from this object will be used to render script from *templ_install.cfg*
+
+    **list**
+        Getting list of the configured objects for brief overview.
+
+    **show**
+        Detailed information about object.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--raw**, **-R**
+            Print raw JSON of the object.
+
+    **add**
+        Add **osimage** object to Luna configuration. Please make sure that kernel rpm is installed.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--user**, **-u**
+            Username to reach BMC from remote. default is *ladmin*.
+
+        **--password**, **-p**
+            Password to reach BMC from remote. Default is *ladmin*.
+
+        **--userid**, **-I**
+            User ID for user. Default is *3*.
+
+        **--netchannel**, **-N**
+            Channel number for LAN settings of the BMC. Default is *1*.
+
+        **--mgmtchannel**, **-M**
+            Management channel of the BMC. Default is *1*.
+
+    **change**
+        Change **bmcsetup** object to Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--user**, **-u**
+            Username to reach BMC from remote. default is *ladmin*.
+
+        **--password**, **-p**
+            Password to reach BMC from remote. Default is *ladmin*.
+
+        **--userid**, **-I**
+            User ID for user. Default is *3*.
+
+        **--netchannel**, **-N**
+            Channel number for LAN settings of the BMC. Default is *1*.
+
+        **--mgmtchannel**, **-M**
+            Management channel of the BMC. Default is *1*.
+
+    **rename**
+        Rename object in Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--newname**, **--nn**
+            New name of the object.
+
+    **delete**
+        Delete object from Luna database.
+
+        **--name**, **-n**
+            Name of the object.
 
