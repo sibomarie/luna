@@ -59,11 +59,15 @@ OBJECTS, ACTIONS AND OPTIONS
         **--user**
             Name of the system user to start luna services (lweb, ltorrent). All files are needed to be accessed by daemons should be owned by this user. Default is *luna*
 
+.. _cluster-show:
+
     **show**
         Print global cluster config.
 
         **--raw**, **-R**
             Print raw JSON of the object.
+
+.. _cluster-change:
 
     **change**
         Change global cluster configuration options.
