@@ -323,3 +323,190 @@ OBJECTS, ACTIONS AND OPTIONS
         **--name**, **-n**
             Name of the object.
 
+**network**
+    Object allows to manage network configuration and IP addresses of the cluster objects.
+
+    **list**
+        Getting list of the configured objects for brief overview.
+
+    **show**
+        Detailed information about object.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--raw**, **-R**
+            Print raw JSON of the object.
+
+    **add**
+        Add **osimage** object to Luna configuration. Please make sure that kernel rpm is installed.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--network**, **-N**
+            Network. Can be any IP address. Resulting network address will be calculated based on **--prefix**. For example 10.30.4.1/16 will be converted to 10.30.0.0.
+
+        **--prefix**, **-P**
+            Network prefix.
+
+        **--ns_hostname**
+            Nameserver for zone file (IN NS). See *templ_zone.cfg* and *templ_zone_arpa.cfg* for details.
+
+        **--ns_ip**
+            IP address of the nameserver. Most likely will be one of the IP addresses (in corresponding IP range) assigned to master node. See *templ_zone.cfg* and *templ_zone_arpa.cfg* for details.
+
+    **change**
+        Change **network** object to Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--network**, **-N**
+            Network. Can be any IP address. Resulting network address will be calculated based on **--prefix**. For example 10.30.4.1/16 will be converted to 10.30.0.0.
+
+        **--prefix**, **-P**
+            Network prefix.
+
+        **--ns_hostname**
+            Nameserver for zone file (IN NS). See *templ_zone.cfg* and *templ_zone_arpa.cfg* for details.
+
+        **--ns_ip**
+            IP address of the nameserver. Most likely will be one of the IP addresses (in corresponding IP range) assigned to master node. See *templ_zone.cfg* and *templ_zone_arpa.cfg* for details.
+
+        **--reserve**
+            *For advanced usage.* Locks IP from assigning to any cluster's device or host. This option will mark particualar IP as 'occupied'. Please, consider to use *otherdev* first. This option will not assign any name for IP, so IP address will be ignored during zone creation.
+        **--release**
+            *For advanced usage.* Releases occupied IP. This option does not check if IP is assigned to any **node**, **switch** or **otherdev** object, so can cause IP conflicts or other instabilities in the cluster.
+
+    **rename**
+        Rename object in Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--newname**, **--nn**
+            New name of the object.
+
+    **delete**
+        Delete object from Luna database.
+
+        **--name**, **-n**
+            Name of the object.
+
+**group**
+    Common configuration for the group of nodes. Most of the changes in the configuration of the cluster will be performed in this object.
+
+    **list**
+        Getting list of the configured objects for brief overview.
+
+    **show**
+        Detailed information about object.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--raw**, **-R**
+            Print raw JSON of the object.
+
+    **add**
+        Add **osimage** object to Luna configuration. Please make sure that kernel rpm is installed.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--osimage**, **-o**
+            Name of the **osimage** to be assigned to group of nodes.
+
+        **--bmcsetup**, **-b**
+            Name of the **bmcsetup** object to configure BMC of nodes.
+
+        **--bmcnetwork**, **--bn**
+            Name of the **network** object. IP addresses from this network will be assigned to BMC. See *templ_install.cfg* for details.
+
+        **--interface**, **-i**
+            Name of the interface of the node in group. It is assumed that al nodes in group have the same (or similar) hardware configuration, which is typical for the HPC cluster: *em1*, *p2p1*, *eno1*, etc.
+
+            **PLEASE NOTE** On the early stage of the cluster install process it is hard or not possible to figure out the proper name of the interfaces and other hardware config, so the best scenario here is to create group with name of the interface picked up by random, for instance *eth0*. Then add one **node** object to the group and configure to boot it in service mode (see below). In the following example **osimage** named *compute* as well as 2 networks *cluster* and *ipmi* need to be created upfront.
+
+            Example::
+
+                # luna group add --name service --osimage compute --interface eth0
+                # luna group change --name service --interface eth0 --setnet cluster
+                # luna group change --name service --bmcnetwork --setnet ipmi
+                # luna node add --name servicenode --group service
+                # luna node change --name servicenode --setupbmc n
+                # luna node change --name servicenode --service n
+
+            Then boot node and inspect hardware configuration in dracut environment: interface naming, physical disk location and proceed with **group** configuration.
+
+    **change**
+        Change configuration for the group of nodes.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--osimage**, **-o**
+            Name of the **osimage** to be assigned to group of nodes.
+
+        **--prescript**, **--pre**
+            Display/edit bash pre-install script. This script is being executed on the very early stage of the boot/install process. In conjunction with **-e** this parameter opens text editor (defined in **EDITOR** environment or **vi**). Parameters suports I/O redirection (pipes).
+
+            Example::
+
+                # echo "echo 'do something'" | luna group change --name service --prescript -e
+
+        **--partscript**, **--part**
+            Display/edit bash partitioning script. Luna does not support paritioning definititions (like anaconda, for example), so this is where **--partscript** comes into play. In conjunction with **-e** this parameter opens text editor (defined in **EDITOR** environment or **vi**). Parameters suports I/O redirection (pipes). By default following commands exist in installer environment: parted, partx, mkfs.ext2, mkfs.ext3, mkfs.ext4, mkfs.xfs (See *95luna/module-setup.sh*). It is expected that partscript will perform partitioning and creation of the filesystems amd mount filesystems under */sysroot* where image of the operation system (**osimage**) will be un-packed. By default group has **--partscript** for diskless boot:
+
+            Example::
+
+                # mount -t tmpfs tmpfs /sysroot
+
+            Diskfull nodes a bit more complicated. This is far-for-ideal example, but allows to illustrate main idea::
+
+                parted /dev/sda -s 'mklabel msdos'
+                parted /dev/sda -s 'rm 1; rm 2'
+                parted /dev/sda -s 'mkpart p ext2 1 256m'
+                parted /dev/sda -s 'mkpart p ext3 256m 100%'
+                parted /dev/sda -s 'set 1 boot on'
+                mkfs.ext2 /dev/sda1
+                mkfs.ext4 /dev/sda2
+                mount /dev/sda2 /sysroot
+                mkdir /sysroot/boot
+                mount /dev/sda1 /sysroot/boot
+
+            There are several issues in the primer above. First, it does not care about partitions already exists on disk. And second, it has a really critial issue here: it formats first available disk (sda) without checking if the disk we want to wipe can be wiped. Some systems have more that one disk. So example above should never be concidered for production use. Well behaved scripts have to do some checks before::
+
+                PATHTODEV=/dev/disk/by-path/pci-0000:02:00.0-scsi-0:2:0:0
+                SCSI_DEVICE="0:2:0:0"   # from /sys/block/sda/device/scsi_device/
+                SIZE=584843264          # from /sys/block/sda/size
+                MODEL="PERC H730 Mini"  # from /sys/block/sda/device/model
+
+                DISK=$(/usr/bin/basename $(/usr/bin/readlink -f ${PATHTODEV}))
+
+                if [ ! ${SIZE} -eq $(cat /sys/block/${DISK}/size) ]; then
+                    echo "ERROR! Size of the /dev/${DISK} is not ${SIZE}. Stoping"
+                    exit 1
+                fi
+                if [ ! "${MODEL}" = "$(/bin/cat /sys/block/${DISK}/device/model | /usr/bin/sed 's/[\t ]*$//')" ]; then
+                    echo "ERROR! Model of the /dev/${DISK} is not ${MODEL}. Stoping"
+                    exit 2
+                fi
+                if [ ! "${SCSI_DEVICE}" = "$(/usr/bin/ls /sys/block/${DISK}/device/scsi_device/)" ]; then
+                    echo "ERROR! SCSI device address of the /dev/${DISK} is not ${SCSI_DEVICE}. Stoping"
+                    exit 3
+                fi
+
+                parted /dev/${DISK} -s 'mklabel msdos'
+                partx -g -s /dev/${DISK} | awk '{print $1}' | while read PARTNUM; do
+                    parted /dev/${DISK} -s "rm ${PARTNUM}"
+                done
+                parted /dev/${DISK} -s 'mkpart p ext2 1 512m'
+                parted /dev/${DISK} -s 'mkpart p ext4 512m 100%'
+                parted /dev/${DISK} -s 'set 1 boot on'
+                mkfs.ext2 /dev/${DISK}1
+
+        **--postscript**, **--post**
+            Display/edit bash postinstall script. This script will be executed in initrd (dracut) environment after unpacking tarball.
+
