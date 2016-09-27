@@ -64,6 +64,8 @@ OBJECTS, ACTIONS AND OPTIONS
     **show**
         Print global cluster config.
 
+.. _cluster-init-raw:
+
         **--raw**, **-R**
             Print raw JSON of the object.
 
