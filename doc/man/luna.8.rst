@@ -37,9 +37,10 @@ GETTING QUICK HELP
 OBJECTS, ACTIONS AND OPTIONS
 ============================
 
-**cluster**
+cluster
+-------
     Global configuration of the Luna cluster. Configuration of external services.
-    
+
     **init**
         Initialize cluster configuration.
 
@@ -78,9 +79,9 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--frontend_address**
             IP address of the interface of the master node. It is being used to access services provided by *lweb* using HTTP protocol: boot scripts, installation scripts, torrent tracker. Port to reach the services is specified as **--frontend_port**. Combination ``http://frontend_address:frontend_port`` can be used for quick check.
-            
+
             Example::
-                
+
                 curl "http://10.30.255.254:7050/luna?step=boot"
 
             No default value for it! Should be set up right after **luna cluster init** command.
@@ -96,14 +97,14 @@ OBJECTS, ACTIONS AND OPTIONS
                 curl "http://localhost:7051/luna?step=boot"
 
         **--tracker_interval**
-            "Interval in seconds that the client should wait between sending regular requests to the tracker." https://wiki.theory.org/BitTorrentSpecification. Default is *10* sec.
+            Default is *10* sec. "Interval in seconds that the client should wait between sending regular requests to the tracker." https://wiki.theory.org/BitTorrentSpecification.
 
         **--tracker_min_interval**
-            "Minimum announce interval. If present clients must not reannounce more frequently than this." https://wiki.theory.org/BitTorrentSpecification. Default is *5* sec.
+            Default is *5* sec. "Minimum announce interval. If present clients must not reannounce more frequently than this." https://wiki.theory.org/BitTorrentSpecification.
 
         **--tracker_maxpeers**
-            Torrent tracker max allowed peers. It is uppper bound for *numwant*: "Number of peers that the client would like to receive from the tracker." https://wiki.theory.org/BitTorrentSpecification. Default is *200*.
-            
+            Default is *200*. Torrent tracker max allowed peers. It is uppper bound for *numwant*: "Number of peers that the client would like to receive from the tracker." https://wiki.theory.org/BitTorrentSpecification.
+
         **--torrent_listen_port_min**
             *ltorrent* tunable. Start of the range of portrs opened to accept connections from other clients. Default is *7052*.
 
@@ -115,10 +116,10 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--lweb_num_proc**
             Number of worker processes for *lweb*. If 0 (default), is will be autodected and more likely will be equal to the number of cores.
-    
+
         **--cluster_ips**
             IP of the master nodes. Valid for Luna's HA configuration. Should be empty for standalone config.
-        
+
         **--named_include_file**
             Path to the file managed by luna to host network zones. Administrator needs to include this file to */etc/named.conf*. Default is */etc/named.luna.zones*.
 
@@ -127,10 +128,10 @@ OBJECTS, ACTIONS AND OPTIONS
 
     **sync**
         Command to rsync directories (**--path**) across master nodes in HA environment. Not vaid if option **--cluster_ips** is not configured.
-    
+
     **makedns**
         Command to create zone files in **--named_zone_dir** and create/overwrite **--named_include_file**. It uses templates *templ_named_conf.cfg*, *templ_zone.cfg* and *templ_zone_arpa.cfg*.
-    
+
     **makedhcp**
         Command to create dhcp config for BIND DHCPD server. To use this command **network** should be added to Luna configuration, and interface of the master node shoud have IP address in the range of this **network**. Please note, that cluster requires 2 times more IPs that the number of nodes. One half goes to IPs will be statically assigned to nodes, but second part is being required by nodes to boot. It will be used only in PXE environment. Even if node is know to Luna, Luna will not add dhcp reservation for it. This can be ajusted manually, though - create static *dhcpd.conf* based on the list of known nodes.
 
@@ -154,10 +155,11 @@ OBJECTS, ACTIONS AND OPTIONS
             # mongo
             > use luna
             > db.dropDatabase()
-        
+
         Please note, it will not affect any files on disks. So all osimages, torrent files, configs, templates will be untouched.
 
-**osimage**
+osimage
+-------
     Object reflects OS files needs to be delivered on nodes.
 
     **list**
