@@ -159,7 +159,6 @@ OBJECTS, ACTIONS AND OPTIONS
         Please note, it will not affect any files on disks. So all osimages, torrent files, configs, templates will be untouched.
 
 **osimage**
-
     Object reflects OS files needs to be delivered on nodes.
 
     **list**
