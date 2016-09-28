@@ -319,7 +319,7 @@ class Network(Base):
             self._logger.error("Error while saving list of free IPs: '{}'".format(freelist))
         return not res['err']
  
-    def reserve_ip(self, ip1 = None, ip2 = None):
+    def reserve_ip(self, ip1 = None, ip2 = None, ignore_errors = True):
         if type(ip1) is str:
             ip1 = self.ip_to_relnum(ip1)
         if type(ip2) is str:
@@ -331,7 +331,9 @@ class Network(Base):
             return self._get_ip(ip1, ip2)
         if bool(ip1):
             return self._get_ip(ip1)
-        return self._get_next_ip()
+        if ignore_errors:
+            return self._get_next_ip()
+        return None
 
     def release_ip(self, ip1, ip2 = None):
         if type(ip1) is str:

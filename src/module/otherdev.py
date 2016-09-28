@@ -63,7 +63,9 @@ class OtherDev(Base):
                     self._logger.error("IP needs to be specified")
                     raise RuntimeError
                 net = Network(name = network, mongo_db = self._mongo_db)
-                ip = net.reserve_ip(ip)
+                ip = net.reserve_ip(ip, ignore_errors = False)
+                if not bool(ip):
+                    raise RuntimeError
                 connected = {str(net.DBRef.id): ip}
             mongo_doc = { 'name': name, 'connected': connected}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
