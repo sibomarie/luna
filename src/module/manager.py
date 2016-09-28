@@ -73,6 +73,7 @@ class Manager(tornado.web.RequestHandler):
             macs = set(hwdata.split('|'))
             # enter node name manualy from ipxe
             if req_nodename:
+                self.app_logger.info("Node '{}' was chosen in iPXE".format(req_nodename))
                 try:
                     node = luna.Node(name = req_nodename, mongo_db = self.mongo)
                 except:
@@ -82,9 +83,11 @@ class Manager(tornado.web.RequestHandler):
                 mac = None
                 for mac in macs:
                     if bool(mac):
-                        mac = mac.lower()
-                        set_mac_node(mac, node.DBRef)
-                        break
+                        mac = str(mac.lower())
+                        self.app_logger.info("Node '{}' trying to set '{}' as mac".format(req_nodename, mac))
+                        if node.set_mac(mac):
+                            break
+                        self.app_logger.error("MAC: '{}' looks wrong.".format(mac))
             # need to find node fo given macs.
             # first step - trying to find in know macs
             found_node_dbref = None
@@ -123,7 +126,7 @@ class Manager(tornado.web.RequestHandler):
                     if mac_from_cache:
                         break
                     mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
-                    # now search mac in switch_mac using portnumbers 
+                    # now search mac in switch_mac using portnumbers
                     for elem in mac_cursor:
                         switch_id = elem['switch_id']
                         port = elem['port']
@@ -138,7 +141,7 @@ class Manager(tornado.web.RequestHandler):
                     if mac_from_cache:
                         break
                 if not bool(mac_from_cache):
-                    self.app_logger.info("Cannot find '{}' in learned macs.".format(macs))
+                    self.app_logger.info("Cannot find '{}' in learned macs.".format("', '".join([mac for mac in macs])))
                     # did not find in learned macs
                     self.send_error(404)
                     return
