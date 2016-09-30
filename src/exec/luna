@@ -93,7 +93,7 @@ def cluster_change(**args):
         if args[key] == None:
             continue
         cluster.set(key, args[key])
- 
+
 def cluster_show(raw, out_format = def_format):
     cluster = luna.luna.Cluster()
     if raw:
@@ -230,7 +230,7 @@ def cluster_makedhcp(**args):
             "Start dhcpd on " + ip + ".",
             "Unable to start dhcpd.")
     return True
-    
+
 
 
 def _run_command(cmd, descr, err):
@@ -240,7 +240,7 @@ def _run_command(cmd, descr, err):
     if ssh_proc.returncode:
         _safe_print(err)
         sys.exit(1)
-    
+
 #################### OsImage
 
 def osimage_list():
@@ -264,7 +264,7 @@ def osimage_show(out_format = def_format, **args):
         for elem in osimage.list_kernels():
             if elem == osimage.get('kernver'):
                 _safe_print(elem + ' <=')
-                continue 
+                continue
             _safe_print(elem)
         return None
     out_json = osimage.show()
@@ -352,7 +352,7 @@ def osimage_pack(**args):
     update_ltorrent()
     osimage_sync(args['name'])
     return True
-    
+
 def osimage_sync(name):
     check_active_node()
     cluster = luna.Cluster()
@@ -411,7 +411,7 @@ def osimage_rename(**args):
     check_active_node()
     osimage = luna.OsImage(args['name'])
     osimage.rename(args['newname'])
-    
+
 
 #################### BMCSetup
 
@@ -599,7 +599,7 @@ def group_add(**args):
 #        logger.error('Error parsing interface parameters.')
 #        return None
     group = luna.Group(**args)
-     
+
 def group_change(**args):
     check_active_node()
     parm_sum = 0
@@ -1183,12 +1183,12 @@ node_command_group.add_argument('--group', '-g', type=str, help='Group.')
 node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
 node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
 node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
-node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
-node_command_group.add_argument('--switch', '-s', type=str, help='Switch.')
-node_command_group.add_argument('--port', '-p', type=str, help='Port.')
-node_command_group.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
-node_command_group.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
-node_command_group.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
+node_command.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
+node_command.add_argument('--switch', '-s', type=str, help='Switch.')
+node_command.add_argument('--port', '-p', type=str, help='Port.')
+node_command.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
+node_command.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
+node_command.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
 # rename
 node_command = node_parser_actions.add_parser('rename', help='Rename Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
