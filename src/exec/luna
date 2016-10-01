@@ -715,6 +715,7 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
             return None
         out_json = node.show()
         curent_node_name = out_json.pop('name')
+        out_json['status'] = node.get_status()
         bmcip = node.get_human_bmc_ip()
         if_str = ''
         interfaces = node.get_interfaces()

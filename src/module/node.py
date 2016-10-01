@@ -483,10 +483,10 @@ class Node(Base):
 
     def update_status(self, step = None):
         if not bool(step):
-            self._logger.error("No data to updatre status of the node '{}'.".format(self.name))
+            self._logger.error("No data to update status of the node.")
             return None
         if not bool(re.match('^[ a-zA-Z0-9\.\-_]+?$', step)):
-            self._logger.error("'Step' parameter in 'update_status' function contains invalid sting for node '{}'".format(self.name))
+            self._logger.error("'Step' parameter in 'update_status' function contains invalid string.".format(self.name))
             return None
         now = datetime.datetime.utcnow()
         self._mongo_collection.update({'_id': self._id}, {'$set': {'status': {'step': step, 'time': now}}}, multi=False, upsert=False)
