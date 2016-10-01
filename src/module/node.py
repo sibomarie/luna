@@ -500,6 +500,7 @@ class Node(Base):
         except:
             return None
         now = datetime.datetime.utcnow()
+        tracker_records = []
         tracker_record = {}
         tor_time = datetime.datetime(1, 1, 1)
         perc = 0.0
@@ -508,26 +509,35 @@ class Node(Base):
             peer_id = ''.join(["{:02x}".format(ord(l)) for l in name])
             self._mongo_db
             tracker_collection = self._mongo_db['tracker']
-            tracker_record = tracker_collection.find_one({'peer_id': peer_id})
+            tracker_records = tracker_collection.find({'peer_id': peer_id})
+        for doc in tracker_records:
+            try:
+                tmp_time = doc['updated']
+            except:
+                continue
+            if tmp_time > tor_time:
+                tracker_record = doc
+                tor_time = tmp_time
         if bool(tracker_record):
             try:
                 tor_time = tracker_record['updated']
                 downloaded = tracker_record['downloaded']
                 left = tracker_record['left']
-                perc = 100*downloaded/(downloaded+left)
+                perc = 100.0*downloaded/(downloaded+left)
             except:
                 tor_time = datetime.datetime(1, 1, 1)
                 perc = 0.0
-        if bool(perc):
-            step = "%s(%.2f%%/%isec)" % (step, perc, (now - tor_time).seconds)
+        if bool(perc) and (tor_time > time):
+            status = "%s (%.2f%% / last update %isec)" % (step, perc, (now - tor_time).seconds)
+        else:
+            status = step
         if relative:
             sec = (now - time).seconds
             ret_time = str(datetime.timedelta(seconds=sec))
         else:
             ret_time = str(time)
+        return {'status': status, 'time': ret_time}
         return "%s (%s)" % (step, ret_time)
-
-        
 
 class Group(Base):
     """
