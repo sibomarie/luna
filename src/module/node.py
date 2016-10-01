@@ -32,6 +32,8 @@ from luna.network import Network
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
 from luna.switch import Switch
+import datetime
+import re
 
 class Node(Base):
     """
@@ -478,6 +480,54 @@ class Node(Base):
             params['hostname'] = self.name
         params['setupbmc'] = self.get('setupbmc')
         return params
+
+    def update_status(self, step = None):
+        if not bool(step):
+            self._logger.error("No data to updatre status of the node '{}'.".format(self.name))
+            return None
+        if not bool(re.match('^[ a-zA-Z0-9\.\-_]+?$', step)):
+            self._logger.error("'Step' parameter in 'update_status' function contains invalid sting for node '{}'".format(self.name))
+            return None
+        now = datetime.datetime.utcnow()
+        self._mongo_collection.update({'_id': self._id}, {'$set': {'status': {'step': step, 'time': now}}}, multi=False, upsert=False)
+
+    def get_status(self, relative = True):
+        json = self._get_json()
+        try:
+            status = json['status']
+            step = str(status['step'])
+            time = status['time']
+        except:
+            return None
+        now = datetime.datetime.utcnow()
+        tracker_record = {}
+        tor_time = datetime.datetime(1, 1, 1)
+        perc = 0.0
+        if step == 'install.download':
+            name = "%20s" % self.name
+            peer_id = ''.join(["{:02x}".format(ord(l)) for l in name])
+            self._mongo_db
+            tracker_collection = self._mongo_db['tracker']
+            tracker_record = tracker_collection.find_one({'peer_id': peer_id})
+        if bool(tracker_record):
+            try:
+                tor_time = tracker_record['updated']
+                downloaded = tracker_record['downloaded']
+                left = tracker_record['left']
+                perc = 100*downloaded/(downloaded+left)
+            except:
+                tor_time = datetime.datetime(1, 1, 1)
+                perc = 0.0
+        if bool(perc):
+            step = "%s(%.2f%%/%isec)" % (step, perc, (now - tor_time).seconds)
+        if relative:
+            sec = (now - time).seconds
+            ret_time = str(datetime.timedelta(seconds=sec))
+        else:
+            ret_time = str(time)
+        return "%s (%s)" % (step, ret_time)
+
+        
 
 class Group(Base):
     """
