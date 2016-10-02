@@ -34,6 +34,7 @@ from luna.bmcsetup import BMCSetup
 from luna.switch import Switch
 import datetime
 import re
+import socket
 
 class Node(Base):
     """
@@ -538,6 +539,45 @@ class Node(Base):
             ret_time = str(time)
         return {'status': status, 'time': ret_time}
         return "%s (%s)" % (step, ret_time)
+    
+    def check_avail(self, timeout = 1, bmc = True, net = None):
+        avail = {'bmc': None, 'nets': {}}
+        json = self._get_json()
+        if bool(bmc):
+            ipmi_message = "0600ff07000000000000000000092018c88100388e04b5".decode('hex')
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(timeout)
+            sock.sendto(ipmi_message, (self.get_human_bmc_ip(), 623))
+            try:
+                data, addr = sock.recvfrom(1024)
+                avail['bmc'] = True
+                
+            except socket.timeout:
+                avail['bmc'] = False
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
+        json = self._get_json()
+        test_ips = []
+        try:
+            ifs = json['interfaces']
+        except:
+            ifs = {}
+        for interface in ifs:
+            tmp_net = group.get_net_name_for_if(interface)
+            tmp_json = {'network': tmp_net, 'ip': self.get_human_ip(interface)}
+            if bool(net):
+                if tmp_net == net:
+                    test_ips.append(tmp_json)
+            else:
+                test_ips.append(tmp_json)
+        for elem in test_ips:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((elem['ip'],22))
+            if result == 0:
+                avail['nets'][elem['network']] = True
+            else:
+                avail['nets'][elem['network']] = False
+        return avail
 
 class Group(Base):
     """
@@ -676,7 +716,20 @@ EOF"""
             return "[" +net.name + "]:"+ NETWORK + "/" + PREFIX
         return NETWORK + "/" + PREFIX
 
-
+    def get_net_name_for_if(self, interface):
+        interfaces = self._get_json()['interfaces']
+        try:
+            params = interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return ""
+        try:
+            net = Network(id = params['network'].id, mongo_db = self._mongo_db)
+        except:
+            net = None
+        if bool(net):
+            return net.name
+        return ""
 
     def show_if(self, interface, brief = False):
         interfaces = self._get_json()['interfaces']
