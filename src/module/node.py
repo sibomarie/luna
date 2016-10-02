@@ -543,7 +543,8 @@ class Node(Base):
     def check_avail(self, timeout = 1, bmc = True, net = None):
         avail = {'bmc': None, 'nets': {}}
         json = self._get_json()
-        if bool(bmc):
+        bmc_ip = self.get_human_bmc_ip()
+        if bool(bmc) and bmc_ip:
             ipmi_message = "0600ff07000000000000000000092018c88100388e04b5".decode('hex')
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(timeout)
