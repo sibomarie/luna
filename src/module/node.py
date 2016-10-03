@@ -521,7 +521,7 @@ class Node(Base):
                 tor_time = tmp_time
         if bool(tracker_record):
             try:
-                tor_time = tracker_record['updated']
+                # tor_time = tracker_record['updated'] # we have it already, actually
                 downloaded = tracker_record['downloaded']
                 left = tracker_record['left']
                 perc = 100.0*downloaded/(downloaded+left)
@@ -538,7 +538,6 @@ class Node(Base):
         else:
             ret_time = str(time)
         return {'status': status, 'time': ret_time}
-        return "%s (%s)" % (step, ret_time)
 
     def check_avail(self, timeout = 1, bmc = True, net = None):
         avail = {'bmc': None, 'nets': {}}
