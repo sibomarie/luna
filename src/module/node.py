@@ -308,7 +308,7 @@ class Node(Base):
         except:
             mac = None
         return mac
- 
+
     def clear_mac(self):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -342,7 +342,7 @@ class Node(Base):
         if res['ok'] == 1:
             self.unlink(switch.DBRef)
         return bool(res['ok'])
- 
+
     def set_port(self, num):
         self.set('port', num)
 
@@ -388,7 +388,7 @@ class Node(Base):
         try:
             ipnum = json['interfaces'][interface]
         except:
-            # self._logger.error("No IPADDR for interface '{}' configured".format(interface)) 
+            # self._logger.error("No IPADDR for interface '{}' configured".format(interface))
             return None
         return group.get_human_ip(interface, ipnum)
 
@@ -398,7 +398,7 @@ class Node(Base):
         try:
             num_ip = json['interfaces'][interface]
         except:
-            self._logger.error("No such interface '{}' for node '{}' configured".format(interface, self.name)) 
+            self._logger.error("No such interface '{}' for node '{}' configured".format(interface, self.name))
             return None
         return num_ip
 
@@ -539,19 +539,20 @@ class Node(Base):
             ret_time = str(time)
         return {'status': status, 'time': ret_time}
         return "%s (%s)" % (step, ret_time)
-    
+
     def check_avail(self, timeout = 1, bmc = True, net = None):
         avail = {'bmc': None, 'nets': {}}
         json = self._get_json()
-        if bool(bmc):
+        bmc_ip = self.get_human_bmc_ip()
+        if bool(bmc) and bool(bmc_ip):
             ipmi_message = "0600ff07000000000000000000092018c88100388e04b5".decode('hex')
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(timeout)
-            sock.sendto(ipmi_message, (self.get_human_bmc_ip(), 623))
+            sock.sendto(ipmi_message, (bmc_ip, 623))
             try:
                 data, addr = sock.recvfrom(1024)
                 avail['bmc'] = True
-                
+
             except socket.timeout:
                 avail['bmc'] = False
         group = Group(id = json['group'].id, mongo_db = self._mongo_db)
@@ -568,7 +569,8 @@ class Node(Base):
                 if tmp_net == net:
                     test_ips.append(tmp_json)
             else:
-                test_ips.append(tmp_json)
+                if bool(tmp_net):
+                    test_ips.append(tmp_json)
         for elem in test_ips:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
@@ -642,7 +644,7 @@ EOF"""
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger('group.' + self._name)
- 
+
     def osimage(self, osimage_name):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -700,7 +702,7 @@ EOF"""
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': None}}, multi=False, upsert=False)
         return not res['err']
 
-    
+
     def show_bmc_if(self, brief = False):
         bmcnetwork = self._get_json()['bmcnetwork']
         if not bool(bmcnetwork):
@@ -806,7 +808,7 @@ EOF"""
                 self._logger.error("Duplicate ip detected in '{}'. Can not put '{}'".format(self.name, key))
             except:
                 rel_ips[key] = val
-                
+
         json = self._get_json()
         if_dict = self.list_interfaces()
         bmcif =  if_dict['bmcnetwork']
@@ -837,7 +839,7 @@ EOF"""
                         node = Node(id = ObjectId(node_id))
                         add_to_dict(node.name, node.get_rel_ip(interface))
         return rel_ips
-                        
+
 
     def set_if_parms(self, interface, parms = ''):
         if not self._id:
