@@ -744,39 +744,30 @@ def node_change(**args):
     check_active_node()
     for nodename in hostlist.expand_hostlist(args['name']):
         node = luna.Node(nodename, mongo_db = mongo_db)
-        if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
-            logger.error('Interface or BMC should be specified for given IP.')
-            break
-        if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
-            logger.error('IP should be specified.')
-            break
+#        if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
+#            logger.error('Interface or BMC should be specified for given IP.')
+#            break
+#        if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
+#            logger.error('IP should be specified.')
+#            break
+        if bool(args['interface']):
+            node.change_ip(args['interface'][0], args['interface'][1])
         if bool(args['group']):
             node.change_group(args['group'])
-            break
-        if bool(args['interface']):
-            node.change_ip(args['interface'], args['ip'])
-            break
         if bool(args['bmcip']):
-            node.change_bmc_ip(args['ip'])
-            break
+            node.change_bmc_ip(args['bmcip'])
         if args['mac'] == '':
             node.clear_mac()
-            break
         if bool(args['mac']):
             node.set_mac(args['mac'].lower())
-            break
         if args['switch'] == '':
             node.clear_switch()
-            break
         if args['port'] == '':
             node.clear_port()
-            break
         if bool(args['switch']):
             node.set_switch(args['switch'])
-            break
         if bool(args['port']):
             node.set_port(args['port'])
-            break
         if bool(args['localboot']):
             flag = False
             if args['localboot'] == 'y':
@@ -1178,17 +1169,17 @@ node_command.add_argument('--group', '-g', required=True, type=str, help='Group.
 # change
 node_command = node_parser_actions.add_parser('change', help='Change Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
-node_command_group = node_command.add_mutually_exclusive_group(required=True)
+node_command_group = node_command.add_mutually_exclusive_group(required=False)
 node_command_group.add_argument('--group', '-g', type=str, help='Group.')
-node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
-node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
-node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
+node_command_group.add_argument('--interface', '-i', type=str,  nargs=2, metavar=('IF', 'X.X.X.X'), help='Assign ip address to interface.')
+node_command_group.add_argument('--bmcip', '-b', metavar='X.X.X.X', help='Assign ip address to BMC interface.')
 node_command.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
 node_command.add_argument('--switch', '-s', type=str, help='Switch.')
-node_command.add_argument('--port', '-p', type=str, help='Port.')
 node_command.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
 node_command.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
 node_command.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
+#node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
+node_command.add_argument('--port', '-p', type=str, help='Port.')
 # rename
 node_command = node_parser_actions.add_parser('rename', help='Rename Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
