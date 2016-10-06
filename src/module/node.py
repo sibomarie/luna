@@ -32,6 +32,9 @@ from luna.network import Network
 from luna.osimage import OsImage
 from luna.bmcsetup import BMCSetup
 from luna.switch import Switch
+import datetime
+import re
+import socket
 
 class Node(Base):
     """
@@ -305,7 +308,7 @@ class Node(Base):
         except:
             mac = None
         return mac
- 
+
     def clear_mac(self):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -339,7 +342,7 @@ class Node(Base):
         if res['ok'] == 1:
             self.unlink(switch.DBRef)
         return bool(res['ok'])
- 
+
     def set_port(self, num):
         self.set('port', num)
 
@@ -385,7 +388,7 @@ class Node(Base):
         try:
             ipnum = json['interfaces'][interface]
         except:
-            # self._logger.error("No IPADDR for interface '{}' configured".format(interface)) 
+            # self._logger.error("No IPADDR for interface '{}' configured".format(interface))
             return None
         return group.get_human_ip(interface, ipnum)
 
@@ -395,7 +398,7 @@ class Node(Base):
         try:
             num_ip = json['interfaces'][interface]
         except:
-            self._logger.error("No such interface '{}' for node '{}' configured".format(interface, self.name)) 
+            self._logger.error("No such interface '{}' for node '{}' configured".format(interface, self.name))
             return None
         return num_ip
 
@@ -479,6 +482,104 @@ class Node(Base):
         params['setupbmc'] = self.get('setupbmc')
         return params
 
+    def update_status(self, step = None):
+        if not bool(step):
+            self._logger.error("No data to update status of the node.")
+            return None
+        if not bool(re.match('^[ a-zA-Z0-9\.\-_]+?$', step)):
+            self._logger.error("'Step' parameter in 'update_status' function contains invalid string.".format(self.name))
+            return None
+        now = datetime.datetime.utcnow()
+        self._mongo_collection.update({'_id': self._id}, {'$set': {'status': {'step': step, 'time': now}}}, multi=False, upsert=False)
+
+    def get_status(self, relative = True):
+        json = self._get_json()
+        try:
+            status = json['status']
+            step = str(status['step'])
+            time = status['time']
+        except:
+            return None
+        now = datetime.datetime.utcnow()
+        tracker_records = []
+        tracker_record = {}
+        tor_time = datetime.datetime(1, 1, 1)
+        perc = 0.0
+        if step == 'install.download':
+            name = "%20s" % self.name
+            peer_id = ''.join(["{:02x}".format(ord(l)) for l in name])
+            self._mongo_db
+            tracker_collection = self._mongo_db['tracker']
+            tracker_records = tracker_collection.find({'peer_id': peer_id})
+        for doc in tracker_records:
+            try:
+                tmp_time = doc['updated']
+            except:
+                continue
+            if tmp_time > tor_time:
+                tracker_record = doc
+                tor_time = tmp_time
+        if bool(tracker_record):
+            try:
+                # tor_time = tracker_record['updated'] # we have it already, actually
+                downloaded = tracker_record['downloaded']
+                left = tracker_record['left']
+                perc = 100.0*downloaded/(downloaded+left)
+            except:
+                tor_time = datetime.datetime(1, 1, 1)
+                perc = 0.0
+        if bool(perc) and (tor_time > time):
+            status = "%s (%.2f%% / last update %isec)" % (step, perc, (now - tor_time).seconds)
+        else:
+            status = step
+        if relative:
+            sec = (now - time).seconds
+            ret_time = str(datetime.timedelta(seconds=sec))
+        else:
+            ret_time = str(time)
+        return {'status': status, 'time': ret_time}
+
+    def check_avail(self, timeout = 1, bmc = True, net = None):
+        avail = {'bmc': None, 'nets': {}}
+        json = self._get_json()
+        bmc_ip = self.get_human_bmc_ip()
+        if bool(bmc) and bool(bmc_ip):
+            ipmi_message = "0600ff07000000000000000000092018c88100388e04b5".decode('hex')
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(timeout)
+            sock.sendto(ipmi_message, (bmc_ip, 623))
+            try:
+                data, addr = sock.recvfrom(1024)
+                avail['bmc'] = True
+
+            except socket.timeout:
+                avail['bmc'] = False
+        group = Group(id = json['group'].id, mongo_db = self._mongo_db)
+        json = self._get_json()
+        test_ips = []
+        try:
+            ifs = json['interfaces']
+        except:
+            ifs = {}
+        for interface in ifs:
+            tmp_net = group.get_net_name_for_if(interface)
+            tmp_json = {'network': tmp_net, 'ip': self.get_human_ip(interface)}
+            if bool(net):
+                if tmp_net == net:
+                    test_ips.append(tmp_json)
+            else:
+                if bool(tmp_net):
+                    test_ips.append(tmp_json)
+        for elem in test_ips:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((elem['ip'],22))
+            if result == 0:
+                avail['nets'][elem['network']] = True
+            else:
+                avail['nets'][elem['network']] = False
+        return avail
+
 class Group(Base):
     """
     Class for operating with group records
@@ -542,7 +643,7 @@ EOF"""
             self._id = mongo_doc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
         self._logger = logging.getLogger('group.' + self._name)
- 
+
     def osimage(self, osimage_name):
         if not self._id:
             self._logger.error("Was object deleted?")
@@ -600,7 +701,7 @@ EOF"""
         res = self._mongo_collection.update({'_id': self._id}, {'$set': {'bmcnetwork': None}}, multi=False, upsert=False)
         return not res['err']
 
-    
+
     def show_bmc_if(self, brief = False):
         bmcnetwork = self._get_json()['bmcnetwork']
         if not bool(bmcnetwork):
@@ -616,7 +717,20 @@ EOF"""
             return "[" +net.name + "]:"+ NETWORK + "/" + PREFIX
         return NETWORK + "/" + PREFIX
 
-
+    def get_net_name_for_if(self, interface):
+        interfaces = self._get_json()['interfaces']
+        try:
+            params = interfaces[interface]
+        except:
+            self._logger.error("Interface '{}' does not exist".format(interface))
+            return ""
+        try:
+            net = Network(id = params['network'].id, mongo_db = self._mongo_db)
+        except:
+            net = None
+        if bool(net):
+            return net.name
+        return ""
 
     def show_if(self, interface, brief = False):
         interfaces = self._get_json()['interfaces']
@@ -693,7 +807,7 @@ EOF"""
                 self._logger.error("Duplicate ip detected in '{}'. Can not put '{}'".format(self.name, key))
             except:
                 rel_ips[key] = val
-                
+
         json = self._get_json()
         if_dict = self.list_interfaces()
         bmcif =  if_dict['bmcnetwork']
@@ -724,7 +838,7 @@ EOF"""
                         node = Node(id = ObjectId(node_id))
                         add_to_dict(node.name, node.get_rel_ip(interface))
         return rel_ips
-                        
+
 
     def set_if_parms(self, interface, parms = ''):
         if not self._id:
