@@ -60,13 +60,14 @@ def print_table(header, content):
     out_len = sum(lengths) + (num_spaces + 2) * len(lengths) + 1
     format_string = "".join(fmt_str)+"|"
 
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    sep = "+" + "+".join(["-" * (i + num_spaces + 1) for i in lengths]) + "+"
+    _safe_print(sep)
     for i in range(len(header_array)):
         _safe_print(format_string % tuple(header_array[i]))
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    _safe_print(sep)
     for i in range(len(content_array)):
         _safe_print(format_string % tuple(content_array[i]))
-    _safe_print("+" + "=" * (out_len - 2) + "+")
+    _safe_print(sep)
 
 #################### Cluster
 def check_active_node():
@@ -74,8 +75,8 @@ def check_active_node():
         logger.error("Inactive HA node.")
         exit(1)
 
-def cluster_init(nodeprefix, nodedigits, path, user, group):
-    cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user, group = group)
+def cluster_init(nodeprefix, nodedigits, path, user):
+    cluster = luna.Cluster(create=True, nodeprefix = nodeprefix, nodedigits = nodedigits, path = path, user = user)
 
 def cluster_delete():
     check_active_node()
@@ -92,7 +93,7 @@ def cluster_change(**args):
         if args[key] == None:
             continue
         cluster.set(key, args[key])
- 
+
 def cluster_show(raw, out_format = def_format):
     cluster = luna.luna.Cluster()
     if raw:
@@ -229,7 +230,7 @@ def cluster_makedhcp(**args):
             "Start dhcpd on " + ip + ".",
             "Unable to start dhcpd.")
     return True
-    
+
 
 
 def _run_command(cmd, descr, err):
@@ -239,7 +240,7 @@ def _run_command(cmd, descr, err):
     if ssh_proc.returncode:
         _safe_print(err)
         sys.exit(1)
-    
+
 #################### OsImage
 
 def osimage_list():
@@ -263,7 +264,7 @@ def osimage_show(out_format = def_format, **args):
         for elem in osimage.list_kernels():
             if elem == osimage.get('kernver'):
                 _safe_print(elem + ' <=')
-                continue 
+                continue
             _safe_print(elem)
         return None
     out_json = osimage.show()
@@ -351,7 +352,7 @@ def osimage_pack(**args):
     update_ltorrent()
     osimage_sync(args['name'])
     return True
-    
+
 def osimage_sync(name):
     check_active_node()
     cluster = luna.Cluster()
@@ -410,7 +411,7 @@ def osimage_rename(**args):
     check_active_node()
     osimage = luna.OsImage(args['name'])
     osimage.rename(args['newname'])
-    
+
 
 #################### BMCSetup
 
@@ -598,7 +599,7 @@ def group_add(**args):
 #        logger.error('Error parsing interface parameters.')
 #        return None
     group = luna.Group(**args)
-     
+
 def group_change(**args):
     check_active_node()
     parm_sum = 0
@@ -713,7 +714,10 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
             _safe_print(node.nice_json)
             return None
         out_json = node.show()
-        out_json.pop('name')
+        curent_node_name = out_json.pop('name')
+        status = node.get_status()
+        if status:
+            out_json['status'] = "%s - %s" % (status['status'], status['time'])
         bmcip = node.get_human_bmc_ip()
         if_str = ''
         interfaces = node.get_interfaces()
@@ -725,7 +729,7 @@ def node_show(name, raw, out_format = '%20s%60s\n'):
         out_json['mac'] = node.get_mac()
         header = ['Parameter', 'Value']
         content = []
-        content.append(['name', name])
+        content.append(['name', curent_node_name])
         out_str = ''
         for key in sorted(out_json):
             content.append([key, out_json[key]])
@@ -743,39 +747,30 @@ def node_change(**args):
     check_active_node()
     for nodename in hostlist.expand_hostlist(args['name']):
         node = luna.Node(nodename, mongo_db = mongo_db)
-        if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
-            logger.error('Interface or BMC should be specified for given IP.')
-            return None
-        if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
-            logger.error('IP should be specified.')
-            return None
+#        if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
+#            logger.error('Interface or BMC should be specified for given IP.')
+#            break
+#        if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
+#            logger.error('IP should be specified.')
+#            break
+        if bool(args['interface']):
+            node.change_ip(args['interface'][0], args['interface'][1])
         if bool(args['group']):
             node.change_group(args['group'])
-            return None
-        if bool(args['interface']):
-            node.change_ip(args['interface'], args['ip'])
-            return None
         if bool(args['bmcip']):
-            node.change_bmc_ip(args['ip'])
-            return None
+            node.change_bmc_ip(args['bmcip'])
         if args['mac'] == '':
             node.clear_mac()
-            return None
         if bool(args['mac']):
             node.set_mac(args['mac'].lower())
-            return None
         if args['switch'] == '':
             node.clear_switch()
-            return None
         if args['port'] == '':
             node.clear_port()
-            return None
         if bool(args['switch']):
             node.set_switch(args['switch'])
-            return None
         if bool(args['port']):
             node.set_port(args['port'])
-            return None
         if bool(args['localboot']):
             flag = False
             if args['localboot'] == 'y':
@@ -930,7 +925,6 @@ cluster_command = cluster_parser_actions.add_parser('init', help='Create Luna Cl
 cluster_command.add_argument('--nodeprefix', '--prefix', type=str, help='Auto-prefix for new nodes.', default='node')
 cluster_command.add_argument('--nodedigits', '--digits', type=int, help='Zero-autopadding', default=3)
 cluster_command.add_argument('--user', type=str, help='Username for running services.', default='luna')
-cluster_command.add_argument('--group', type=str, help='Groupname for running services.', default='luna')
 cluster_command.add_argument('--path', type=str, help='Path to store files.', default='/opt/luna')
 
 # change
@@ -939,7 +933,6 @@ cluster_command.add_argument('--nodeprefix', '--prefix', '-p', type=str, help='A
 cluster_command.add_argument('--nodedigits', '--digits', '-d', type=int, help='Zero-autopadding')
 cluster_command.add_argument('--path', type=str, help='Path to store files.')
 cluster_command.add_argument('--user', type=str, help='Username for running services.')
-cluster_command.add_argument('--group', type=str, help='Groupname for running services.')
 cluster_command.add_argument('--frontend_address', type=str, help='Server address')
 cluster_command.add_argument('--frontend_port', type=int, help='Server address')
 cluster_command.add_argument('--server_port', type=int, help='Server port')
@@ -1173,23 +1166,23 @@ node_command = node_parser_actions.add_parser('show', help='Show Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
 node_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-node_command = node_parser_actions.add_parser('add', help='Show Node.')
+node_command = node_parser_actions.add_parser('add', help='Add Node.')
 node_command.add_argument('--name', '-n', type=str, help='Name of the Node.')
 node_command.add_argument('--group', '-g', required=True, type=str, help='Group.')
 # change
 node_command = node_parser_actions.add_parser('change', help='Change Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
-node_command_group = node_command.add_mutually_exclusive_group(required=True)
+node_command_group = node_command.add_mutually_exclusive_group(required=False)
 node_command_group.add_argument('--group', '-g', type=str, help='Group.')
-node_command_group.add_argument('--interface', '-i', type=str, help='Assign ip address to interface.')
-node_command_group.add_argument('--bmcip', '-b', action='store_true', help='Assign ip address to BMC interface.')
-node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
-node_command_group.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
-node_command_group.add_argument('--switch', '-s', type=str, help='Switch.')
-node_command_group.add_argument('--port', '-p', type=str, help='Port.')
-node_command_group.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
-node_command_group.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
-node_command_group.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
+node_command_group.add_argument('--interface', '-i', type=str,  nargs=2, metavar=('IF', 'X.X.X.X'), help='Assign ip address to interface.')
+node_command_group.add_argument('--bmcip', '-b', metavar='X.X.X.X', help='Assign ip address to BMC interface.')
+node_command.add_argument('--mac', metavar='XX:XX:XX:XX:XX', type=str, help='Mac address. Specify empty string to erase.')
+node_command.add_argument('--switch', '-s', type=str, help='Switch.')
+node_command.add_argument('--localboot', '-l', choices=['y', 'n'], help='Boot from local HDD.')
+node_command.add_argument('--setupbmc', '--sb', choices=['y', 'n'], help='Whether to setup BMC on install.')
+node_command.add_argument('--service', '--sv', choices=['y', 'n'], help='Enter to service mode instead of install.')
+#node_command.add_argument('--ip', metavar='X.X.X.X', type=str, help='IP for interface.')
+node_command.add_argument('--port', '-p', type=str, help='Port.')
 # rename
 node_command = node_parser_actions.add_parser('rename', help='Rename Node.')
 node_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Node.')
@@ -1209,7 +1202,7 @@ switch_command = switch_parser_actions.add_parser('show', help='Show Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 switch_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-switch_command = switch_parser_actions.add_parser('add', help='Show Switch.')
+switch_command = switch_parser_actions.add_parser('add', help='Add Switch.')
 switch_command.add_argument('--name', '-n', required=True, type=str, help='Name of the Switch.')
 switch_command.add_argument('--network', '-N', required=True, type=str, help='Network Switch belongs to.')
 switch_command.add_argument('--ip', '-i', required=True, type=str, help='IP of the Switch.')
@@ -1243,9 +1236,9 @@ otherdev_command = otherdev_parser_actions.add_parser('show', help='Show device.
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 otherdev_command.add_argument('--raw', '-R', action='store_true', help='Raw JSON output.')
 # add
-otherdev_command = otherdev_parser_actions.add_parser('add', help='Show device.')
+otherdev_command = otherdev_parser_actions.add_parser('add', help='Add device.')
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
-otherdev_command.add_argument('--network', '-N', type=str, help='Network device belongs to.')
+otherdev_command.add_argument('--network', '-N', required=True, type=str, help='Network device belongs to.')
 otherdev_command.add_argument('--ip', '-i', type=str, help='IP of the device.')
 # change
 otherdev_command = otherdev_parser_actions.add_parser('change', help='Change device.')

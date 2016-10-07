@@ -48,7 +48,7 @@ class Cluster(Base):
     _DBRef = None
     _json = None
 
-    def __init__(self, mongo_db = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, path = None, user = None, group = None):
+    def __init__(self, mongo_db = None, create = False, id = None, nodeprefix = 'node', nodedigits = 3, path = None, user = None):
         """
         Constructor can be used for creating object by setting create=True
         nodeprefix='node' and nodedigits='3' will give names like node001,
@@ -75,6 +75,7 @@ class Cluster(Base):
                 self._logger.error("No such user '{}' exists.".format(user))
                 raise RuntimeError
             try:
+                group = grp.getgrgid(user_id.pw_gid).gr_name
                 group_id = grp.getgrnam(group)
             except:
                 self._logger.error("No such group '{}' exists.".format(group))

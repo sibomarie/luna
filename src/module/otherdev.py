@@ -63,7 +63,9 @@ class OtherDev(Base):
                     self._logger.error("IP needs to be specified")
                     raise RuntimeError
                 net = Network(name = network, mongo_db = self._mongo_db)
-                ip = net.reserve_ip(ip)
+                ip = net.reserve_ip(ip, ignore_errors = False)
+                if not bool(ip):
+                    raise RuntimeError
                 connected = {str(net.DBRef.id): ip}
             mongo_doc = { 'name': name, 'connected': connected}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
@@ -147,7 +149,8 @@ class OtherDev(Base):
         obj_json = self._get_json()
         for network in obj_json['connected']:
             net = Network(id = ObjectId(network), mongo_db = self._mongo_db)
-            net.release_ip(obj_json['connected'][network])
+            if obj_json['connected'][network]:
+                net.release_ip(obj_json['connected'][network])
             self.unlink(net)
         return super(OtherDev, self).delete()
 

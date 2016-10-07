@@ -73,6 +73,7 @@ class Manager(tornado.web.RequestHandler):
             macs = set(hwdata.split('|'))
             # enter node name manualy from ipxe
             if req_nodename:
+                self.app_logger.info("Node '{}' was chosen in iPXE".format(req_nodename))
                 try:
                     node = luna.Node(name = req_nodename, mongo_db = self.mongo)
                 except:
@@ -82,9 +83,12 @@ class Manager(tornado.web.RequestHandler):
                 mac = None
                 for mac in macs:
                     if bool(mac):
-                        mac = mac.lower()
-                        set_mac_node(mac, node.DBRef)
-                        break
+                        mac = str(mac.lower())
+                        self.app_logger.info("Node '{}' trying to set '{}' as mac".format(req_nodename, mac))
+                        if node.set_mac(mac):
+                            node.update_status('boot.mac_assigned')
+                            break
+                        self.app_logger.error("MAC: '{}' looks wrong.".format(mac))
             # need to find node fo given macs.
             # first step - trying to find in know macs
             found_node_dbref = None
@@ -123,7 +127,7 @@ class Manager(tornado.web.RequestHandler):
                     if mac_from_cache:
                         break
                     mac_cursor = self.mongo['switch_mac'].find({'mac': mac})
-                    # now search mac in switch_mac using portnumbers 
+                    # now search mac in switch_mac using portnumbers
                     for elem in mac_cursor:
                         switch_id = elem['switch_id']
                         port = elem['port']
@@ -138,7 +142,7 @@ class Manager(tornado.web.RequestHandler):
                     if mac_from_cache:
                         break
                 if not bool(mac_from_cache):
-                    self.app_logger.info("Cannot find '{}' in learned macs.".format(macs))
+                    self.app_logger.info("Cannot find '{}' in learned macs.".format("', '".join([mac for mac in macs])))
                     # did not find in learned macs
                     self.send_error(404)
                     return
@@ -170,6 +174,7 @@ class Manager(tornado.web.RequestHandler):
             boot_params['delay'] = 10
             boot_params['server_ip'] = self.server_ip
             boot_params['server_port'] = self.server_port
+            node.update_status('boot.request')
             self.render("templ_nodeboot.cfg", p = boot_params)
         if step == 'install':
             try:
@@ -187,10 +192,20 @@ class Manager(tornado.web.RequestHandler):
                 self.send_error(400)
                 return
                 #self.finish()
+            try:
+                status = self.get_argument('status')
+            except:
+                status = ''
+            if bool(status):
+                node.update_status(status)
+                self.finish()
+                return
             install_params = node.install_params
             if not bool(install_params['torrent']):
                 #return self.send_error(404)
                 self.send_error(404)
                 return
                 #self.finish()
+            node.update_status('install.request')
             self.render("templ_install.cfg", p = install_params, server_ip = self.server_ip, server_port = self.server_port,)
+

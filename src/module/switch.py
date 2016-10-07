@@ -224,7 +224,7 @@ class MacUpdater(object):
                     port = str(varlist[i].val)
                     try:
                         portname = portnums[int(varlist[i].val)]
-                    except IndexError:
+                    except KeyError:
                         portname = port
                     for elem in varlist[i].tag.split('.')[-6:]:
                         mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
@@ -244,5 +244,6 @@ class MacUpdater(object):
                 err = sys.exc_info()[0]
                 if self.logger:
                     self.logger.error(err)
-        self.logger.info("Was added {} new mac addresses.".format(mac_count))
+        if mac_count > 0:
+            self.logger.info("Was added {} new mac addresses.".format(mac_count))
         return True
