@@ -835,6 +835,7 @@ OBJECTS, ACTIONS AND OPTIONS
         **--name**, **-n**
             Name of the object.
 
+
 FILES
 =====
 
@@ -854,3 +855,13 @@ templ_zone_arpa.cfg
     Template for ISC BIND (named) reverse-zone file.
 templ_zone.cfg
     Template for ISC BIND (named) zone-file.
+/var/log/luna/ltorrent.log
+    Log file for seeding BitTorrent client.
+/var/log/luna/lweb.log
+    Log file for Luna daemon provides boot and install scripts.
+/var/log/luna/lweb_tornado.log
+    Log file for HTTP requests from the nodes.
+
+SEE ALSO
+========
+lweb(1), ltorrent(1), lpower(8), lchroot(8)
