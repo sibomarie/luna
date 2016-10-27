@@ -59,4 +59,4 @@ FILES
 
 SEE ALSO
 ========
-    lweb(1), ltorrent(1), luna(8), lchroot(8)
+lweb(1), ltorrent(1), luna(8), lchroot(8)
