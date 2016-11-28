@@ -49,9 +49,7 @@ class Network(Base):
         if create:
             cluster = Cluster(mongo_db = self._mongo_db)
             num_net = self.get_base_net(NETWORK, PREFIX)
-            if not num_net:
-                self._logger.error("Cannot compute NETWORK/PREFIX")
-                raise RuntimeError
+
             if not ns_hostname:
                 ns_hostname = self._guess_ns_hostname()
 
@@ -97,16 +95,19 @@ class Network(Base):
         try:
             ip = socket.inet_ntoa(struct.pack('>L', numip))
         except:
-            self._logger.error("Cannot compute numeric ip = '{}' to human readable".format(numip))
-            return None
+            self._logger.error(("Cannot convert IP '{}' from C"
+                                " to human readable format".format(numip)))
+            raise RuntimeError
+
         return ip
 
     def ip_to_absnum(self, ip):
         try:
             absnum = struct.unpack('>L', (socket.inet_aton(ip)))[0]
         except:
-            self._logger.error("Cannot compute ip = '{}'".format(ip))
-            return None
+            self._logger.error("Cannot convert IP '{}' to C format".format(ip))
+            raise RuntimeError
+
         return long(absnum)
 
     def relnum_to_ip(self, numip):
@@ -138,9 +139,11 @@ class Network(Base):
             try:
                 net_num = struct.unpack('>L', (socket.inet_aton(address)))[0]
             except socket.error:
-                self._logger.debug("'{}' does not looks like valid ip-address".format(address))
-                return None
+                self._logger.debug("'{}' is not a valid IP".format(address))
+                raise RuntimeError
+
         mask_num = ((1<<32) -1) ^ ((1<<(33-prefix)-1) -1)
+
         return long(net_num & mask_num)
 
     def ip_in_net(self, ip):
