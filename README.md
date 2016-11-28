@@ -41,7 +41,7 @@ yum -y install ipxe-bootimgs tftp-server tftp xinetd dhcp wget
 yum -y install rb_libtorrent-python net-snmp-python
 yum -y install bind-utils bind-chroot
 
-pip install python-hostlist
+yum -y install luna/hostlist/python-hostlist
 
 cd /
 git clone https://github.com/clustervision/luna
