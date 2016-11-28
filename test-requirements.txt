@@ -1,5 +1,5 @@
-pymongo>2.4,<2.6
-python-hostlist
-tornado
+pymongo==2.5.2
+python-hostlist==1.14
+tornado==2.2.1
 mock
 ming

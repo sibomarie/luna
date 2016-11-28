@@ -9,9 +9,9 @@ setup(
     packages=find_packages(),
 
     install_requires=[
-        'pymongo>2.4,<2.6',
-        'tornado',
-        'python-hostlist'
+        'pymongo==2.5.2',
+        'tornado==2.2.1',
+        'python-hostlist==1.14'
     ],
 
     dependency_links=[],
