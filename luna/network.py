@@ -42,7 +42,9 @@ class Network(Base):
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'network'
-        self._keylist = {'NETWORK': long, 'PREFIX': type(0), 'ns_hostname': type(''), 'ns_ip': type('')}
+        self._keylist = {'NETWORK': long, 'PREFIX': type(''),
+                         'ns_hostname': type(''), 'ns_ip': type('')}
+
         mongo_doc = self._check_name(name, mongo_db, create, id)
         if create:
             cluster = Cluster(mongo_db = self._mongo_db)
@@ -52,8 +54,12 @@ class Network(Base):
                 raise RuntimeError
             if not ns_hostname:
                 ns_hostname = self._guess_ns_hostname()
-            freelist = [{'start': 1, 'end': (1<<(32-PREFIX))-2}]
-            mongo_doc = {'name': name, 'NETWORK': num_net, 'PREFIX': PREFIX, 'freelist': freelist, 'ns_hostname': ns_hostname, 'ns_ip': None}
+
+            freelist = [{'start': 1, 'end': (1 << (32 - int(PREFIX))) - 2}]
+            mongo_doc = {'name': name, 'NETWORK': num_net, 'PREFIX': PREFIX,
+                         'freelist': freelist, 'ns_hostname': ns_hostname,
+                         'ns_ip': None}
+
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -116,12 +122,16 @@ class Network(Base):
         return long(num_ip - num_net)
 
     def get_base_net(self, address, prefix):
-        if type(prefix) is not int:
-            self._logger.error("'prefix' should be integer")
-            return None
+        try:
+            prefix = int(prefix)
+        except:
+            self._logger.error("Prefix '{}' is invalid".format(prefix))
+            raise RuntimeError
+
         if prefix not in range(1,32):
-            self._logger.error("'prefix' should be 1>= and <=32")
-            return None
+            self._logger.error("Prefix should be in the range [1..32]")
+            raise RuntimeError
+
         if type(address) is long or type(address) is int:
             net_num = address
         else:
@@ -198,8 +208,8 @@ class Network(Base):
         if key == 'NETWORK':
             return self.absnum_to_ip(obj_json[key])
         if key == 'NETMASK':
-            prefix = obj_json['PREFIX']
-            prefix_num = ((1<<32) -1) ^ ((1<<(33-prefix)-1) -1)
+            prefix = int(obj_json['PREFIX'])
+            prefix_num = ((1 << 32) - 1) ^ ((1 << (33 - prefix) - 1) - 1)
             return socket.inet_ntoa(struct.pack('>L', (prefix_num)))
         if key == 'PREFIX':
             return obj_json['PREFIX']
@@ -364,8 +374,10 @@ class Network(Base):
                 if num in range(prev_end + 1, next_start):
                     filled_list.extend([insert_elem])
                 filled_list.extend([elem])
-            prefix = self._get_json()['PREFIX']
-            upborder = (1<<(32-prefix))-1
+
+            prefix = int(self._get_json()['PREFIX'])
+            upborder = (1 << (32 - prefix)) - 1
+
             if num <= upborder and num > freelist[-1]['end']:
                 filled_list.extend([insert_elem])
             if len(freelist) == len(filled_list):
