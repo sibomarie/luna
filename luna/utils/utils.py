@@ -20,7 +20,7 @@ along with Luna.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
 
-from config import *
+from luna.config import *
 import logging
 import pymongo
 import ConfigParser
@@ -277,4 +277,3 @@ def format_output(out):
         relative_pointer += content_line[-1] - 1
 
     return (lengths, header_array, content_array)
-
