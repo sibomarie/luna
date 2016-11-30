@@ -31,7 +31,7 @@ import threading
 import datetime
 import time
 from bson.dbref import DBRef
-from luna.utils import set_mac_node
+from luna.utils.utils import set_mac_node
 
 last_switch_update = None
 lock_last_switch_update = threading.Lock()

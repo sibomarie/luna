@@ -33,6 +33,8 @@ import hostlist
 import signal
 import time
 
+from luna.utils import ip, freelist
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('luna')
 def_format = '%20s%40s\n'
@@ -479,7 +481,8 @@ def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
         _safe_print(net.nice_json)
         return None
     if reservedips:
-        ips = net.get_used_ips()
+        nonfree = freelist.get_nonfree(net['freelist'])
+        ips = [ip.reltoa(net['NETWORK'], elem) for elem in nonfree]
         _safe_print("\n".join(["%s" % i for i in ips ]))
         return None
     out_json = net.show()

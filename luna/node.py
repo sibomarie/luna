@@ -25,7 +25,7 @@ import logging
 import json
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
-from luna.utils import set_mac_node
+from luna.utils.utils import set_mac_node
 from luna.base import Base
 from luna.cluster import Cluster
 from luna.network import Network
