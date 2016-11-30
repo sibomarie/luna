@@ -4,6 +4,26 @@ import unittest
 import os
 import luna
 
+class ClusterUtilsTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(self):
+        self.bind = create_datastore('mim:///luna')
+        self.db = self.bind.db.luna
+        self.path = '/tmp/luna'
+
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+
+        self.cluster = luna.Cluster(mongo_db=self.db, create=True,
+                                    path=self.path, user='root')
+
+
+    @classmethod
+    def tearDownClass(self):
+        self.bind.conn.drop_all()
+
+
 class ClusterReadTests(unittest.TestCase):
 
     def setUp(self):

@@ -5,59 +5,6 @@ import unittest
 import os
 import luna
 
-class NetworkUtilsTests(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(self):
-        self.bind = create_datastore('mim:///luna')
-        self.db = self.bind.db.luna
-        self.path = '/tmp/luna'
-
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-
-        cluster = luna.Cluster(mongo_db=self.db, create=True, path=self.path,
-                               user='root')
-        self.net = luna.Network(name='test', mongo_db=self.db, create=True,
-                                NETWORK='172.16.1.0', PREFIX='24',
-                                ns_hostname='controller', ns_ip='172.16.1.254')
-
-
-    @classmethod
-    def tearDownClass(self):
-        self.bind.conn.drop_all()
-
-
-    def test_ip_to_absnum_with_valid_ip(self):
-        absnum = self.net.ip_to_absnum('10.0.0.1')
-        self.assertEqual(absnum, 167772161)
-
-
-    def test_ip_to_absnum_with_invalid_ip(self):
-        self.assertRaises(RuntimeError, self.net.ip_to_absnum, '256.0.0.1')
-
-
-    def test_absnum_to_ip_with_valid_absnum(self):
-        ip = self.net.absnum_to_ip(167772161)
-        self.assertEqual(ip, '10.0.0.1')
-
-
-    def test_absnum_to_ip_with_invalid_absnum(self):
-        self.assertRaises(RuntimeError, self.net.absnum_to_ip, 4294967296)
-
-
-    def test_get_base_net_with_valid_input(self):
-        base_net = self.net.get_base_net('10.0.0.1', '24')
-        self.assertEqual(base_net, 167772160)
-
-
-    def test_get_base_net_with_invalid_prefix(self):
-        self.assertRaises(RuntimeError, self.net.get_base_net, '10.0.0.1', 33)
-
-
-    def test_get_base_net_with_invalid_address(self):
-        self.assertRaises(RuntimeError, self.net.get_base_net, '256.0.0.1', 2)
-
 
 class NetworkCreateTests(unittest.TestCase):
 
@@ -110,6 +57,61 @@ class NetworkReadTests(unittest.TestCase):
                            NETWORK='172.16.1.0', PREFIX='24')
         net = luna.Network(name='testnet', mongo_db=self.db)
         self.assertIsInstance(net, luna.Network)
+
+
+class NetworkAttributesTests(unittest.TestCase):
+
+    def setUp(self):
+        self.bind = create_datastore('mim:///luna')
+        self.db = self.bind.db.luna
+        self.path = '/tmp/luna'
+
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
+
+        cluster = luna.Cluster(mongo_db=self.db, create=True, path=self.path,
+                               user='root')
+        self.net = luna.Network(name='test', mongo_db=self.db, create=True,
+                                NETWORK='172.16.1.0', PREFIX='24',
+                                ns_hostname='controller', ns_ip='172.16.1.254')
+
+
+    def tearDown(self):
+        self.bind.conn.drop_all()
+
+
+    def test_get_network(self):
+        self.assertEqual(self.net.get('NETWORK'), '172.16.1.0')
+
+
+    def test_get_netmask(self):
+        self.assertEqual(self.net.get('NETMASK'), '255.255.255.0')
+
+
+    def test_get_PREFIX(self):
+        self.assertEqual(self.net.get('PREFIX'), '24')
+
+
+    def test_get_ns_ip(self):
+        self.assertEqual(self.net.get('ns_ip'), '172.16.1.254')
+
+
+    def test_get_other_key(self):
+        self.assertEqual(self.net.get('name'), 'test')
+
+
+    def test_reserve_ip_with_valid_input(self):
+        self.net.reserve_ip('172.16.1.3')
+        net = self.net._get_json()
+        self.assertEqual(net['freelist'], [{'start': 1, 'end': 2},
+                                           {'start': 4, 'end': 253}])
+
+
+    def test_reserve_ip_range_with_valid_input(self):
+        self.net.reserve_ip('172.16.1.4', '172.16.1.6')
+        net = self.net._get_json()
+        self.assertEqual(net['freelist'], [{'start': 1, 'end': 3},
+                                           {'start': 7, 'end': 253}])
 
 
 if __name__ == '__main__':
