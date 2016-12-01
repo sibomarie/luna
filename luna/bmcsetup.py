@@ -21,19 +21,27 @@ along with Luna.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from config import *
+
 import logging
-import inspect
+
 from bson.dbref import DBRef
+
 from luna.base import Base
 from luna.cluster import Cluster
 
+
 class BMCSetup(Base):
     """
-    Class for operating with bmcsetup records
+    Class for operating with BMCSetup records.
+    These are used by luna for auth and communicate with BMC devices found
+    on the managed nodes
     """
-    _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None,
-            userid = 3, user = 'ladmin', password = 'ladmin', netchannel = 1, mgmtchannel = 1):
+
+    log = logging.getLogger(__name__)
+
+    def __init__(self, name=None, mongo_db=None, create=False, id=None,
+                 userid=3, user='ladmin', password='ladmin',
+                 netchannel=1, mgmtchannel=1):
         """
         userid      - default user id
         user        - username
@@ -41,27 +49,56 @@ class BMCSetup(Base):
         netchannel  - network channel
         mgmtchannel - management channel
         """
-        self._logger.debug("Arguments to function '{}".format(self._debug_function()))
+
+        self.log.debug("function args '{}".format(self._debug_function()))
+
+        # Define the schema used to represent BMC configuration objects
+
         self._collection_name = 'bmcsetup'
-        mongo_doc = self._check_name(name, mongo_db, create, id)
-        self._keylist = {'userid': type(0), 'user': type(''), 'password': type(''), 'netchannel': type(0), 'mgmtchannel': type(0)}
+        self._keylist = {'userid': type(0),
+                         'user': type(''), 'password': type(''),
+                         'netchannel': type(0), 'mgmtchannel': type(0)}
+
+        # Check if this BMC config is already present in the datastore
+        # Read it if that is the case
+
+        bmc = self._check_name(name, mongo_db, create, id)
+
         if create:
-            cluster = Cluster(mongo_db = self._mongo_db)
-            passed_vars = inspect.currentframe().f_locals
+            cluster = Cluster(mongo_db=self._mongo_db)
+
+            # Verify that all the keywords arguments have the correct types
+            # as specified in the self._keylist
+
+            args = locals()
+
             for key in self._keylist:
-                if type(passed_vars[key]) is not self._keylist[key]:
-                    self._logger.error("Argument '{}' should be '{}'".format(key, self._keylist[key]))
+                if type(args[key]) is not self._keylist[key]:
+                    self.log.error(("Argument '{}' should be '{}'"
+                                    .format(key, self._keylist[key])))
                     raise RuntimeError
-            mongo_doc = {'name': name, 'userid': userid, 'user': user,
-                    'password': password, 'netchannel': netchannel,
-                    'mgmtchannel': mgmtchannel}
-            self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
+
+            # Define a new mongo document
+
+            bmc = {'name': name, 'userid': userid, 'user': user,
+                   'password': password, 'netchannel': netchannel,
+                   'mgmtchannel': mgmtchannel}
+
+            # Store the new BMC config in the datastore
+
+            self.log.debug("Saving BMC conf '{}' to the datastore".format(bmc))
+
             self._name = name
-            self._id = self._mongo_collection.insert(mongo_doc)
+            self._id = self._mongo_collection.insert(bmc)
             self._DBRef = DBRef(self._collection_name, self._id)
+
+            # Link this BMC config to the current cluster
+
             self.link(cluster)
+
         else:
-            self._name = mongo_doc['name']
-            self._id = mongo_doc['_id']
+            self._name = bmc['name']
+            self._id = bmc['_id']
             self._DBRef = DBRef(self._collection_name, self._id)
-        self._logger = logging.getLogger(__name__ + '.' + self._name)
+
+        self.log = logging.getLogger(__name__ + '.' + self._name)
