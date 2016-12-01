@@ -126,5 +126,11 @@ class NetworkAttributesTests(unittest.TestCase):
         self.assertEqual(net['freelist'], [{'start': 1, 'end': 254}])
 
 
+    def test__save_free_list(self):
+        self.net._save_free_list([{'start': 10, 'end': 50}])
+        net = self.net._get_json()
+        self.assertEqual(net['freelist'], [{'start': 10, 'end': 50}])
+
+
 if __name__ == '__main__':
     unittest.main()
