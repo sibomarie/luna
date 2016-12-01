@@ -62,6 +62,12 @@ class UtilsFreelistTests(unittest.TestCase):
         self.assertEqual(flist, [{'start': 1, 'end': 253}])
         self.assertEqual(unfreed, 254)
 
+        # Simple freelist. Reserve first element
+
+        flist, unfreed = freelist.unfree_range(self.flist1, 1)
+        self.assertEqual(flist, [{'start': 2, 'end': 254}])
+        self.assertEqual(unfreed, 1)
+
         # Simple freelist. Reserve range
 
         flist, unfreed = freelist.unfree_range(self.flist1, 6, 8)
@@ -109,6 +115,18 @@ class UtilsFreelistTests(unittest.TestCase):
         flist, freed = freelist.free_range(self.flist1, 6, 8)
         self.assertEqual(flist, self.flist1)
         self.assertEqual(freed, [6, 8])
+
+        # Simple freelist. free last element
+
+        flist, freed = freelist.free_range(self.flist1, 255)
+        self.assertEqual(flist, [{'start': 1, 'end': 255}])
+        self.assertEqual(freed, 255)
+
+        # Simple freelist. free first element
+
+        flist, freed = freelist.free_range(self.flist1, 0)
+        self.assertEqual(flist, [{'start': 0, 'end': 254}])
+        self.assertEqual(freed, 0)
 
         # Multiple range freelist. Free overlapping range
 

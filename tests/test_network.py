@@ -100,18 +100,30 @@ class NetworkAttributesTests(unittest.TestCase):
         self.assertEqual(self.net.get('name'), 'test')
 
 
-    def test_reserve_ip_with_valid_input(self):
+    def test_reserve_ip(self):
         self.net.reserve_ip('172.16.1.3')
         net = self.net._get_json()
         self.assertEqual(net['freelist'], [{'start': 1, 'end': 2},
                                            {'start': 4, 'end': 253}])
 
 
-    def test_reserve_ip_range_with_valid_input(self):
+    def test_reserve_ip_range(self):
         self.net.reserve_ip('172.16.1.4', '172.16.1.6')
         net = self.net._get_json()
         self.assertEqual(net['freelist'], [{'start': 1, 'end': 3},
                                            {'start': 7, 'end': 253}])
+
+
+    def test_release_ip(self):
+        self.net.release_ip('172.16.1.254')
+        net = self.net._get_json()
+        self.assertEqual(net['freelist'], [{'start': 1, 'end': 254}])
+
+
+    def test_release_ip_range(self):
+        self.net.release_ip('172.16.1.250', '172.16.1.254')
+        net = self.net._get_json()
+        self.assertEqual(net['freelist'], [{'start': 1, 'end': 254}])
 
 
 if __name__ == '__main__':

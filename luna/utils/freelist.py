@@ -167,7 +167,7 @@ def free_range(flist, start, end=None):
             continue
 
         if tmp_list[i + 1]['start'] in range(tmp_list[i]['start'],
-                                          tmp_list[i]['end'] + 1):
+                                          tmp_list[i]['end'] + 2):
             s = tmp_list[i]['start']
             e = tmp_list[i]['end']
             skip += 1
