@@ -5,7 +5,7 @@ import test_utils_ip as utils_ip
 import test_utils_freelist as utils_freelist
 
 loader = unittest.TestLoader()
-suite  = unittest.TestSuite()
+suite = unittest.TestSuite()
 
 suite.addTests(loader.loadTestsFromModule(utils_ip))
 suite.addTests(loader.loadTestsFromModule(utils_freelist))

@@ -4,6 +4,7 @@ import unittest
 import os
 import luna
 
+
 class ClusterUtilsTests(unittest.TestCase):
 
     @classmethod
@@ -17,7 +18,6 @@ class ClusterUtilsTests(unittest.TestCase):
 
         self.cluster = luna.Cluster(mongo_db=self.db, create=True,
                                     path=self.path, user='root')
-
 
     @classmethod
     def tearDownClass(self):
@@ -37,13 +37,12 @@ class ClusterReadTests(unittest.TestCase):
     def tearDown(self):
         self.bind.conn.drop_all()
 
-
     def test_read_non_existing_cluster(self):
         self.assertRaises(RuntimeError, luna.Cluster, mongo_db=self.db)
 
-
     def test_cluster_read(self):
-        luna.Cluster(mongo_db=self.db, create=True, path=self.path, user='root')
+        luna.Cluster(mongo_db=self.db, create=True,
+                     path=self.path, user='root')
         cluster = luna.Cluster(mongo_db=self.db)
         self.assertIsInstance(cluster, luna.Cluster)
 
@@ -61,9 +60,9 @@ class ClusterCreateTests(unittest.TestCase):
     def tearDown(self):
         self.bind.conn.drop_all()
 
-
     def test_init_cluster_with_defaults(self):
-        cluster = luna.Cluster(mongo_db=self.db, create=True, path=self.path, user='root')
+        cluster = luna.Cluster(mongo_db=self.db, create=True,
+                               path=self.path, user='root')
         self.assertIsInstance(cluster, luna.Cluster)
 
 

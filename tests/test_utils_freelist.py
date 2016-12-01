@@ -5,6 +5,7 @@ import os
 import luna
 from luna.utils import freelist
 
+
 class UtilsFreelistTests(unittest.TestCase):
 
     def setUp(self):
@@ -12,7 +13,6 @@ class UtilsFreelistTests(unittest.TestCase):
         self.flist1 = [{'start': 1, 'end': 254}]
         self.flist2 = [{'start': 10, 'end': 18}, {'start': 20, 'end': 254}]
         self.flist3 = [{'start': 254, 'end': 254}]
-
 
     def test_next_free(self):
 
@@ -41,11 +41,10 @@ class UtilsFreelistTests(unittest.TestCase):
         self.assertEqual(flist, [])
         self.assertEqual(next_free, 254)
 
-
     def test_unfree_range(self):
 
         # Empty freelist. Reserve single element
- 
+
         flist, unfreed = freelist.unfree_range(self.flist0, 6)
         self.assertEqual(flist, [])
         self.assertEqual(unfreed, None)
@@ -101,7 +100,6 @@ class UtilsFreelistTests(unittest.TestCase):
         self.assertEqual(flist, self.flist3)
         self.assertEqual(unfreed, None)
 
-
     def test_free_range(self):
 
         # Empty freelist. Free range
@@ -148,7 +146,6 @@ class UtilsFreelistTests(unittest.TestCase):
         self.assertEqual(flist, [{'start': 5, 'end': 12},
                                  {'start': 254, 'end': 254}])
         self.assertEqual(freed, [5, 12])
-
 
     def test_set_upper_limit(self):
 
