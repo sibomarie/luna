@@ -247,13 +247,13 @@ class Network(Base):
 
         out_dict = {}
 
-        def add_to_out_dict(name, ip):
+        def add_to_out_dict(name, relative_ip):
             try:
                 out_dict[name]
                 self.log.error(("Duplicate name '{}' in network '{}'"
                                 .format(name, self.name)))
             except:
-                out_dict[name] = ip.reltoa(net['NETWORK'], ip)
+                out_dict[name] = ip.reltoa(net['NETWORK'], relative_ip)
 
         for elem in rev_links:
             if elem == "group":
