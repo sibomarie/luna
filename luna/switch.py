@@ -33,6 +33,7 @@ from bson.dbref import DBRef
 from luna.base import Base
 from luna.cluster import Cluster
 from luna.network import Network
+from luna.utils import ip
 
 class Switch(Base):
     """
@@ -89,7 +90,7 @@ class Switch(Base):
             if not bool(dbref):
                 return None
             net = Network(id = dbref.id, mongo_db = self._mongo_db)
-            return net.relnum_to_ip(self._get_json()['ip'])
+            return ip.reltoa(net._get_json()['NETWORK'], self._get_json()['ip'])
         return super(Switch, self).get(key)
 
     def get_rel_ip(self):
@@ -115,7 +116,7 @@ class Switch(Base):
             net_dbref = obj_json['network']
             old_ip = obj_json['ip']
             net = Network(id = net_dbref.id, mongo_db = self._mongo_db)
-            if not net.ip_in_net(value):
+            if not ip.ip_in_net(value, net._get_json['NETWORK'], net._get_json['PREFIX']):
                 self._logger.error("This IP: '{}' does not belong to defined network.".format(value))
                 return None
             if old_ip:
@@ -133,7 +134,7 @@ class Switch(Base):
             if old_net.DBRef == new_net.DBRef:
                 return None
             new_ip_rel = old_ip_rel
-            new_ip_human_readable = new_net.relnum_to_ip(new_ip_rel)
+            new_ip_human_readable = ip.reltoa(new_net._get_json()['NETWORK'], new_ip_rel)
             if not new_net.reserve_ip(new_ip_human_readable):
                 return None
             old_net.release_ip(old_ip_human_readable)

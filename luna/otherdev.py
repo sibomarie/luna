@@ -34,6 +34,7 @@ from bson.objectid import ObjectId
 from luna.base import Base
 from luna.cluster import Cluster
 from luna.network import Network
+from luna.utils import ip
 
 class OtherDev(Base):
     """
@@ -94,7 +95,7 @@ class OtherDev(Base):
         for rec in nets:
             net = Network(id = ObjectId(rec), mongo_db = self._mongo_db)
             if net.name == network_name:
-                return net.relnum_to_ip(nets[rec])
+                return ip.reltoa(net._get_json()['NETWORK'], nets[rec])
         return None
 
     def del_net(self, network = None):
@@ -110,7 +111,7 @@ class OtherDev(Base):
         except:
             self._logger.error("Cannot find configured IP in the network '{}' for '{}'".format(network, self.name))
             return None
-        net.release_ip(net.relnum_to_ip(rel_ip))
+        net.release_ip(ip.reltoa(net._get_json()['NETWORK'], rel_ip))
         obj_json['connected'].pop(str(net.id))
         ret = self._mongo_collection.update({'_id': self._id}, {'$set': obj_json}, multi=False, upsert=False)
         self.unlink(net)
@@ -136,7 +137,7 @@ class OtherDev(Base):
         except:
             old_rel_ip = None
         if old_rel_ip:
-            net.release_ip(net.relnum_to_ip(old_rel_ip))
+            net.release_ip(ip.reltoa(net._get_json()['NETWORK'], old_rel_ip))
         new_ip = net.reserve_ip(ip)
         if not new_ip:
             return None

@@ -30,6 +30,7 @@ import grp
 import errno
 from bson.dbref import DBRef
 from luna.base import Base
+from luna.utils import ip
 
 class Cluster(Base):
     """
@@ -155,7 +156,7 @@ class Cluster(Base):
             if not bool(netid):
                 return None
             net = Network(id = ObjectId(netid), mongo_db = self._mongo_db)
-            return net.relnum_to_ip(super(Cluster, self).get(key))
+            return ip.reltoa(net._get_json()['NETWORK'], super(Cluster, self).get(key))
 
         return super(Cluster, self).get(key)
 
@@ -215,8 +216,10 @@ class Cluster(Base):
             return None
         if not bool(self.get_cluster_ips()):
             no_ha = True
-        startip = objnet.ip_to_relnum(startip)
-        endip = objnet.ip_to_relnum(endip)
+
+        n = objnet._get_json()
+        startip = ip.atorel(startip, n['NETWORK'], n['PREFIX'])
+        endip = ip.atorel(endip, n['NETWORK'], n['PREFIX'])
         if not bool(startip) or not bool(endip):
             self._logger.error("Error in acquiring IPs.")
             return None

@@ -25,6 +25,7 @@ import logging
 import json
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
+from luna.utils import ip
 from luna.utils.utils import set_mac_node
 from luna.base import Base
 from luna.cluster import Cluster
@@ -1011,7 +1012,7 @@ EOF"""
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
         if bool(ipnum):
-            return net.relnum_to_ip(ipnum)
+            return ip.reltoa(net._get_json()['NETWORK'], ipnum)
         return None
 
     def get_num_ip(self, interface, ip):
@@ -1025,7 +1026,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return net.ip_to_relnum(ip)
+        return ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
 
     def get_human_bmc_ip(self, ipnum):
         dbref = None
@@ -1037,7 +1038,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return net.relnum_to_ip(ipnum)
+        return ip.reltoa(net._get_json()['NETWORK'], ipnum)
 
     def get_num_bmc_ip(self, ip):
         dbref = None
@@ -1049,7 +1050,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return net.ip_to_relnum(ip)
+        return ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
 
     def boot_params(self):
         params = {}
