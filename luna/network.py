@@ -190,7 +190,7 @@ class Network(Base):
 
         return not res['err']
 
-    def reserve_ip(self, ip1=None, ip2=None):
+    def reserve_ip(self, ip1=None, ip2=None, ignore_errors=True):
         net = self._get_json()
 
         if type(ip1) is str:
@@ -203,7 +203,12 @@ class Network(Base):
             self.log.error("Wrong range definition.")
             return None
 
-        flist, unfreed = freelist.unfree_range(net['freelist'], ip1, ip2)
+        if bool(ip1):
+            flist, unfreed = freelist.unfree_range(net['freelist'], ip1, ip2)
+
+        elif ignore_errors:
+            flist, unfreed = freelist.next_free(net['freelist'])
+            
         self._save_free_list(flist)
 
         return unfreed
