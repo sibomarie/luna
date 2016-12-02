@@ -27,7 +27,7 @@ import inspect
 import json
 from bson.objectid import ObjectId
 from bson.dbref import DBRef
-from utils import *
+from utils.utils import *
 
 class Base(object):
     """
