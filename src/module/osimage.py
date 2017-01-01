@@ -374,6 +374,7 @@ class OsImage(Base):
             while dracut_create.poll() is None:
                 line = dracut_create.stdout.readline()
         except:
+            self._logger.error("Error on building initrd.")
             os.fchdir(real_root)
             os.chroot(".")
             os.close(real_root)
@@ -398,3 +399,35 @@ class OsImage(Base):
         self.set('kernfile', kernfile)
         self.set('initrdfile', initrdfile)
 
+    def copy_boot(self):
+        cluster = Cluster(mongo_db = self._mongo_db)
+        image_path = str(self.get('path'))
+        kernver = str(self.get('kernver'))
+        tmp_path = '/tmp' # in chroot env
+        initrdfile = str(self.name) + '-initramfs-' + kernver
+        kernfile = str(self.name) + '-vmlinuz-' + kernver
+        path = cluster.get('path')
+        if not path:
+            self._logger.error("Path needs to be configured.")
+            return None
+        path = str(path)
+        user = cluster.get('user')
+        if not user:
+            self._logger.error("User needs to be configured.")
+            return None
+        path_to_store = path + "/boot"
+        user_id = pwd.getpwnam(user).pw_uid
+        grp_id = pwd.getpwnam(user).pw_gid
+        if not os.path.exists(path_to_store):
+            os.makedirs(path_to_store)
+            os.chown(path_to_store, user_id, grp_id)
+        shutil.copy(image_path + '/boot/initramfs-' + kernver + '.img', path_to_store + '/' + initrdfile)
+        shutil.copy(image_path + '/boot/vmlinuz-' + kernver, path_to_store + '/' + kernfile)
+        os.chown(path_to_store + '/' + initrdfile, user_id, grp_id)
+        os.chmod(path_to_store + '/' + initrdfile, 0644)
+        os.chown(path_to_store + '/' + kernfile, user_id, grp_id)
+        os.chmod(path_to_store + '/' + kernfile, 0644)
+        self.set('kernfile', kernfile)
+        self.set('initrdfile', initrdfile)
+        self._logger.warning("Boot files was copied, but luna module might not being added to initrd. Please check /etc/dracut.conf.d in image")
+        return True
