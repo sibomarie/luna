@@ -70,6 +70,10 @@ class Manager(tornado.web.RequestHandler):
                 req_nodename = self.get_argument('node')
             except:
                 req_nodename = None
+            try:
+                boot_type = self.get_argument('type')
+            except:
+                boot_type = 'ipxe'
             macs = set(hwdata.split('|'))
             # enter node name manualy from ipxe
             if req_nodename:
@@ -174,8 +178,15 @@ class Manager(tornado.web.RequestHandler):
             boot_params['delay'] = 10
             boot_params['server_ip'] = self.server_ip
             boot_params['server_port'] = self.server_port
-            node.update_status('boot.request')
-            self.render("templ_nodeboot.cfg", p = boot_params)
+            if boot_type == 'ipxe':
+                node.update_status('boot.request')
+                self.render("templ_nodeboot.cfg", p = boot_params)
+            elif boot_type == 'syslinux':
+                node.update_status('boot.request')
+                self.render("templ_nodeboot_syslinux.cfg", p = boot_params)
+            else:
+                self.send_error(404)
+
         if step == 'install':
             try:
                 node_name = self.get_argument('node')
