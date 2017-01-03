@@ -1,0 +1,211 @@
+#!/usr/bin/python
+
+from __future__ import with_statement
+
+import os
+import sys
+import errno
+import stat
+import logging
+import requests
+import urllib
+
+#from llfuse import FUSE, llfuse.FUSEError, Operations
+import llfuse
+
+
+class PxeLinux_cfg(llfuse.Operations):
+
+    # Helpers
+    # =======
+
+    def _get_hex_mac(self, filename):
+        if filename.startswith("/"):
+            filename = filename[1:]
+        try:
+            mac_array = filename.split('-')[-6:]
+            return int("0x"+"".join(mac_array), 16) + llfuse.ROOT_INODE
+        except:
+            return None
+
+    def _get_data_from_luna(self, int_mac):
+        try:
+            int_mac = int_mac - llfuse.ROOT_INODE
+            mac_str = hex(int_mac)[2:].zfill(12)
+            mac = ''
+            for i in range(2,14,2):
+                mac += mac_str[i-2:i] + ':'
+            mac = mac[:-1]
+            request = { 'step': 'discovery', 'hwdata': mac, 'type': 'syslinux' }
+            data = requests.get('http://127.0.0.1:7051/luna?' + urllib.urlencode(request))
+            if not data.ok:
+                return False
+            return str(data.text)
+        except:
+            return False
+
+    # Filesystem methods
+    # ==================
+    """
+    def access(self, path, mode):
+        dec_mac = _get_hex_mac(path)
+        if not dec_mac:
+            return False
+        return bool(_get_data_from_luna(dec_mac))
+       
+    def chmod(self, path, mode):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def chown(self, path, uid, gid):
+        raise llfuse.FUSEError(errno.EACCES)
+    """
+    def getattr(self, inode, ctx=None):
+        entry = llfuse.EntryAttributes()
+        if inode == llfuse.ROOT_INODE:
+            entry.st_mode = (stat.S_IFDIR | 0o755)
+            entry.st_size = 0
+            return entry
+        text = self._get_data_from_luna(inode)
+        if not bool(text):
+            raise llfuse.FUSEError(errno.ENOENT)
+        stamp = int(1438467123.985654 * 1e9)
+        entry.st_atime_ns = stamp
+        entry.st_ctime_ns = stamp
+        entry.st_mtime_ns = stamp
+        entry.st_gid = os.getgid()
+        entry.st_uid = os.getuid()
+        entry.st_ino = inode
+        entry.st_mode = (stat.S_IFREG | 0o444)
+        entry.st_size = len(text)
+        return entry
+
+    def lookup(self, parent_inode, name, ctx=None):
+        inode = self._get_hex_mac(name)
+        if parent_inode != llfuse.ROOT_INODE or not inode:
+            raise llfuse.FUSEError(errno.ENOENT)
+        return self.getattr(inode)
+
+    def opendir(self, inode, ctx):
+        if inode != llfuse.ROOT_INODE:
+            raise llfuse.FUSEError(errno.ENOENT)
+        return inode
+
+    def readdir(self, fh, off):
+        assert fh == llfuse.ROOT_INODE
+        return []
+
+    def open(self, inode, flags, ctx):
+        text = self._get_data_from_luna(inode)
+        if not bool(text):
+            raise llfuse.FUSEError(errno.ENOENT)
+        if flags & os.O_RDWR or flags & os.O_WRONLY:
+            raise llfuse.FUSEError(errno.EPERM)
+        return inode
+    
+    def read(self, fh, off, size):
+        text = self._get_data_from_luna(fh)
+        if not bool(text):
+            raise llfuse.FUSEError(errno.ENOENT)
+        return text[off:size]
+        
+        
+
+    """
+    def readdir(self, path, fh):
+        dirents = ['.', '..', 'LUNA_VIRTUAL_FS']
+        for r in dirents:
+            yield r
+
+    def readlink(self, path):
+        return path
+
+    def mknod(self, path, mode, dev):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def rmdir(self, path):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def mkdir(self, path, mode):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def statfs(self, path):
+        out_dict = {
+            'f_bavail': 0,
+            'f_bfree': 0,
+            'f_blocks': 0,
+            'f_bsize': 4096,
+            'f_favail': 0,
+            'f_ffree': 0,
+            'f_files': 0,
+            'f_flag': 4096,
+            'f_frsize': 4096,
+            'f_namemax': 255,
+            }
+        return out_dict
+
+    def unlink(self, path):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def symlink(self, name, target):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def rename(self, old, new):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def link(self, target, name):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def utimens(self, path, times=None):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    # File methods
+    # ============
+
+    def open(self, path, flags):
+        return _get_hex_mac(path)
+
+    def create(self, path, mode, fi=None):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def read(self, path, length, offset, fh):
+        text = _get_data_from_luna(fh)
+        if not bool(text):
+            text = _get_data_from_luna(_get_hex_mac(math))
+        if not bool(text):
+            raise llfuse.FUSEError(errno.EACCES)
+        return text[offset:length]
+
+    def write(self, path, buf, offset, fh):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def truncate(self, path, length, fh=None):
+        raise llfuse.FUSEError(errno.EACCES)
+
+    def flush(self, path, fh):
+        return True
+
+    def release(self, path, fh):
+        return True
+
+    def fsync(self, path, fdatasync, fh):
+        return True
+    """
+
+def main(mountpoint):
+    pxecfg = PxeLinux_cfg()
+    fuse_options = set(llfuse.default_options)
+    print fuse_options
+    fuse_options.add('fsname=lfs_pxelinux')
+    fuse_options.add('debug')
+    fuse_options.add('allow_other')
+    llfuse.init(pxecfg, mountpoint, fuse_options)
+    try:
+        llfuse.main(workers=10)
+    except:
+        llfuse.close(unmount=False)
+        raise
+
+    llfuse.close()
+
+if __name__ == '__main__':
+    main(sys.argv[1])
