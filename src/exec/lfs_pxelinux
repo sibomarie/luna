@@ -129,10 +129,11 @@ class PxeLinux_cfg(llfuse.Operations):
         return text[off:size]
 
     def flush(self, inode):
-        return llfuse.invalidate_inode(inode)
+        return True
 
     def release(self, inode):
-        return True
+        return llfuse.invalidate_inode(inode)
+        #return True
 
 def main():
     try:
