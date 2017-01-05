@@ -6,18 +6,37 @@ import os
 import sys
 import errno
 import stat
-import logging
+#import logging
 import requests
 import urllib
+import time
 
 #from llfuse import FUSE, llfuse.FUSEError, Operations
 import llfuse
 
+#logger=logging.getLogger('lfs_pxelinux')
+
+class LFS_Exception(Exception):
+    pass
 
 class PxeLinux_cfg(llfuse.Operations):
 
     # Helpers
     # =======
+    def __init__(self, default_file):
+        super(PxeLinux_cfg, self).__init__()
+        self.luna_url = 'http://127.0.0.1:7051/luna'
+        self.default_name = 'default'
+        self.default_inode = llfuse.ROOT_INODE+1
+        self.default_file = default_file
+
+    def _get_default_content(self):
+        content = ''
+        if not bool(self.default_file):
+            return content
+        with open(self.default_file, 'r') as f:
+            content = f.read()
+        return content
 
     def _get_hex_mac(self, filename):
         if filename.startswith("/"):
@@ -37,7 +56,7 @@ class PxeLinux_cfg(llfuse.Operations):
                 mac += mac_str[i-2:i] + ':'
             mac = mac[:-1]
             request = { 'step': 'discovery', 'hwdata': mac, 'type': 'syslinux' }
-            data = requests.get('http://127.0.0.1:7051/luna?' + urllib.urlencode(request))
+            data = requests.get( self.luna_url + '?' + urllib.urlencode(request))
             if not data.ok:
                 return False
             return str(data.text)
@@ -53,10 +72,13 @@ class PxeLinux_cfg(llfuse.Operations):
             entry.st_mode = (stat.S_IFDIR | 0o755)
             entry.st_size = 0
             return entry
-        text = self._get_data_from_luna(inode)
+        if inode != self.default_inode:
+            text = self._get_data_from_luna(inode)
+        else:
+            text = self._get_default_content()
         if not bool(text):
             raise llfuse.FUSEError(errno.ENOENT)
-        stamp = int(1438467123.985654 * 1e9)
+        stamp = int(time.time() * 1e9)
         entry.st_atime_ns = stamp
         entry.st_ctime_ns = stamp
         entry.st_mtime_ns = stamp
@@ -68,7 +90,10 @@ class PxeLinux_cfg(llfuse.Operations):
         return entry
 
     def lookup(self, parent_inode, name, ctx=None):
-        inode = self._get_hex_mac(name)
+        if name != self.default_name:
+            inode = self._get_hex_mac(name)
+        else:
+            inode = self.default_inode
         if parent_inode != llfuse.ROOT_INODE or not inode:
             raise llfuse.FUSEError(errno.ENOENT)
         return self.getattr(inode)
@@ -78,28 +103,52 @@ class PxeLinux_cfg(llfuse.Operations):
             raise llfuse.FUSEError(errno.ENOENT)
         return inode
 
-    def readdir(self, fh, off):
-        assert fh == llfuse.ROOT_INODE
-        return []
+    def readdir(self, inode, off):
+        assert inode == llfuse.ROOT_INODE
+        if off == 0:
+            yield (self.default_name, self.getattr(self.default_inode), 1)
 
     def open(self, inode, flags, ctx):
-        text = self._get_data_from_luna(inode)
+        if inode != self.default_inode:
+            text = self._get_data_from_luna(inode)
+        else:
+            text = self._get_default_content()
         if not bool(text):
             raise llfuse.FUSEError(errno.ENOENT)
         if flags & os.O_RDWR or flags & os.O_WRONLY:
             raise llfuse.FUSEError(errno.EPERM)
         return inode
-    
-    def read(self, fh, off, size):
-        text = self._get_data_from_luna(fh)
+ 
+    def read(self, inode, off, size):
+        if inode != self.default_inode:
+            text = self._get_data_from_luna(inode)
+        else:
+            text = self._get_default_content()
         if not bool(text):
             raise llfuse.FUSEError(errno.ENOENT)
         return text[off:size]
-        
-def main(mountpoint):
-    pxecfg = PxeLinux_cfg()
+
+    def flush(self, inode):
+        return llfuse.invalidate_inode(inode)
+
+    def release(self, inode):
+        return True
+
+def main():
+    try:
+        default_file = os.environ['LFS_DEFAULT_FILE']
+    except KeyError:
+        default_file = ''
+
+    try:
+        mountpoint = os.environ['LFS_MOUNTPOINT']
+    except KeyError:
+        mountpoint = ''
+    if not bool(mountpoint):
+        raise LFS_Exception("No LFS_MOUNTPOINT env variable specified.")
+
+    pxecfg = PxeLinux_cfg(default_file)
     fuse_options = set(llfuse.default_options)
-    print fuse_options
     fuse_options.add('fsname=lfs_pxelinux')
     fuse_options.add('debug')
     fuse_options.add('allow_other')
@@ -109,8 +158,7 @@ def main(mountpoint):
     except:
         llfuse.close(unmount=False)
         raise
-
     llfuse.close()
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main()
