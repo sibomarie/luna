@@ -4,6 +4,7 @@ import unittest
 
 import os
 import luna
+import getpass
 
 
 class NetworkCreateTests(unittest.TestCase):
@@ -17,7 +18,7 @@ class NetworkCreateTests(unittest.TestCase):
             os.makedirs(self.path)
 
         cluster = luna.Cluster(mongo_db=self.db, create=True,
-                               path=self.path, user='root')
+                               path=self.path, user=getpass.getuser())
 
     def tearDown(self):
         self.bind.conn.drop_all()
@@ -39,7 +40,7 @@ class NetworkReadTests(unittest.TestCase):
             os.makedirs(self.path)
 
         cluster = luna.Cluster(mongo_db=self.db, create=True,
-                               path=self.path, user='root')
+                               path=self.path, user=getpass.getuser())
 
     def tearDown(self):
         self.bind.conn.drop_all()
@@ -65,7 +66,7 @@ class NetworkAttributesTests(unittest.TestCase):
             os.makedirs(self.path)
 
         cluster = luna.Cluster(mongo_db=self.db, create=True, path=self.path,
-                               user='root')
+                               user=getpass.getuser())
         self.net = luna.Network(name='test', mongo_db=self.db, create=True,
                                 NETWORK='172.16.1.0', PREFIX='24',
                                 ns_hostname='controller', ns_ip='172.16.1.254')

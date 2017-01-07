@@ -4,6 +4,7 @@ import unittest
 
 import os
 import luna
+import getpass
 
 
 class BMCSetupCreateTests(unittest.TestCase):
@@ -17,7 +18,7 @@ class BMCSetupCreateTests(unittest.TestCase):
             os.makedirs(self.path)
 
         cluster = luna.Cluster(mongo_db=self.db, create=True,
-                               path=self.path, user='root')
+                               path=self.path, user=getpass.getuser())
 
     def tearDown(self):
         self.bind.conn.drop_all()
@@ -49,7 +50,7 @@ class BMCSetupReadTests(unittest.TestCase):
             os.makedirs(self.path)
 
         cluster = luna.Cluster(mongo_db=self.db, create=True,
-                               path=self.path, user='root')
+                               path=self.path, user=getpass.getuser())
         self.bmc = luna.BMCSetup(name='testbmc', mongo_db=self.db, create=True)
 
     def tearDown(self):
