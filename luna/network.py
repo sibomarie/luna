@@ -27,9 +27,9 @@ import logging
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
 
+from luna import utils
 from luna.base import Base
 from luna.cluster import Cluster
-from luna.utils import ip, freelist, utils
 
 
 class Network(Base):
@@ -60,13 +60,13 @@ class Network(Base):
 
         if create:
             cluster = Cluster(mongo_db=self._mongo_db)
-            num_subnet = ip.get_num_subnet(NETWORK, PREFIX)
+            num_subnet = utils.ip.get_num_subnet(NETWORK, PREFIX)
             flist = [{'start': 1, 'end': (1 << (32 - int(PREFIX))) - 2}]
 
             # Try to guess the nameserver hostname if none provided
 
             if not ns_hostname:
-                ns_hostname = ip.guess_ns_hostname()
+                ns_hostname = utils.ip.guess_ns_hostname()
 
             # Define a new mongo document
 
@@ -90,7 +90,7 @@ class Network(Base):
             # the cluster's frontend address
 
             if ns_ip is None:
-                ns_ip = ip.reltoa(num_subnet, flist[0]['end'])
+                ns_ip = utils.ip.reltoa(num_subnet, flist[0]['end'])
 
             self.set('ns_ip', ns_ip)
 
@@ -113,7 +113,7 @@ class Network(Base):
         net = self._get_json()
 
         if key == 'ns_ip':
-            rel_ns_ip = ip.atorel(value, net['NETWORK'], net['PREFIX'])
+            rel_ns_ip = utils.ip.atorel(value, net['NETWORK'], net['PREFIX'])
             old_ip = None
 
             try:
@@ -133,16 +133,17 @@ class Network(Base):
 
         elif key == 'NETWORK':
             prefix = net['PREFIX']
-            num_subnet = ip.get_num_subnet(value, prefix)
+            num_subnet = utils.ip.get_num_subnet(value, prefix)
 
             net['NETWORK'] = num_subnet
 
         elif key == 'PREFIX':
             num_subnet = net['NETWORK']
-            new_num_subnet = ip.get_num_subnet(num_subnet, value)
+            new_num_subnet = utils.ip.get_num_subnet(num_subnet, value)
 
             limit = (1 << (32 - value)) - 1
-            net['freelist'] = freelist.set_upper_limit(net['freelist'], limit)
+            net['freelist'] = utils.freelist.set_upper_limit(net['freelist'],
+                                                             limit)
             net['NETWORK'] = new_num_subnet
             net['PREFIX'] = value
 
@@ -158,19 +159,19 @@ class Network(Base):
         net = self._get_json()
 
         if key == 'NETWORK':
-            return ip.ntoa(net[key])
+            return utils.ip.ntoa(net[key])
 
         if key == 'NETMASK':
             prefix = int(net['PREFIX'])
             num_mask = ((1 << 32) - 1) ^ ((1 << (33 - prefix) - 1) - 1)
 
-            return ip.ntoa(num_mask)
+            return utils.ip.ntoa(num_mask)
 
         if key == 'PREFIX':
             return net['PREFIX']
 
         if key == 'ns_ip':
-            return ip.reltoa(net['NETWORK'], net['ns_ip'])
+            return utils.ip.reltoa(net['NETWORK'], net['ns_ip'])
 
         return super(Network, self).get(key)
 
@@ -194,21 +195,22 @@ class Network(Base):
         net = self._get_json()
 
         if type(ip1) is str:
-            ip1 = ip.atorel(ip1, net['NETWORK'], net['PREFIX'])
+            ip1 = utils.ip.atorel(ip1, net['NETWORK'], net['PREFIX'])
 
         if type(ip2) is str:
-            ip2 = ip.atorel(ip2, net['NETWORK'], net['PREFIX'])
+            ip2 = utils.ip.atorel(ip2, net['NETWORK'], net['PREFIX'])
 
         if bool(ip2) and ip2 <= ip1:
             self.log.error("Wrong range definition.")
             return None
 
         if bool(ip1):
-            flist, unfreed = freelist.unfree_range(net['freelist'], ip1, ip2)
+            flist, unfreed = utils.freelist.unfree_range(net['freelist'],
+                                                         ip1, ip2)
 
         elif ignore_errors:
-            flist, unfreed = freelist.next_free(net['freelist'])
-            
+            flist, unfreed = utils.freelist.next_free(net['freelist'])
+
         self._save_free_list(flist)
 
         return unfreed
@@ -217,16 +219,16 @@ class Network(Base):
         net = self._get_json()
 
         if type(ip1) is str:
-            ip1 = ip.atorel(ip1, net['NETWORK'], net['PREFIX'])
+            ip1 = utils.ip.atorel(ip1, net['NETWORK'], net['PREFIX'])
 
         if type(ip2) is str:
-            ip2 = ip.atorel(ip2, net['NETWORK'], net['PREFIX'])
+            ip2 = utils.ip.atorel(ip2, net['NETWORK'], net['PREFIX'])
 
         if bool(ip2) and ip2 <= ip1:
             self.log.error("Wrong range definition.")
             return None
 
-        flist, freed = freelist.free_range(net['freelist'], ip1, ip2)
+        flist, freed = utils.freelist.free_range(net['freelist'], ip1, ip2)
         self._save_free_list(flist)
 
         return True
@@ -253,7 +255,7 @@ class Network(Base):
                 self.log.error(("Duplicate name '{}' in network '{}'"
                                 .format(name, self.name)))
             except:
-                out_dict[name] = ip.reltoa(net['NETWORK'], relative_ip)
+                out_dict[name] = utils.ip.reltoa(net['NETWORK'], relative_ip)
 
         for elem in rev_links:
             if elem == "group":

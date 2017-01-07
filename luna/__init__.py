@@ -1,5 +1,5 @@
 __version__ = '0.0.1a'
-__all__ = ['cluster', 'osimage', 'bmcsetup', 'node', 'switch', 'network', 'tracker', 'manager']
+__all__ = ['cluster', 'osimage', 'bmcsetup', 'node', 'switch', 'network', 'tracker', 'manager', 'utils']
 __author__ = 'Dmitry Chirikov'
 
 '''
@@ -34,9 +34,8 @@ from switch import Switch, MacUpdater
 from network import Network
 from tracker import *
 from manager import Manager
-from utils import *
-from utils.utils import *
 from otherdev import OtherDev
+import utils
 
 def list(collection):
     import logging
@@ -45,7 +44,7 @@ def list(collection):
     logger = logging.getLogger(__name__)
 
     try:
-        mongo_client = pymongo.MongoClient(get_con_options())
+        mongo_client = pymongo.MongoClient(utils.helpers.get_con_options())
     except:
         logger.error("Unable to connect to MongoDB.")
         raise RuntimeError

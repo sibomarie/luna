@@ -2,7 +2,6 @@ import mock
 import unittest
 
 import os
-import luna
 from luna.utils import freelist
 
 

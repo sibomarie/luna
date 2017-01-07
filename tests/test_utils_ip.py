@@ -2,7 +2,6 @@ from mock import patch
 import unittest
 
 import os
-import luna
 from luna.utils import ip
 
 

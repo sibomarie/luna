@@ -31,7 +31,6 @@ import threading
 import datetime
 import time
 from bson.dbref import DBRef
-from luna.utils.utils import set_mac_node
 
 last_switch_update = None
 lock_last_switch_update = threading.Lock()
@@ -149,7 +148,7 @@ class Manager(tornado.web.RequestHandler):
                 # here we should have node_id and mac_from_cache
                 try:
                     node = luna.Node(id = node_id, mongo_db = self.mongo)
-                    set_mac_node(mac_from_cache, node.DBRef)
+                    utils.helpers.set_mac_node(mac_from_cache, node.DBRef)
                     found_node_dbref = node.DBRef
                 except:
                     # should not be here

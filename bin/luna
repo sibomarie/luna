@@ -33,7 +33,7 @@ import hostlist
 import signal
 import time
 
-from luna.utils import ip, freelist
+from luna import utils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('luna')
@@ -55,7 +55,7 @@ def _safe_print(out):
 
 def print_table(header, content):
     out = {'header': header , 'content': content}
-    (lengths, header_array, content_array) = luna.format_output(out)
+    (lengths, header_array, content_array) = utils.helpers.format_output(out)
 
     num_spaces = 4
     fmt_str = [ "| %-" + str(num_spaces + lengths[i]) + "s" for i in range(len(lengths))]
@@ -124,7 +124,7 @@ def cluster_sync():
     ips = cluster.get_cluster_ips()
     for ip in ips[1:]:
         _safe_print("%s:%s => %s:%s" % (ips[0], path, ip, path))
-        luna.rsync_data(ip, path)
+        utils.helpers.rsync_data(ip, path)
     _safe_print("Done. Luna daemons probably need to be restarted manually.")
 
 def cluster_makedns():
@@ -152,7 +152,7 @@ def cluster_makedns():
     for ip in ips[1:]:
         for path in files:
             _safe_print("%s:%s => %s:%s" % (ips[0], path, ip, path))
-            luna.rsync_data(ip, path)
+            utils.helpers.rsync_data(ip, path)
         _safe_print("Reloading remote namded on " + ip + ".")
         ssh_proc = subprocess.Popen(['/usr/bin/ssh',
             '-o', 'StrictHostKeyChecking=no',
@@ -371,7 +371,7 @@ def osimage_sync(name):
     for ip in ips[1:]:
         for path in (osimagepath, initrdfile, kernfile, tarball, torrent):
             _safe_print("%s:%s => %s:%s" % (ips[0], path, ip, path))
-            luna.rsync_data(ip, path)
+            utils.helpers.rsync_data(ip, path)
         _safe_print("Reloading ltorrent on " + ip)
         ssh_proc = subprocess.Popen(['/usr/bin/ssh',
             '-o', 'StrictHostKeyChecking=no',
@@ -398,7 +398,7 @@ def osimage_clone(**args):
         sys.stderr.write("Path {} already exists.\n".format(targetpath) )
         sys.exit(1)
     _safe_print("%s => %s" % (osimagepath, targetpath))
-    luna.clone_dirs(osimagepath, targetpath)
+    utils.helpers.clone_dirs(osimagepath, targetpath)
     # create osimage
     newosimage = luna.OsImage(name = args['to'],
         create = True,
@@ -481,8 +481,8 @@ def network_show(name, raw, reservedips, out_format = '%20s%60s\n'):
         _safe_print(net.nice_json)
         return None
     if reservedips:
-        nonfree = freelist.get_nonfree(net['freelist'])
-        ips = [ip.reltoa(net['NETWORK'], elem) for elem in nonfree]
+        nonfree = utils.freelist.get_nonfree(net['freelist'])
+        ips = [utils.ip.reltoa(net['NETWORK'], elem) for elem in nonfree]
         _safe_print("\n".join(["%s" % i for i in ips ]))
         return None
     out_json = net.show()
@@ -1257,7 +1257,7 @@ otherdev_command = otherdev_parser_actions.add_parser('delete', help='Delete dev
 otherdev_command.add_argument('--name', '-n', required=True, type=str, help='Name of the device.')
 
 try:
-    mongo_client = pymongo.MongoClient(luna.get_con_options())
+    mongo_client = pymongo.MongoClient(utils.helpers.get_con_options())
 except:
     logger.error("Unable to connect to MongoDB.")
     raise RuntimeError

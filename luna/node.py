@@ -25,8 +25,7 @@ import logging
 import json
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
-from luna.utils import ip
-from luna.utils.utils import set_mac_node
+from luna import utils
 from luna.base import Base
 from luna.cluster import Cluster
 from luna.network import Network
@@ -295,7 +294,7 @@ class Node(Base):
             return None
         if type(mac) == type('') and re.match('(([a-fA-F0-9]{2}:){4}([a-fA-F0-9]{2}))', mac):
             mac = mac.lower()
-            set_mac_node(mac, self.DBRef, (self._mongo_db))
+            utils.helpers.set_mac_node(mac, self.DBRef, (self._mongo_db))
             #res = self._mongo_collection.update({'_id': self._id}, {'$set': {'mac': mac}}, multi=False, upsert=False)
             return True
         return None
@@ -1012,7 +1011,7 @@ EOF"""
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
         if bool(ipnum):
-            return ip.reltoa(net._get_json()['NETWORK'], ipnum)
+            return utils.ip.reltoa(net._get_json()['NETWORK'], ipnum)
         return None
 
     def get_num_ip(self, interface, ip):
@@ -1026,7 +1025,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
+        return utils.ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
 
     def get_human_bmc_ip(self, ipnum):
         dbref = None
@@ -1038,7 +1037,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return ip.reltoa(net._get_json()['NETWORK'], ipnum)
+        return utils.ip.reltoa(net._get_json()['NETWORK'], ipnum)
 
     def get_num_bmc_ip(self, ip):
         dbref = None
@@ -1050,7 +1049,7 @@ EOF"""
         if not bool(dbref):
             return None
         net = Network(id = dbref.id, mongo_db = self._mongo_db)
-        return ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
+        return utils.ip.atorel(ip, net._get_json()['NETWORK'], net._get_json()['PREFIX'])
 
     def boot_params(self):
         params = {}
