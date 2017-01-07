@@ -10,6 +10,9 @@ import stat
 import requests
 import urllib
 import time
+import atexit
+import argparse
+import luna
 
 #from llfuse import FUSE, llfuse.FUSEError, Operations
 import llfuse
@@ -25,7 +28,8 @@ class PxeLinux_cfg(llfuse.Operations):
     # =======
     def __init__(self, default_file):
         super(PxeLinux_cfg, self).__init__()
-        self.luna_url = 'http://127.0.0.1:7051/luna'
+        luna_server_port = luna.Cluster().get('server_port')
+        self.luna_url = 'http://127.0.0.1:' + str(luna_server_port)  + '/luna'
         self.default_name = 'default'
         self.default_inode = llfuse.ROOT_INODE+1
         self.default_file = default_file
@@ -135,31 +139,189 @@ class PxeLinux_cfg(llfuse.Operations):
         return llfuse.invalidate_inode(inode)
         #return True
 
-def main():
+class LFS_Daemon:
+
+    def __init__(self, default_file, mountpont, debug = False, pidfile = '/run/luna/lfs_pxelinux.pid', stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+        self.stdin = stdin
+        self.stdout = stdout
+        self.stderr = stderr
+        self.pidfile = pidfile
+        self.default_file = default_file
+        self.mountpoint = mountpont
+        self.debug = debug
+
+    def daemonize(self):
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # exit first parent
+                sys.exit(0)
+        except OSError, e:
+            sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+            sys.exit(1)
+
+        # decouple from parent environment
+        os.chdir("/")
+        os.setsid()
+        os.umask(0)
+
+        # do second fork
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # exit from second parent
+                sys.exit(0)
+        except OSError, e:
+            sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
+            sys.exit(1)
+
+        # redirect standard file descriptors
+        sys.stdout.flush()
+        sys.stderr.flush()
+        si = file(self.stdin, 'r')
+        so = file(self.stdout, 'a+')
+        se = file(self.stderr, 'a+', 0)
+        os.dup2(si.fileno(), sys.stdin.fileno())
+        os.dup2(so.fileno(), sys.stdout.fileno())
+        os.dup2(se.fileno(), sys.stderr.fileno())
+
+        # write pidfile
+        atexit.register(self.cleanup)
+        pid = str(os.getpid())
+        file(self.pidfile,'w+').write("%s\n" % pid)
+   
+    def cleanup(self):
+        llfuse.close()
+        os.remove(self.pidfile)
+
+    def start(self):
+        # Check for a pidfile to see if the daemon already runs
+        try:
+            pf = file(self.pidfile,'r')
+            pid = int(pf.read().strip())
+            pf.close()
+        except IOError:
+            pid = None
+
+        if pid:
+            message = "pidfile %s already exist. Daemon already running?\n"
+            sys.stderr.write(message % self.pidfile)
+            try:
+                os.kill(pid, 0)
+            except OSError as err:
+                if err.strerror == "No such process":
+                    message = "No process #%s. Doing cleanup and continue\n"
+                    sys.stderr.write(message % pid)
+                    os.remove(self.pidfile)
+                else:
+                    sys.exit(1)
+            else:
+                sys.exit(1)
+       
+        # Start the daemon
+        if not self.debug:
+            self.daemonize()
+
+        self.run()
+
+    def stop(self):
+        """
+        Stop the daemon
+        """
+        # Get the pid from the pidfile
+        try:
+            pf = file(self.pidfile,'r')
+            pid = int(pf.read().strip())
+            pf.close()
+        except IOError:
+            pid = None
+
+        if not pid:
+            message = "pidfile %s does not exist. Daemon not running?\n"
+            sys.stderr.write(message % self.pidfile)
+            return # not an error in a restart
+
+        # Try killing the daemon process       
+        try:
+            while 1:
+                os.kill(pid, 15)
+                time.sleep(0.1)
+        except OSError, err:
+            err = str(err)
+            if err.find("No such process") > 0:
+                if os.path.exists(self.pidfile):
+                    os.remove(self.pidfile)
+            else:
+                print str(err)
+                sys.exit(1)
+
+    def restart(self):
+        self.stop()
+        self.start()
+
+    def run(self):
+        pxecfg = PxeLinux_cfg(self.default_file)
+        fuse_options = set(llfuse.default_options)
+        fuse_options.add('fsname=lfs_pxelinux')
+        if self.debug:
+            fuse_options.add('debug')
+        fuse_options.add('allow_other')
+        llfuse.init(pxecfg, self.mountpoint, fuse_options)
+        try:
+            llfuse.main(workers=10)
+        except:
+            llfuse.close(unmount=False)
+            raise
+        llfuse.close()
+
+def main(args):
+    # if no default file just ignore it
     try:
         default_file = os.environ['LFS_DEFAULT_FILE']
     except KeyError:
         default_file = ''
+    default_file = args['def_file']
 
+    # pidfile
+    # first check env variable
+    # then override with command line argument (if any)
+    # then use default
+    try:
+        pidfile = os.environ['LFS_PIDFILE']
+    except KeyError:
+        pidfile = ''
+    if bool(args['pidfile']):
+        pidfile = args['pidfile']
+    if not bool(pidfile):
+        pidfile = '/run/luna/lfs_pxelinux.pid'
+
+    # use env variale
+    # then override with command line argument (if any)
+    # raise exception if no mountpoint found
     try:
         mountpoint = os.environ['LFS_MOUNTPOINT']
     except KeyError:
         mountpoint = ''
-    if not bool(mountpoint):
-        raise LFS_Exception("No LFS_MOUNTPOINT env variable specified.")
+    if bool(args['mount_mount']):
+        mountpoint = args['mount_mount']
+    if not bool(mountpoint) and args['action'] == 'start':
+        raise LFS_Exception("No mountpoint was specified.")
 
-    pxecfg = PxeLinux_cfg(default_file)
-    fuse_options = set(llfuse.default_options)
-    fuse_options.add('fsname=lfs_pxelinux')
-    fuse_options.add('debug')
-    fuse_options.add('allow_other')
-    llfuse.init(pxecfg, mountpoint, fuse_options)
-    try:
-        llfuse.main(workers=10)
-    except:
-        llfuse.close(unmount=False)
-        raise
-    llfuse.close()
+
+    lfs = LFS_Daemon(default_file, mountpoint, debug=args['debug'], pidfile=pidfile)
+    if args['action'] == 'start':
+        lfs.start()
+    elif args['action'] == 'stop':
+        lfs.stop()
+    elif args['action'] == 'restart':
+        lfs.restart()
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", '-D', action='store_true', help="Debug. LFS_DEBUG variable.")
+    parser.add_argument("--def_file", '-d', help="pxelinux.cfg/default file. LFS_DEFAULT_FILE variable.")
+    parser.add_argument("--mount_mount", '-m', help="Mountpoint. Usually /tftpboot/pxelinux.cfg. LFS_MOUNTPOINT variable.")
+    parser.add_argument("--pidfile", '-p', help="Pidfile. Default is '/run/luna/lfs_pxelinux.pid'. LFS_PIDFILE variable.")
+    parser.add_argument("action", choices=['start', 'stop', 'restart'], help="Daemon action")
+    args = vars(parser.parse_args())
+    main(args)
