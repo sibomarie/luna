@@ -83,7 +83,7 @@ def atorel(ip, num_net, prefix):
     # Check if the ip address actually belongs to num_net/prefix
     if not ip_in_net(ip, num_net, prefix):
         log.error(("Network '{}/{}' does not contain '{}'"
-                   .format(ntoa(num_net). prefix, ip)))
+                   .format(ntoa(num_net), prefix, ip)))
         raise RuntimeError
 
     relative_num = long(num_ip - num_net)
