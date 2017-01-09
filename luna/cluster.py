@@ -323,9 +323,9 @@ class Cluster(Base):
         return cluster_ips
 
     def is_active(self):
-        try:
-            cluster_ips = self.get('cluster_ips')
-        except:
+        cluster_ips = self.get('cluster_ips')
+
+        if not bool(cluster_ips):
             return True
 
         ip = self.get('frontend_address')
