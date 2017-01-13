@@ -34,6 +34,7 @@ class PxeLinux_cfg(llfuse.Operations):
         self.default_inode = llfuse.ROOT_INODE+1
         self.default_file = default_file
 
+    # reading pxelinux.cfg/default
     def _get_default_content(self):
         content = ''
         if not bool(self.default_file):
@@ -42,6 +43,8 @@ class PxeLinux_cfg(llfuse.Operations):
             content = f.read()
         return content
 
+    # convers from 01-00-00-00-00-00 to hex, and then to int
+    # which represeents inode number
     def _get_hex_mac(self, filename):
         if filename.startswith("/"):
             filename = filename[1:]
@@ -51,6 +54,7 @@ class PxeLinux_cfg(llfuse.Operations):
         except:
             return None
 
+    # reading data from lweb
     def _get_data_from_luna(self, int_mac):
         try:
             int_mac = int_mac - llfuse.ROOT_INODE
@@ -122,7 +126,7 @@ class PxeLinux_cfg(llfuse.Operations):
         if flags & os.O_RDWR or flags & os.O_WRONLY:
             raise llfuse.FUSEError(errno.EPERM)
         return inode
- 
+
     def read(self, inode, off, size):
         if inode != self.default_inode:
             text = self._get_data_from_luna(inode)
@@ -189,7 +193,7 @@ class LFS_Daemon:
         atexit.register(self.cleanup)
         pid = str(os.getpid())
         file(self.pidfile,'w+').write("%s\n" % pid)
-   
+
     def cleanup(self):
         llfuse.close()
         os.remove(self.pidfile)
@@ -217,7 +221,7 @@ class LFS_Daemon:
                     sys.exit(1)
             else:
                 sys.exit(1)
-       
+
         # Start the daemon
         if not self.debug:
             self.daemonize()
@@ -241,7 +245,7 @@ class LFS_Daemon:
             sys.stderr.write(message % self.pidfile)
             return # not an error in a restart
 
-        # Try killing the daemon process       
+        # Try killing the daemon process
         try:
             while 1:
                 os.kill(pid, 15)
