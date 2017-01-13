@@ -44,7 +44,10 @@ from luna import MacUpdater
 from luna import utils
 
 db_name = 'luna'
-log_dir = '/var/log/luna'
+try:
+    log_dir = os.environ['LUNA_LOGDIR']
+except KeyError:
+    log_dir = '/var/log/luna'
 starter_pid = None
 http_server = None
 logger = None
@@ -55,7 +58,7 @@ macupdater = None
 
 def lweb_main():
     pass
-    
+
 
 def run_app():
     """Start Tornado IOLoop for this application.
@@ -103,7 +106,7 @@ def run_app():
     http_server = tornado.httpserver.HTTPServer(lweb)
     http_server.bind(lweb_port, address='127.0.0.1')
     starter_pid = os.getpid()
-    
+
     http_server.start(num_proc)
     child_pid = os.getpid()
     if starter_pid != child_pid:
@@ -146,7 +149,7 @@ def sigterm_handler(sig, frame):
                 os.kill(pid, signal.SIGTERM)
         except IOError:
             pass
-    
+
         f_pipein.close()
         macupdater.stop()
     else:
@@ -240,7 +243,7 @@ def daemonize():
     # write pidfile
     #atexit.register(exit_handler)
     pid = str(os.getpid())
-    
+
     logger.info("lweb pid: '{}'".format(pid))
     logger.info("lweb pidfile: '{}'".format(pidfile))
     f = open(pidfile, "w+")
@@ -288,7 +291,7 @@ def start():
         except KeyboardInterrupt:
             logger.info('Lweb Stopped.')
             sys.exit(0)
-        
+
 
 """
 if __name__ == '__main__':
@@ -325,7 +328,7 @@ def stop():
         logger.error(message % pidfile)
         return # not an error in a restart
 
-    # Try killing the daemon process       
+    # Try killing the daemon process
     try:
         while 1:
             os.kill(pid, signal.SIGTERM)

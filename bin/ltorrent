@@ -44,7 +44,11 @@ pidfile = None
 daemonize = None
 soft_timeout = None
 hard_timeout = None
-log_dir = '/var/log/luna'
+
+try:
+    log_dir = os.environ['LUNA_LOGDIR']
+except KeyError:
+    log_dir = '/var/log/luna'
 
 flag_seed_mode = 1
 flag_override_resume_data = 2
@@ -76,7 +80,7 @@ t_session = None
 def get_now(shift = 0):
     return datetime.datetime.utcnow() + datetime.timedelta(seconds = shift)
 
-class LunaTorrentFile(object):  
+class LunaTorrentFile(object):
     def __init__(self, torrent_file = None):
         if not bool(torrent_file):
             logger.error("Torrent file should be specified.")
@@ -295,7 +299,7 @@ def update_torrents():
         if bool(old_tf):
             if str(tf.info_hash) != str(old_tf.info_hash):
                 logger.error("Was '{}' replaced? It has the same name but different info_hash.".format(filename))
-        else: 
+        else:
             logger.info("New torrent file was found. '{}'".format(filename))
             torrents[tf.id] = tf
     find_old_torrents()
@@ -340,7 +344,7 @@ def find_duplicates():
                 torrents[file_id].duplicate = False
                 find_dup = True
 
-    
+
 def find_old_torrents():
     global torrents
     configured_torrents = get_luna_torrents()
@@ -442,7 +446,7 @@ def update_torrent_client():
         parm_dict['ti'] = torrents[tf].info
         t_session.async_add_torrent(parm_dict)
         torrents[tf].seeding = True
-        
+
 def get_lt_alerts():
     global t_session
     if not bool(t_session):
@@ -494,7 +498,7 @@ def update_inactive_torrents():
             tf.need_to_delete = True
             t_session.remove_torrent(active_torr)
             tf.seeding = False
-            
+
 
 def remove_files():
     def rm(path):
@@ -599,7 +603,7 @@ def start():
     """
     global pidfile
     global runas_user
-    
+
     logger.info("Starting Luna Torrent")
     # Check for a pidfile to see if the daemon already runs
     try:
@@ -616,7 +620,7 @@ def start():
         message = "pidfile %s already exist. Daemon already running?\n"
         sys.stderr.write(message % pidfile)
         sys.exit(1)
-   
+
     # Start the daemon
     if daemon:
         daemonize()
@@ -646,7 +650,7 @@ def stop():
         logger.error(message % pidfile)
         return # not an error in a restart
 
-    # Try killing the daemon process       
+    # Try killing the daemon process
     try:
         while 1:
             os.kill(pid, signal.SIGTERM)
