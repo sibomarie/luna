@@ -269,6 +269,9 @@ def osimage_show(out_format = def_format, **args):
                 continue
             _safe_print(elem)
         return None
+    if args['exclude_list']:
+        _safe_print(osimage.get('exclude_list'))
+        return None
     out_json = osimage.show()
     out_str = ''
     header = ['Parameter', 'Value']
@@ -299,6 +302,11 @@ def osimage_delete(name):
 def osimage_change(**args):
     osimage = luna.OsImage(args['name'])
     args.pop('name')
+    if args['exclude_list']:
+        old_list = osimage.get('exclude_list')
+        new_list = _edit_script(old_list)
+        osimage.set('exclude_list', new_list)
+        return None
     for key in args:
         if not args[key]:
             continue
@@ -641,9 +649,9 @@ def group_change(**args):
         else:
             _safe_print(group.show_bmc_if())
     if type(args['boot_if']) == type(''):
-        group.set('boot_if',args['boot_if'])
+        group.set('boot_if', args['boot_if'])
     if type(args['torrent_if']) == type(''):
-        group.set('torrent_if',args['torrent_if'])
+        group.set('torrent_if', args['torrent_if'])
     if bool(args['osimage']):
         group.osimage(args['osimage'])
     if bool(args['bmcsetup']) or args['bmcsetup'] == '':
@@ -755,12 +763,6 @@ def node_change(**args):
     check_active_node()
     for nodename in hostlist.expand_hostlist(args['name']):
         node = luna.Node(nodename, mongo_db = mongo_db)
-#        if bool(args['ip']) and not (bool(args['interface']) or bool(args['bmcip'])):
-#            logger.error('Interface or BMC should be specified for given IP.')
-#            break
-#        if (bool(args['interface']) or bool(args['bmcip'])) and not bool(args['ip']):
-#            logger.error('IP should be specified.')
-#            break
         if bool(args['interface']):
             node.change_ip(args['interface'][0], args['interface'][1])
         if bool(args['group']):
@@ -984,9 +986,7 @@ osimage_command_group.add_argument('--raw', '-R', action='store_true', help='Raw
 osimage_command_group.add_argument('--path', '-p', action='store_true', help='Show path to OsImage.')
 osimage_command_group.add_argument('--kernver', '-k', action='store_true', help='Show kernel versions.')
 osimage_command_group.add_argument('--kernopts', '-o', action='store_true', help='Show kernel options.')
-# listkerns
-#osimage_command = osimage_parser_actions.add_parser('listkerns', help='List installed kernels in OsImage.')
-#osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command_group.add_argument('--exclude_list', '-e', action='store_true', help='Show exclude list for grabbing host.')
 # add
 osimage_command = osimage_parser_actions.add_parser('add', help='Add osimage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
@@ -1002,6 +1002,7 @@ osimage_command_group.add_argument('--kernver', '-k', type=str, help='Kernel ver
 osimage_command_group.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
 osimage_command_group.add_argument('--dracutmodules', '-d', type=str, help='Dracut modules')
 osimage_command_group.add_argument('--kernmodules', '-m', type=str, help='Kernel modules (drivers)')
+osimage_command_group.add_argument('--exclude_list', '-e', action='store_true', help='Show exclude list for grabbing host.')
 # pack
 osimage_command = osimage_parser_actions.add_parser('pack', help='Pack OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
