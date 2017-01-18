@@ -42,12 +42,13 @@ class OsImage(Base):
     Class for operating with osimages records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, path = '', kernver = '', kernopts = '', grab_list = 'grab_default_centos.lst'):
         """
-        create  - shoulld be True if we need create osimage
-        path    - path to / of the image/ can be ralative, if needed (will be converted to absolute)
-        kernver - kernel version (will be checked on creation)
-        kernopt - kernel options
+        create    - shoulld be True if we need create osimage
+        path      - path to / of the image/ can be ralative, if needed (will be converted to absolute)
+        kernver   - kernel version (will be checked on creation)
+        kernopt   - kernel options
+        grab_list - rsync exclude list for grabbing live node to image
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'osimage'
@@ -57,9 +58,9 @@ class OsImage(Base):
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type(''),
                         'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''),
-                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
+                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type(''), 'exclude_list': type('')}
         if create:
-            cluster = Cluster(mongo_db = self._mongo_db)            
+            cluster = Cluster(mongo_db = self._mongo_db)
             path = os.path.abspath(path)
             path_suspected_doc = self._mongo_collection.find_one({'path': path})
             if path_suspected_doc and path_suspected_doc['path'] == path:
@@ -72,10 +73,17 @@ class OsImage(Base):
                     pass
             if not self._check_kernel(path, kernver):
                 raise RuntimeError
+            grab_list_path = cluster.get('path') + '/templates/' + grab_list
+            if not os.path.isfile(grab_list_path):
+                self._logger.error("'{}' is not a file.".format(grab_list_path))
+                raise RuntimeError
+            with open(grab_list_path) as lst:
+                grab_list_content = lst.read()
             mongo_doc = {'name': name, 'path': path,
                         'kernver': kernver, 'kernopts': kernopts,
                         'dracutmodules': 'luna,-i18n,-plymouth',
-                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler'}
+                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler',
+                        'exclude_list': grab_list_content}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -216,14 +224,14 @@ class OsImage(Base):
         self.set('tarball', str(uid))
         return True
 
-    """ 
+    """
     def set(self, key, value):
         res = super(OsImage, self).set(key, value)
         if key == 'kernver' and res:
             return self.place_bootfiles()
         return res
-    
-    
+
+
     def create_initrd(self):
         path = cluster.get('path')
         if not path:
@@ -232,7 +240,7 @@ class OsImage(Base):
         path_to_store = "/tmp"
         dracut_modules = self.get('dracutmodules') + " luna"
         kern_modules = self.get('kernmodules')
-    
+
     def place_bootfiles(self):
         path = cluster.get('path')
         if not path:
