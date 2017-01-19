@@ -98,7 +98,7 @@ systemctl restart named
 
 ```
 cd /usr/lib64/python2.7
-ln -s ../../../luna/luna luna
+ln -s ../../../luna/luna
 
 cd /usr/sbin
 ln -s ../../luna/bin/luna
@@ -108,7 +108,7 @@ ln -s ../../luna/bin/ltorrent
 ln -s ../../luna/bin/lchroot
 
 cd /opt/luna
-ln -s /luna/templates
+ln -s ../../luna/templates
 cd ~
 ```
 
@@ -164,7 +164,7 @@ luna group change -n compute --bmcnetwork --setnet ipmi
 ```
 
 Please note that in this case we assume that the nodes can reach the cluster using an interface called `eth0`.
-To figure out the proper name of the interface you can specify any interface name (e.g. eth0) then boot a node in service mode using: 
+To figure out the proper name of the interface you can specify any interface name (e.g. eth0) then boot a node in service mode using:
 
 `luna node change -n node001 --service y`
 

@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
         if (argc == 1) {
             printhelp(argv[0]);
         }
-        char tmp;
+        int tmp;
         char torrentfile[255];
         int usrpid = 0;
         int mypid;

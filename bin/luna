@@ -320,10 +320,15 @@ def osimage_pack(**args):
         except:
             return None
         return True
-    def pack_boot(osimage):
-       _safe_print('Copying kernel & packing inirtd.')
-       osimage.pack_boot()
-       _safe_print('Done.')
+
+    def pack_boot(osimage, copy):
+        if not copy:
+           _safe_print('Copying kernel & packing inirtd.')
+           osimage.pack_boot()
+        else:
+            _safe_print('Copying kernel and initrd from image.')
+            osimage.copy_boot()
+        _safe_print('Done.')
 
     def update_ltorrent():
         try:
@@ -343,14 +348,14 @@ def osimage_pack(**args):
 
     osimage = luna.OsImage(args['name'])
     if args['boot']:
-        pack_boot(osimage)
+        pack_boot(osimage, args['copy_boot'])
         update_ltorrent()
         return True
     if args['image']:
         pack_image(osimage)
         return True
     pack_image(osimage)
-    pack_boot(osimage)
+    pack_boot(osimage, args['copy_boot'])
     update_ltorrent()
     osimage_sync(args['name'])
     return True
@@ -1003,7 +1008,8 @@ osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name
 osimage_command_group = osimage_command.add_mutually_exclusive_group(required=False)
 osimage_command_group.add_argument('--image', '-i', action='store_true', help='Pack image only.')
 osimage_command_group.add_argument('--boot', '-b', action='store_true', help='Pack kernel and initrd only.')
-# pack
+osimage_command.add_argument('--copy_boot', '-c', action='store_true', help='Copy kernel and initrd from image, not to run dracut.')
+# sync
 osimage_command = osimage_parser_actions.add_parser('sync', help='Sync OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
 # clone
