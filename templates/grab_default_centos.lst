@@ -36,6 +36,7 @@
 - /var/lib/sss/*
 - /var/lib/systemd/random-seed
 - /var/lib/systemd/catalog/database
+- /var/lib/rsyslog/imjournal.state
 - /var/lock/subsys/*
 - /var/log/*
 - /var/run/*.pid
