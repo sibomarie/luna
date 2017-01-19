@@ -107,31 +107,6 @@ class OsImage(Base):
             ver = "%s-%s.%s" % (h['VERSION'], h['RELEASE'], h['ARCH'])
             package_vers.extend([ver])
         return package_vers
-    """
-    def __getattr__(self, key):
-        try:
-            self._keylist[key]
-        except:
-            raise AttributeError()
-        return self.get(key)
-
-    def __setattr__(self, key, value):
-        if key == 'path':
-            kernver = self.kernver
-            if not self._check_kernel(value, kernver):
-                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
-                return None
-        elif key == 'kernver':
-            path = self.path
-            if not self._check_kernel(path, value):
-                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
-                return None
-        try:
-            self._keylist[key]
-            self.set(key, value)
-        except:
-            self.__dict__[key] = value
-        """
 
     def _check_kernel(self, path, kernver):
         os_image_kernvers = None
@@ -150,16 +125,6 @@ class OsImage(Base):
             return None
         return True
 
-
-    """
-    @property
-    def path(self):
-        return self.get('path')
-
-    @path.setter
-    def path(self, value):
-        self.set('path', value)
-    """
     def create_tarball(self):
         # TODO check if root
         cluster = Cluster(mongo_db = self._mongo_db)
@@ -180,10 +145,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         path_to_store = path + "/torrents"
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
@@ -194,9 +155,6 @@ class OsImage(Base):
         uid = str(uuid.uuid4())
         tarfile_path = path_to_store + "/" + uid + ".tgz"
         image_path = self.get('path')
-        #tarball = tarfile.open(tarfile_path, "w:gz")
-        #tarball.add(image_path, arcname=os.path.basename(image_path + "/."))
-        #tarball.close()
         try:
             tar_out = subprocess.Popen(['/usr/bin/tar',
                     '-C', image_path + '/.',
@@ -224,31 +182,6 @@ class OsImage(Base):
         self.set('tarball', str(uid))
         return True
 
-    """
-    def set(self, key, value):
-        res = super(OsImage, self).set(key, value)
-        if key == 'kernver' and res:
-            return self.place_bootfiles()
-        return res
-
-
-    def create_initrd(self):
-        path = cluster.get('path')
-        if not path:
-            self._logger.error("Path needs to be configured.")
-            return None
-        path_to_store = "/tmp"
-        dracut_modules = self.get('dracutmodules') + " luna"
-        kern_modules = self.get('kernmodules')
-
-    def place_bootfiles(self):
-        path = cluster.get('path')
-        if not path:
-            self._logger.error("Path needs to be configured.")
-            return None
-        path_to_store = path + "/boot"
-    """
-
     def create_torrent(self):
         # TODO check if root
         tarball_uid = self.get('tarball')
@@ -272,10 +205,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
         old_cwd = os.getcwd()
@@ -339,10 +268,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         path_to_store = path + "/boot"
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
