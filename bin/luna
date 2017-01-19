@@ -262,6 +262,9 @@ def osimage_show(out_format = def_format, **args):
     if args['path']:
         _safe_print(osimage.get('path'))
         return None
+    if args['grab_filesystems']:
+        _safe_print(osimage.get('grab_filesystems'))
+        return None
     if args['kernver']:
         for elem in osimage.list_kernels():
             if elem == osimage.get('kernver'):
@@ -269,8 +272,8 @@ def osimage_show(out_format = def_format, **args):
                 continue
             _safe_print(elem)
         return None
-    if args['exclude_list']:
-        _safe_print(osimage.get('exclude_list'))
+    if args['grab_exclude_list']:
+        _safe_print(osimage.get('grab_exclude_list'))
         return None
     out_json = osimage.show()
     out_str = ''
@@ -302,10 +305,10 @@ def osimage_delete(name):
 def osimage_change(**args):
     osimage = luna.OsImage(args['name'])
     args.pop('name')
-    if args['exclude_list']:
-        old_list = osimage.get('exclude_list')
+    if args['grab_exclude_list']:
+        old_list = osimage.get('grab_exclude_list')
         new_list = _edit_script(old_list)
-        osimage.set('exclude_list', new_list)
+        osimage.set('grab_exclude_list', new_list)
         return None
     for key in args:
         if not args[key]:
@@ -368,6 +371,13 @@ def osimage_pack(**args):
     osimage_sync(args['name'])
     return True
 
+def osimage_grab(**args):
+    osimage = luna.OsImage(args['name'])
+    res = osimage.grab_host(host = args['host'],
+        dry_run = args['dry_run'],
+        verbose = args['verbose'])
+    return res
+
 def osimage_sync(name):
     check_active_node()
     cluster = luna.Cluster()
@@ -418,7 +428,7 @@ def osimage_clone(**args):
         path = targetpath,
         kernver = osimage.get('kernver'))
     # copy params
-    for param in ['dracutmodules', 'kernmodules', 'kernopts']:
+    for param in ['dracutmodules', 'kernmodules', 'kernopts', 'grab_filesystems', 'grab_exclude_list']:
         newosimage.set(param, osimage.get(param))
     return True
 
@@ -986,7 +996,8 @@ osimage_command_group.add_argument('--raw', '-R', action='store_true', help='Raw
 osimage_command_group.add_argument('--path', '-p', action='store_true', help='Show path to OsImage.')
 osimage_command_group.add_argument('--kernver', '-k', action='store_true', help='Show kernel versions.')
 osimage_command_group.add_argument('--kernopts', '-o', action='store_true', help='Show kernel options.')
-osimage_command_group.add_argument('--exclude_list', '-e', action='store_true', help='Show exclude list for grabbing host.')
+osimage_command_group.add_argument('--grab_exclude_list', '-e', action='store_true', help='Show exclude list for grabbing host.')
+osimage_command_group.add_argument('--grab_filesystems', '-f', action='store_true', help='Show filesystems to grab from host.')
 # add
 osimage_command = osimage_parser_actions.add_parser('add', help='Add osimage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
@@ -1002,7 +1013,8 @@ osimage_command_group.add_argument('--kernver', '-k', type=str, help='Kernel ver
 osimage_command_group.add_argument('--kernopts', '-o', type=str, help='Kernel options.')
 osimage_command_group.add_argument('--dracutmodules', '-d', type=str, help='Dracut modules')
 osimage_command_group.add_argument('--kernmodules', '-m', type=str, help='Kernel modules (drivers)')
-osimage_command_group.add_argument('--exclude_list', '-e', action='store_true', help='Show exclude list for grabbing host.')
+osimage_command_group.add_argument('--grab_exclude_list', '-e', action='store_true', help='Change exclude list for grabbing host.')
+osimage_command_group.add_argument('--grab_filesystems', '-f', type=str, help='Comma-separated filesystems to grab from host.')
 # pack
 osimage_command = osimage_parser_actions.add_parser('pack', help='Pack OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
@@ -1010,6 +1022,12 @@ osimage_command_group = osimage_command.add_mutually_exclusive_group(required=Fa
 osimage_command_group.add_argument('--image', '-i', action='store_true', help='Pack image only.')
 osimage_command_group.add_argument('--boot', '-b', action='store_true', help='Pack kernel and initrd only.')
 osimage_command.add_argument('--copy_boot', '-c', action='store_true', help='Copy kernel and initrd from image, not to run dracut.')
+# grab
+osimage_command = osimage_parser_actions.add_parser('grab', help='Grab host to OsImage.')
+osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
+osimage_command.add_argument('--host', '-H', required=True, type=str, help='Hostname of the source node.')
+osimage_command.add_argument('--dry_run', '-d', action='store_true', help='Do not change osimage. Report only.')
+osimage_command.add_argument('--verbose', '-v', action='store_true', help='Print rsync output.')
 # sync
 osimage_command = osimage_parser_actions.add_parser('sync', help='Sync OsImage.')
 osimage_command.add_argument('--name', '-n', required=True, type=str, help='Name of the OsImage.')
