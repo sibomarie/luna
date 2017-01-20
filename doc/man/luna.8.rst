@@ -193,6 +193,21 @@ OBJECTS, ACTIONS AND OPTIONS
         **--raw**, **-R**
             Print raw JSON representation of the object.
 
+        **--path**, **-p**
+            Show path where osimage files are stored.
+
+        **--kernver**, **-k**
+            Show currently configured kernel and list of the installed kernels.
+
+        **--kernopts**, **-o**
+            Show currently configured kernel options.
+
+        **--grab_exclude_list**, **-e**
+            Show exclude list.
+
+        **--grab_filesystems**, **-f**
+            Show currently configured filesystems' mountpoint for grabbing.
+
     **add**
         Add **osimage** object to Luna configuration. Please make sure that kernel rpm is installed.
 
@@ -226,6 +241,12 @@ OBJECTS, ACTIONS AND OPTIONS
         **--kernmodules**, **-m**
             Kernel modules for initrd. Comma separated list of the kernel modules. ``dracut(8)`` supports ``--add-drivers`` and ``--omit-drivers`` options, so modules which are prepended with '-' sign (minus) will be omitted on initrd build (``--omit-drivers``).
 
+        **--grab_exclude_list**, **-e**
+            Edit exclude list for grabbing host. See ``rsync(1)`` for details. On **osimage** creation ``templates/grab_default_centos.lst`` is being used by default.
+
+        **--grab_filesystems**, **-f**
+            Comma-separated mountpoints of the filesystems to grab from host. Rsync process is not crossing filesystem borders.
+
     **pack**
         Command to 'pack' **osimage**, i.e., make it available for nodes to boot. Under the hood it creates tarball from directory tree, creates torrent file, moves them to *~luna/torrents/*, then builds initrd and copies it, along with the kernel, to *~luna/boot/*. It also fills values for *initrdfile*, *kernfile*, *tarball* and *torrent* variables in ``luna osimage show`` output. In addition, if Luna is configured to work in a HA environment (**--cluster_ips**) this subcommand syncronizes data for the osimage across all the master nodes.
 
@@ -237,6 +258,24 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--boot**, **-b**
             Prepares kernel and initrd only.
+
+        **--copy_boot**, **-c**
+            Do not run dracut in chroooted environment of osaimge, but use initrd image from /boot directory. Luna does not check if dracut module (/usr/lib/dracut/modules.d/95luna) exist in initrd image. Use ``lsinitd(1)`` to inspect image.
+
+    **grab**
+        Command to sync data from host to osimage.
+
+        **--name**, **-n**
+            Name of the object.
+
+        **--host**, **-H**
+            Source host. Can be any host, or IP address reachable with ssh.
+
+        **--dry_run**, **-d**
+            Do not change actual data, but execute a trial run. Implies **--verbose**.
+
+        **--verbose**, **-v**
+            Increase verbosity.
 
     **sync**
         Command to synchronize images between the master nodes (**--cluster_ips**).
@@ -580,7 +619,7 @@ OBJECTS, ACTIONS AND OPTIONS
             Torrent interface. Optional parameter which interface torrent client on nodes should report as in use for seeding. If specified should match **--boot_if**. Known limitations: does not work with bond, vLAN or bridged interfaces.
 
         **--interface**, **-i**
-            Interface to operate with. Following operations are supported: **--add**, **--delete**, **--setnet**, **--delnet**, **--edit**. 
+            Interface to operate with. Following operations are supported: **--add**, **--delete**, **--setnet**, **--delnet**, **--edit**.
 
         **--bmcnetwork**, **--bn**
             Supports **--setnet**, **--delnet** operations.
@@ -707,7 +746,7 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--name**, **-n**
             Name of the object.
-    
+
         **--network**, **-N**
             Network in which switch has configured IP address.
 
@@ -722,16 +761,16 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--oid**, **-o**
             OID where learned MAC addresses are stored. Examples are::
-                
+
                 .1.3.6.1.2.1.17.7.1.2.2.1.2
                 .1.3.6.1.2.1.17.4.3.1.2
                 .1.3.6.1.2.1.17.7.1.2.2
                 .1.3.6.1.2.1.17.4.3.1.2
-            
+
             Please pay attention to a first dot before OID.
 
             For debug purposes administrator can use ``snmpwalk`` to get the list of known MAC addresses::
-                
+
                 $ snmpwalk -On -c public -v 1 switch01 .1.3.6.1.2.1.17.7.1.2.2.1
                 .1.3.6.1.2.1.17.7.1.2.2.1.2.1.24.102.218.96.27.201 = INTEGER: 210
                 .1.3.6.1.2.1.17.7.1.2.2.1.2.1.24.102.218.96.32.165 = INTEGER: 210
@@ -749,7 +788,7 @@ OBJECTS, ACTIONS AND OPTIONS
 
         **--name**, **-n**
             Name of the object.
-    
+
         **--network**, **-N**
             Network in which switch has configured IP address.
 
@@ -854,6 +893,8 @@ templ_zone_arpa.cfg
     Template for ISC BIND (named) reverse-zone file.
 templ_zone.cfg
     Template for ISC BIND (named) zone-file.
+grab_default_centos.lst
+    Template for initial config of the exclude list for host grabbing.
 /var/log/luna/ltorrent.log
     Log file for seeding BitTorrent client.
 /var/log/luna/lweb.log
