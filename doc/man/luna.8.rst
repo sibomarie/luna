@@ -889,6 +889,8 @@ templ_named_conf.cfg
     Template for ISC BIND (named) include config file.
 templ_nodeboot.cfg
     Template for iPXE boot script.
+templ_nodeboot_syslinux.cfg
+    Template to generate boot config in syslinux (pxelinux) format.
 templ_zone_arpa.cfg
     Template for ISC BIND (named) reverse-zone file.
 templ_zone.cfg
@@ -904,4 +906,4 @@ grab_default_centos.lst
 
 SEE ALSO
 ========
-lweb(1), ltorrent(1), lpower(8), lchroot(8)
+lweb(1), ltorrent(1), lfs_pxelinux(1), lpower(8), lchroot(8)
