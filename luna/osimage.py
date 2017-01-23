@@ -372,34 +372,47 @@ class OsImage(Base):
         grab_exclude_list = self.get('grab_exclude_list')
         grab_filesystems = self.get('grab_filesystems')
         osimage_path = self.get('path')
+        #
+        # grab_filesystems will be array with at least single element '/'
+        #
         if bool(grab_filesystems):
             grab_filesystems = grab_filesystems.split(',')
         else:
             grab_filesystems = ['/']
+        #
+        # Create temp file with exclude content
+        #
         file_prefix = self.name + '.excl_list.rsync.'
         file_desc, exclude_file_name = tempfile.mkstemp(prefix = file_prefix)
         with open(exclude_file_name, 'a') as ex_file:
             ex_file.write(grab_exclude_list)
+        # Status symbols
         stat_symb = ['\\', '|', '/', '-']
+        # Construct rsync command line
         rsync_common_opts = r'''-avxz -HAX -e "/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress --delete --exclude-from=''' + exclude_file_name + r''' '''
         if dry_run:
             rsync_opts = rsync_common_opts + r''' --dry-run '''
             verbose = True
         else:
             rsync_opts = rsync_common_opts
+        # enumarete all filesystems
         for fs in grab_filesystems:
             ret_code = 0
+            # Sanitize fs
             fs = fs.strip()
             if not fs:
                 continue
+            # Use absolute path
             if fs[-1] != '/':
                 fs += '/'
             if fs[0] != '/':
                 fs = '/' + fs
             self._logger.info("Fetching {} from {}".format(fs, host))
+            # Path on master where to grab. Create if needed
             local_fs = osimage_path + fs
             if not os.path.exists(local_fs) and not dry_run:
                 os.makedirs(local_fs)
+            # Rsync comand. Finally
             cmd = r'''/usr/bin/rsync ''' + rsync_opts + r''' root@''' + host + r''':''' + fs + r''' ''' + local_fs
             if verbose:
                 self._logger.info('Running command: {}'.format(cmd))
@@ -411,16 +424,20 @@ class OsImage(Base):
                     if verbose:
                         self._logger.info(line.strip())
                     else:
+                        # Draw status symbols
                         i = i + 1
                         sys.stdout.write(stat_symb[i % len(stat_symb)])
                         sys.stdout.write('\r')
+                    # No lines in output? Exit.
                     if not line:
                         rsync_stdout, rsync_err = rsync_out.communicate()
                         ret_code = rsync_out.returncode
                         break
+                # If exit code of rsync is not 0, print stderr
                 if ret_code:
                     for l in rsync_err.split('\n'):
                         self._logger.error(l)
+            # Primarily for Ctrl+C
             except:
                 sys.stdout.write('\r')
                 self._logger.error('Interrupt.')
@@ -428,4 +445,5 @@ class OsImage(Base):
             if ret_code:
                 break
         self._logger.info('Success.')
+        # remove temp file
         os.remove(exclude_file_name)
