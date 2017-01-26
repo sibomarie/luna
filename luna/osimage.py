@@ -36,18 +36,20 @@ import libtorrent
 import uuid
 #import tarfile
 import shutil
+import tempfile
 
 class OsImage(Base):
     """
     Class for operating with osimages records
     """
     _logger = logging.getLogger(__name__)
-    def __init__(self, name = None, mongo_db = None, create = False, id = None, path = '', kernver = '', kernopts = ''):
+    def __init__(self, name = None, mongo_db = None, create = False, id = None, path = '', kernver = '', kernopts = '', grab_list = 'grab_default_centos.lst'):
         """
-        create  - shoulld be True if we need create osimage
-        path    - path to / of the image/ can be ralative, if needed (will be converted to absolute)
-        kernver - kernel version (will be checked on creation)
-        kernopt - kernel options
+        create    - shoulld be True if we need create osimage
+        path      - path to / of the image/ can be ralative, if needed (will be converted to absolute)
+        kernver   - kernel version (will be checked on creation)
+        kernopt   - kernel options
+        grab_list - rsync exclude list for grabbing live node to image
         """
         self._logger.debug("Arguments to function '{}".format(self._debug_function()))
         self._collection_name = 'osimage'
@@ -57,9 +59,10 @@ class OsImage(Base):
             raise RuntimeError
         self._keylist = {'path': type(''), 'kernver': type(''), 'kernopts': type(''),
                         'kernmodules': type(''), 'dracutmodules': type(''), 'tarball': type(''),
-                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type('')}
+                        'torrent': type(''), 'kernfile': type(''), 'initrdfile': type(''),
+                        'grab_exclude_list': type(''), 'grab_filesystems': type('')}
         if create:
-            cluster = Cluster(mongo_db = self._mongo_db)            
+            cluster = Cluster(mongo_db = self._mongo_db)
             path = os.path.abspath(path)
             path_suspected_doc = self._mongo_collection.find_one({'path': path})
             if path_suspected_doc and path_suspected_doc['path'] == path:
@@ -72,10 +75,18 @@ class OsImage(Base):
                     pass
             if not self._check_kernel(path, kernver):
                 raise RuntimeError
+            grab_list_path = cluster.get('path') + '/templates/' + grab_list
+            if not os.path.isfile(grab_list_path):
+                self._logger.error("'{}' is not a file.".format(grab_list_path))
+                raise RuntimeError
+            with open(grab_list_path) as lst:
+                grab_list_content = lst.read()
             mongo_doc = {'name': name, 'path': path,
                         'kernver': kernver, 'kernopts': kernopts,
                         'dracutmodules': 'luna,-i18n,-plymouth',
-                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler'}
+                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler',
+                        'grab_exclude_list': grab_list_content,
+                        'grab_filesystems': '/,/boot'}
             self._logger.debug("mongo_doc: '{}'".format(mongo_doc))
             self._name = name
             self._id = self._mongo_collection.insert(mongo_doc)
@@ -99,31 +110,6 @@ class OsImage(Base):
             ver = "%s-%s.%s" % (h['VERSION'], h['RELEASE'], h['ARCH'])
             package_vers.extend([ver])
         return package_vers
-    """
-    def __getattr__(self, key):
-        try:
-            self._keylist[key]
-        except:
-            raise AttributeError()
-        return self.get(key)
-
-    def __setattr__(self, key, value):
-        if key == 'path':
-            kernver = self.kernver
-            if not self._check_kernel(value, kernver):
-                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
-                return None
-        elif key == 'kernver':
-            path = self.path
-            if not self._check_kernel(path, value):
-                self._logger.error("No kernel-'{}' in '{}'".format(kernver, value))
-                return None
-        try:
-            self._keylist[key]
-            self.set(key, value)
-        except:
-            self.__dict__[key] = value
-        """
 
     def _check_kernel(self, path, kernver):
         os_image_kernvers = None
@@ -142,16 +128,6 @@ class OsImage(Base):
             return None
         return True
 
-
-    """
-    @property
-    def path(self):
-        return self.get('path')
-
-    @path.setter
-    def path(self, value):
-        self.set('path', value)
-    """
     def create_tarball(self):
         # TODO check if root
         cluster = Cluster(mongo_db = self._mongo_db)
@@ -172,10 +148,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         path_to_store = path + "/torrents"
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
@@ -186,9 +158,6 @@ class OsImage(Base):
         uid = str(uuid.uuid4())
         tarfile_path = path_to_store + "/" + uid + ".tgz"
         image_path = self.get('path')
-        #tarball = tarfile.open(tarfile_path, "w:gz")
-        #tarball.add(image_path, arcname=os.path.basename(image_path + "/."))
-        #tarball.close()
         try:
             tar_out = subprocess.Popen(['/usr/bin/tar',
                     '-C', image_path + '/.',
@@ -216,31 +185,6 @@ class OsImage(Base):
         self.set('tarball', str(uid))
         return True
 
-    """ 
-    def set(self, key, value):
-        res = super(OsImage, self).set(key, value)
-        if key == 'kernver' and res:
-            return self.place_bootfiles()
-        return res
-    
-    
-    def create_initrd(self):
-        path = cluster.get('path')
-        if not path:
-            self._logger.error("Path needs to be configured.")
-            return None
-        path_to_store = "/tmp"
-        dracut_modules = self.get('dracutmodules') + " luna"
-        kern_modules = self.get('kernmodules')
-    
-    def place_bootfiles(self):
-        path = cluster.get('path')
-        if not path:
-            self._logger.error("Path needs to be configured.")
-            return None
-        path_to_store = path + "/boot"
-    """
-
     def create_torrent(self):
         # TODO check if root
         tarball_uid = self.get('tarball')
@@ -264,10 +208,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
         old_cwd = os.getcwd()
@@ -331,10 +271,6 @@ class OsImage(Base):
         if not user:
             self._logger.error("User needs to be configured.")
             return None
-        #group = cluster.get('group')
-        #if not group:
-        #    self._logger.error("Group needs to be configured.")
-        #    return None
         path_to_store = path + "/boot"
         user_id = pwd.getpwnam(user).pw_uid
         grp_id = pwd.getpwnam(user).pw_gid
@@ -431,3 +367,107 @@ class OsImage(Base):
         self.set('initrdfile', initrdfile)
         self._logger.warning("Boot files was copied, but luna module might not being added to initrd. Please check /etc/dracut.conf.d in image")
         return True
+
+    def grab_host(self, host, dry_run = True, verbose = False):
+        grab_exclude_list = self.get('grab_exclude_list')
+        grab_filesystems = self.get('grab_filesystems')
+        osimage_path = self.get('path')
+        #
+        # grab_filesystems will be array with at least single element '/'
+        #
+        if bool(grab_filesystems):
+            grab_filesystems = grab_filesystems.split(',')
+        else:
+            grab_filesystems = ['/']
+        #
+        # Create temp file with exclude content
+        #
+        file_prefix = self.name + '.excl_list.rsync.'
+        file_desc, exclude_file_name = tempfile.mkstemp(prefix = file_prefix)
+        with open(exclude_file_name, 'a') as ex_file:
+            ex_file.write(grab_exclude_list)
+        #
+        # Status symbols
+        #
+        stat_symb = ['\\', '|', '/', '-']
+        #
+        # Construct rsync command line
+        #
+        rsync_common_opts = r'''-avxz -HAX -e "/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress --delete --exclude-from=''' + exclude_file_name + r''' '''
+        if dry_run:
+            rsync_opts = rsync_common_opts + r''' --dry-run '''
+            verbose = True
+        else:
+            rsync_opts = rsync_common_opts
+        #
+        # enumarete all filesystems
+        #
+        for fs in grab_filesystems:
+            ret_code = 0
+            #
+            # Sanitize fs
+            #
+            fs = fs.strip()
+            if not fs:
+                continue
+            #
+            # Use absolute path
+            #
+            if fs[-1] != '/':
+                fs += '/'
+            if fs[0] != '/':
+                fs = '/' + fs
+            self._logger.info("Fetching {} from {}".format(fs, host))
+            #
+            # Path on master where to grab. Create it locally if needed
+            #
+            local_fs = osimage_path + fs
+            if not os.path.exists(local_fs) and not dry_run:
+                os.makedirs(local_fs)
+            #
+            # Rsync comand. Finally
+            #
+            cmd = r'''/usr/bin/rsync ''' + rsync_opts + r''' root@''' + host + r''':''' + fs + r''' ''' + local_fs
+            if verbose:
+                self._logger.info('Running command: {}'.format(cmd))
+            try:
+                rsync_out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                i = 0
+                while True:
+                    line = rsync_out.stdout.readline()
+                    if verbose:
+                        self._logger.info(line.strip())
+                    else:
+                        #
+                        # Draw status symbols
+                        #
+                        i = i + 1
+                        sys.stdout.write(stat_symb[i % len(stat_symb)])
+                        sys.stdout.write('\r')
+                    #
+                    # No lines in output? Exit.
+                    #
+                    if not line:
+                        rsync_stdout, rsync_err = rsync_out.communicate()
+                        ret_code = rsync_out.returncode
+                        break
+                #
+                # If exit code of rsync is not 0, print stderr
+                #
+                if ret_code:
+                    for l in rsync_err.split('\n'):
+                        self._logger.error(l)
+            #
+            # Ctrl+C
+            #
+            except KeyboardInterrupt:
+                sys.stdout.write('\r')
+                self._logger.error('Interrupt.')
+                ret_code = 1
+            if ret_code:
+                break
+        self._logger.info('Success.')
+        #
+        # remove temp file
+        #
+        os.remove(exclude_file_name)
