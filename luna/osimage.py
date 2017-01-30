@@ -373,6 +373,15 @@ class OsImage(Base):
         grab_filesystems = self.get('grab_filesystems')
         osimage_path = self.get('path')
         #
+        # chech if we can proceed
+        #
+        if grab_exclude_list == None:
+            self._logger.error('No grab_exclude_list for osimage defined.')
+            return None
+        if grab_filesystems == None:
+            self._logger.error('No grab_filesystems for osimage defined.')
+            return None
+        #
         # grab_filesystems will be array with at least single element '/'
         #
         if bool(grab_filesystems):
