@@ -135,7 +135,7 @@ def unfree_range(flist, start, end=None):
 
 def free_range(flist, start, end=None):
     """
-    Mark a range as free in a freelist. This range may include elememts
+    Mark a range as free in a freelist. This range may include elements
     that are already free.
     """
 
@@ -164,13 +164,11 @@ def free_range(flist, start, end=None):
 
         if i == len(tmp_list) - 1:
             new_list.append(tmp_list[i])
-            continue
 
-        if tmp_list[i + 1]['start'] in range(tmp_list[i]['start'],
-                                          tmp_list[i]['end'] + 2):
+        elif tmp_list[i + 1]['start'] in range(tmp_list[i]['start'],
+                                               tmp_list[i]['end'] + 2):
             s = tmp_list[i]['start']
             e = tmp_list[i]['end']
-            skip += 1
 
             # Check next free ranges for overlaps or continuations
 
@@ -178,13 +176,17 @@ def free_range(flist, start, end=None):
                 if tmp_list[j]['end'] >= e and tmp_list[j]['start'] <= e + 1:
                     e = tmp_list[j]['end']
                     skip += 1
+
+                elif tmp_list[j]['end'] <= e and tmp_list[j]['start'] >= s:
+                    skip += 1
+
                 else:
                     break
 
             new_list.append({'start': s, 'end': e})
-            continue
 
-        new_list.append(tmp_list[i])
+        else:
+            new_list.append(tmp_list[i])
 
     if end == start:
         return (new_list, start)
