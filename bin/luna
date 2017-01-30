@@ -684,6 +684,9 @@ def group_change(**args):
     group.set(scr_type, script)
 
 def _edit_script(old_script):
+    # old_script can be None
+    if not bool(old_script):
+        old_script = ''
     script = ''
     if not sys.stdin.isatty():
         for line in sys.stdin:
