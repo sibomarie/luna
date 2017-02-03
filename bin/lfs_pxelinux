@@ -305,7 +305,8 @@ def main(args):
         default_file = os.environ['LFS_DEFAULT_FILE']
     except KeyError:
         default_file = ''
-    default_file = args['def_file']
+    if bool(args['def_file']):
+        default_file = args['def_file']
 
     # pidfile
     # first check env variable
