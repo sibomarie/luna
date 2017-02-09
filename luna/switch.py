@@ -209,7 +209,20 @@ class MacUpdater(object):
                 self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (ifname_oid, ip, read, switch_id))
                 varlist_ifnames = netsnmp.VarList(netsnmp.Varbind(ifname_oid))
                 res_ifnames = netsnmp.snmpwalk(varlist_ifnames, Version = 2,  DestHost = ip, Community = read,  UseNumeric=True)
+                portmap_oid = '.1.3.6.1.2.1.17.1.4.1.2'
+                varlist_portmap = netsnmp.VarList(netsnmp.Varbind(portmap_oid))
+                res_portmap = netsnmp.snmpwalk(varlist_portmap, Version = 2,  DestHost = ip, Community = read,  UseNumeric=True)
                 updated = datetime.datetime.utcnow()
+                portmaps = {}
+                for i in range(len(varlist_portmap)):
+                    if bool(varlist_portmap[i].iid):
+                        pornnum = varlist_portmap[i].iid
+                    else:
+                        pornnum = varlist_portmap[i].tag.split('.')[-1:][0]
+                    try:
+                        portmaps[int(pornnum)] = int(varlist_portmap[i].val)
+                    except:
+                        pass
                 portnums = {}
                 for i in range(len(varlist_ifnames)):
                     if bool(varlist_ifnames[i].iid):
@@ -225,7 +238,7 @@ class MacUpdater(object):
                     mac = ''
                     port = str(varlist[i].val)
                     try:
-                        portname = portnums[int(varlist[i].val)]
+                        portname = portnums[portmaps[int(varlist[i].val)]]
                     except KeyError:
                         portname = port
                     for elem in varlist[i].tag.split('.')[-5:]:
