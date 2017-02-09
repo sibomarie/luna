@@ -162,7 +162,7 @@ class MacUpdater(object):
         self.switch_collection = self._mongo_db['switch']
         self.known_mac_collection = self._mongo_db['switch_mac']
 
-        aging = interval * 2
+        aging = interval * 10
         self.logger = logger
         self.interval = interval
         self.logger.name = 'MacUpdater'
@@ -171,7 +171,7 @@ class MacUpdater(object):
         thread = threading.Thread(target=self.run, args=())
         thread.daemon = True
         thread.start()
- 
+
     def run(self):
         counter = self.interval
         cluster = Cluster(mongo_db = self._mongo_db)
@@ -204,11 +204,11 @@ class MacUpdater(object):
             try:
                 self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (oid, ip, read, switch_id))
                 varlist = netsnmp.VarList(netsnmp.Varbind(oid))
-                res = netsnmp.snmpwalk(varlist, Version = 1,  DestHost = ip, Community = read)
+                res = netsnmp.snmpwalk(varlist, Version = 2,  DestHost = ip, Community = read,  UseNumeric=True)
                 ifname_oid = '.1.3.6.1.2.1.31.1.1.1.1' # ifName
                 self.logger.debug("Requesting following data: oid=%s\tip=%s\tcommunity=%s\tswitch_id=%s" % (ifname_oid, ip, read, switch_id))
                 varlist_ifnames = netsnmp.VarList(netsnmp.Varbind(ifname_oid))
-                res_ifnames = netsnmp.snmpwalk(varlist_ifnames, Version = 1,  DestHost = ip, Community = read)
+                res_ifnames = netsnmp.snmpwalk(varlist_ifnames, Version = 2,  DestHost = ip, Community = read,  UseNumeric=True)
                 updated = datetime.datetime.utcnow()
                 portnums = {}
                 for i in range(len(varlist_ifnames)):
@@ -228,9 +228,9 @@ class MacUpdater(object):
                         portname = portnums[int(varlist[i].val)]
                     except KeyError:
                         portname = port
-                    for elem in varlist[i].tag.split('.')[-6:]:
+                    for elem in varlist[i].tag.split('.')[-5:]:
                         mac += hex(int(elem)).split('x')[1].zfill(2) + ':'
-                    mac = mac[:-1].lower()
+                    mac += hex(int(varlist[i].iid)).split('x')[1].zfill(2)
                     mongo_doc['mac'] = mac
                     mongo_doc['port'] = port
                     mongo_doc['portname'] = portname
@@ -243,9 +243,9 @@ class MacUpdater(object):
                 if self.logger:
                     self.logger.error("Cannot reach '{}'".format(ip))
             except:
-                err = sys.exc_info()[0]
+                err_type, err_value, err_traceback  = sys.exc_info()
                 if self.logger:
-                    self.logger.error(err)
+                    self.logger.error('{} in {}'.format(err_type,err_traceback.tb_lineno))
         if mac_count > 0:
             self.logger.info("Was added {} new mac addresses.".format(mac_count))
         return True
