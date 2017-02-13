@@ -216,7 +216,6 @@ class LFS_Daemon:
         file(self.pidfile,'w+').write("%s\n" % pid)
 
     def cleanup(self):
-        llfuse.close()
         os.remove(self.pidfile)
 
     def start(self):
