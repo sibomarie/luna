@@ -240,36 +240,10 @@ class Node(Base):
         if params['torrent_if']:
             params['torrent_if_ip'] = self.get_ip(params['torrent_if'])
 
-        if params['os_family'] == "debian":
-            ifcfg = '/etc/network/interfaces.d/'
-        #elif params['os_family'] == "redhat":
-        else:
-            ifcfg = '/etc/sysconfig/network-scripts/ifcfg-'
-
-        interfaces = params['interfaces'].copy()
-        params['interfaces'] = {}
-        for nic in interfaces:
-            params['interfaces'][nic] = {'file': ifcfg + nic}
+        for nic in params['interfaces']:
             ip = self.get_ip(nic)
             if ip:
-                if params['os_family'] == 'redhat':
-                    params['interfaces'][nic]['conf'] = interfaces[nic]['params']
-                    params['interfaces'][nic]['conf'] += "\nDEVICE=%s" % nic
-                    params['interfaces'][nic]['conf'] += "\nIPADDR=%s" % ip
-                    params['interfaces'][nic]['conf'] += "\nPREFIX=%s" % interfaces[nic]['prefix']
-
-                elif params['os_family'] == 'debian':
-                    params['interfaces'][nic]['conf'] = "auto %s" % nic
-
-                    if interfaces[nic]['params']:
-                        params['interfaces'][nic]['conf'] += interfaces[nic]['params']
-                        params['interfaces'][nic]['conf'] += "\naddress %s" % ip
-                    else:
-                        address = ip + '/' + interfaces[nic]['prefix']
-                        params['interfaces'][nic]['conf'] = "auto %s" % nic
-                        params['interfaces'][nic]['conf'] += ("\niface %s inet static"
-                                                              % nic)
-                        params['interfaces'][nic]['conf'] += "\naddress %s" % address
+                params['interfaces'][nic]['ip'] = ip
 
         if params['bmcsetup']:
             try:
