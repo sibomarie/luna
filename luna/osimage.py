@@ -34,6 +34,7 @@ import tempfile
 import subprocess
 import libtorrent
 
+from platform import linux_distribution
 from bson.dbref import DBRef
 
 from luna.base import Base
@@ -64,7 +65,8 @@ class OsImage(Base):
                          'kernopts': type(''), 'kernmodules': type(''),
                          'dracutmodules': type(''), 'tarball': type(''),
                          'torrent': type(''), 'kernfile': type(''),
-                         'initrdfile': type(''), 'grab_exclude_list': type(''),
+                         'initrdfile': type(''), 'family': type(''),
+                         'grab_exclude_list': type(''),
                          'grab_filesystems': type('')}
 
         # Check if this osimage is already present in the datastore
@@ -90,6 +92,18 @@ class OsImage(Base):
                 self.log.error("'{}' is not a valid directory".format(path))
                 raise RuntimeError
 
+            real_root = os.open("/", os.O_RDONLY)
+            os.chroot(path)
+            dist = linux_distribution(supported_dists=('debian', 'redhat'))
+            os.fchdir(real_root)
+            os.chroot(".")
+            os.close(real_root)
+
+            if dist[0].lower() in ['debian', 'ubuntu']:
+                self._family = 'debian'
+            elif dist[0].lower() in ['centos linux', 'fedora', 'redhat']:
+                self._family = 'redhat'
+
             kernels = self.get_package_ver(path, 'kernel')
             if not kernels:
                 self.log.error("No kernels installed in '{}'".format(path))
@@ -110,7 +124,7 @@ class OsImage(Base):
 
             # Store the new osimage in the datastore
 
-            osimage = {'name': name, 'path': path,
+            osimage = {'name': name, 'path': path, 'family': self._family,
                        'kernver': kernver, 'kernopts': kernopts,
                        'dracutmodules': 'luna,-i18n,-plymouth',
                        'kernmodules': 'ipmi_devintf,ipmi_si,ipmi_msghandler',
@@ -132,17 +146,32 @@ class OsImage(Base):
         return self.get_package_ver(self.get('path'), 'kernel')
 
     def get_package_ver(self, path, package):
-        rpm.addMacro("_dbpath", path + '/var/lib/rpm')
-        ts = rpm.TransactionSet()
         versions = list()
 
         try:
-            mi = ts.dbMatch('name', package)
-            for h in mi:
-                version = "%s-%s.%s" % (h['VERSION'], h['RELEASE'], h['ARCH'])
-                versions.append(version)
-        except rpm.error:
-            return []
+            family = self._family
+        except AttributeError:
+            family = self.get('family')
+
+        if family == 'debian':
+            cmd = ("dpkg --admindir=" + path + "/var/lib/dpkg -l "
+                   "| awk '/^.i +linux-image-extra/ && $2~/[0-9]/ {print $2}' "
+                   "| cut -d'-' -f4- | sort -r")
+            ps = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+            out = ps.communicate()[0].strip().splitlines()
+            versions.extend(out)
+
+        elif family == 'redhat':
+            rpm.addMacro("_dbpath", path + '/var/lib/rpm')
+            ts = rpm.TransactionSet()
+            try:
+                mi = ts.dbMatch('name', package)
+                for h in mi:
+                    version = "%s-%s.%s" % (h['VERSION'],
+                                            h['RELEASE'], h['ARCH'])
+                    versions.append(version)
+            except rpm.error:
+                versions = []
 
         return versions
 
@@ -307,12 +336,11 @@ class OsImage(Base):
                     drivers_remove.extend(['--omit-drivers', i[1:]])
 
         prepare_mounts(image_path)
-        real_root = os.open("/", os.O_RDONLY)
-        os.chroot(image_path)
 
         try:
-            dracut_modules = subprocess.Popen(['/usr/sbin/dracut', '--kver',
-                                               kernver, '--list-modules'],
+            dracut_modules = subprocess.Popen(['/usr/sbin/chroot', image_path,
+                                               'dracut', '--kver', kernver,
+                                               '--list-modules'],
                                               stdout=subprocess.PIPE)
             luna_exists = False
             while dracut_modules.poll() is None:
@@ -325,7 +353,8 @@ class OsImage(Base):
                                .format(self.name))
                 raise RuntimeError
 
-            dracut_cmd = (['/usr/sbin/dracut', '--force', '--kver', kernver] +
+            dracut_cmd = (['/usr/sbin/chroot', image_path,
+                           'dracut', '--force', '--kver', kernver] +
                           modules_add + modules_remove + drivers_add +
                           drivers_remove + [tmp_path + '/' + initrdfile])
 
@@ -335,15 +364,9 @@ class OsImage(Base):
 
         except:
             self.log.error("Error while building initrd.")
-            os.fchdir(real_root)
-            os.chroot(".")
-            os.close(real_root)
             cleanup_mounts(image_path)
             return None
 
-        os.fchdir(real_root)
-        os.chroot(".")
-        os.close(real_root)
         cleanup_mounts(image_path)
 
         shutil.copy(image_path + tmp_path + '/' + initrdfile, path_to_store)
