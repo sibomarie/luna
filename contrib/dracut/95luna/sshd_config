@@ -1,5 +1,6 @@
 SyslogFacility AUTHPRIV
-AuthorizedKeysFile	.ssh/authorized_keys
+HostKey /etc/ssh/ssh_host_ed25519_key
+AuthorizedKeysFile .ssh/authorized_keys
 PasswordAuthentication no
 ChallengeResponseAuthentication no
 GSSAPIAuthentication no
