@@ -184,19 +184,20 @@ class Group(Base):
         params['interfaces'] = {}
         interfaces = self.get('interfaces')
         for nic in interfaces:
-            params['interfaces'][nic] = self.get_if_params(nic).strip()
+            params['interfaces'][nic] = {'params': self.get_if_params(nic)}
             net_prefix = ""
 
             if 'network' in interfaces[nic] and interfaces[nic]['network']:
                 net = Network(id=interfaces[nic]['network'].id,
                               mongo_db=self._mongo_db)
 
-                net_prefix = 'PREFIX=' + str(net.get('PREFIX'))
+                net_prefix = str(net.get('PREFIX'))
 
-            params['interfaces'][nic] += '\n' + net_prefix
+            params['interfaces'][nic]['prefix'] = net_prefix
 
         osimage = OsImage(id=self.get('osimage').id, mongo_db=self._mongo_db)
 
+        params['os_family'] = osimage.get('family')
         params['kernver'] = osimage.get('kernver')
         params['kernopts'] = osimage.get('kernopts')
         params['torrent'] = osimage.get('torrent')
